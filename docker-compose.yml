@@ -1,0 +1,43 @@
+services:
+  app:
+    container_name: symfony
+    build:
+      context: .
+      target: dev
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+       DATABASE_URL: "mysql://symfony:symfony@db:3306/app"
+       CORS_ALLOW_ORIGIN: "*"
+
+  db:
+    image: mariadb:10.11
+    container_name: mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: app
+      MARIADB_USER: symfony
+      MARIADB_PASSWORD: symfony
+    volumes:
+      - ./db_data:/var/lib/mysql
+    ports:
+      - "3306:3306" # opcional, solo si quieres acceder desde el host
+
+ # php:
+ #   build:
+ #     context: .
+ #     target: prod
+#
+ # nginx:
+ #   image: nginx:alpine
+ #   ports:
+ #     - "80:80"
+ #   volumes:
+ #     - ./nginx.conf:/etc/nginx/conf.d/default.conf
+ #   depends_on:
+ #     - php
