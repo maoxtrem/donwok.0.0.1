@@ -1,5 +1,5 @@
 # =====================
-# Base
+# BASE
 # =====================
 FROM php:8.3-cli-alpine AS base
 
@@ -13,9 +13,17 @@ RUN apk add --no-cache \
     oniguruma-dev \
     bash
 
-RUN docker-php-ext-install intl pdo pdo_mysql zip opcache
+RUN docker-php-ext-install \
+    intl \
+    pdo \
+    pdo_mysql \
+    zip \
+    opcache
 
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Código (se sobreescribe por volumen en dev)
 COPY . .
 
 # =====================
@@ -28,12 +36,12 @@ RUN apk add --no-cache \
     npm
 
 RUN curl -sS https://get.symfony.com/cli/installer | bash \
- && mv /root/.symfony5/bin/symfony /usr/local/bin/symfony
+ && mv /root/.symfony*/bin/symfony /usr/local/bin/symfony
 
 ENV APP_ENV=dev
+ENV APP_DEBUG=1
 
 CMD ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0"]
-
 
 # =====================
 # PROD
@@ -46,7 +54,12 @@ RUN apk add --no-cache \
     icu-dev \
     libzip-dev
 
-RUN docker-php-ext-install intl pdo pdo_mysql zip opcache
+RUN docker-php-ext-install \
+    intl \
+    pdo \
+    pdo_mysql \
+    zip \
+    opcache
 
 COPY --from=base /app /app
 
