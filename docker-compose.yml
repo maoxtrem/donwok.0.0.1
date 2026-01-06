@@ -7,13 +7,13 @@ services:
   # =====================
   # BACKEND / CORE - DEV
   # =====================
-  backend:
+  core:
     container_name: core-dev
     build:
       context: .
       target: dev
     volumes:
-      - ./backend:/app
+      - ./core:/app
     ports:
       - "8000:8000"
     depends_on:
@@ -51,13 +51,13 @@ services:
   # =====================
   # BACKEND / CORE - PROD
   # =====================
-  # backend_prod:
+  # core_prod:
   #   container_name: core-prod
   #   build:
   #     context: .
   #     target: prod
   #   volumes:
-  #     - ./backend:/app
+  #     - ./core:/app
   #   depends_on:
   #     - db
   #   environment:

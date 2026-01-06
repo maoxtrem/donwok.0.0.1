@@ -7,12 +7,6 @@
         "php": ">=8.2",
         "ext-ctype": "*",
         "ext-iconv": "*",
-        "doctrine/dbal": "^3",
-        "doctrine/doctrine-bundle": "^2.18",
-        "doctrine/doctrine-migrations-bundle": "^3.7",
-        "doctrine/orm": "^3.6",
-        "lexik/jwt-authentication-bundle": "^3.2",
-        "nelmio/cors-bundle": "^2.6",
         "symfony/console": "7.4.*",
         "symfony/dotenv": "7.4.*",
         "symfony/flex": "^2",
@@ -70,9 +64,5 @@
             "allow-contrib": false,
             "require": "7.4.*"
         }
-    },
-    "require-dev": {
-        "doctrine/doctrine-fixtures-bundle": "^4.3",
-        "symfony/maker-bundle": "^1.65"
     }
 }
