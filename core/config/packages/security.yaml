@@ -7,7 +7,7 @@ security:
             memory:
                 users:
                     admin:
-                        password: admin
+                        password: '$2y$13$dx9iDZlyL9JAn4TLq1M/9e9Ejqzlw3nuNRL60a/w2.2ePlQRFZE7m'
                         roles: ['ROLE_USER']
 
     firewalls:
@@ -20,6 +20,15 @@ security:
             provider: users_in_memory
             stateless: false
             entry_point: null
+
+            json_login:
+                check_path: /login
+                username_path: username
+                password_path: password
+
+            logout:
+                path: /logout
+
 
     access_control:
         - { path: ^/me, roles: ROLE_USER }

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Login Test</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .login-box {
+            background: #fff;
+            padding: 30px;
+            width: 320px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,.1);
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 12px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #125aa0;
+        }
+
+        .result {
+            margin-top: 15px;
+            font-size: 14px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-box">
+    <h2>Login</h2>
+
+    <input type="text" id="username" placeholder="Usuario">
+    <input type="password" id="password" placeholder="Contraseña">
+
+    <button onclick="login()">Entrar</button>
+
+    <div class="result" id="result"></div>
+</div>
+
+<script>
+async function login() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+
+    const result = document.getElementById('result');
+    result.innerText = 'Enviando...';
+
+    try {
+        const response = await fetch('http://localhost:8000/login', {
+            method: 'POST',
+            credentials: 'include', // 🔥 CLAVE para sesiones
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                username: username,
+                password: password
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Login incorrecto');
+        }
+
+        result.innerText = 'Login OK ✅';
+
+        // prueba de sesión
+        const me = await fetch('http://localhost:8000/me', {
+            credentials: 'include'
+        });
+
+        const data = await me.json();
+        console.log('Usuario:', data);
+
+    } catch (e) {
+        result.innerText = 'Error ❌';
+        console.error(e);
+    }
+}
+</script>
+
+</body>
+</html>
