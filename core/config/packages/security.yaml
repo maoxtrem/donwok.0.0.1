@@ -1,43 +1,21 @@
 security:
-    password_hashers:
-        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
-
-    providers:
-        users_in_memory:
-            memory:
-                users:
-                    admin:
-                        password: '$2y$13$dx9iDZlyL9JAn4TLq1M/9e9Ejqzlw3nuNRL60a/w2.2ePlQRFZE7m'
-                        roles: ['ROLE_USER']
-
     firewalls:
         dev:
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
 
+        # 🔹 Firewall principal para rutas con sesión
         main:
             lazy: true
-            provider: users_in_memory
-            stateless: false
+            stateless: false   # permite manejar sesión Symfony
             entry_point: null
-
-            json_login:
-                check_path: /login
-                username_path: username
-                password_path: password
-
             logout:
                 path: /logout
+                invalidate_session: true
+                clear_site_data: true
 
-
-    access_control:
-        - { path: ^/me, roles: ROLE_USER }
-
-when@test:
-    security:
-        password_hashers:
-            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
-                algorithm: auto
-                cost: 4
-                time_cost: 3
-                memory_cost: 10
+        # 🔹 Firewall API: token validado manualmente
+        api:
+            pattern: ^/api
+            stateless: true    # no usamos sesión
+            security: false    # todo se valida manualmente en controlador

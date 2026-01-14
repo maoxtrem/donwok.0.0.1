@@ -1,0 +1,31 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Hello LoginController!{% endblock %}
+
+{% block body %}
+<form id="login-form">
+    <input type="text" id="username" placeholder="Usuario" />
+    <input type="password" id="password" placeholder="Password" />
+    <button type="submit">Login</button>
+</form>
+
+<script type="module">
+    import { login } from '/js/auth.js';
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        try {
+            await login(
+                document.getElementById('username').value,
+                document.getElementById('password').value
+            );
+
+            window.location.href = '/dash';
+        } catch (err) {
+            console.log(err.message);
+        }
+    });
+</script>
+
+{% endblock %}

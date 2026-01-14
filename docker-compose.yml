@@ -14,13 +14,15 @@ services:
       target: dev
     volumes:
       - ./core:/app
+      - ./auth/config/jwt/public.pem:/app/config/jwt/public.pem:ro
     ports:
       - "8000:8000"
     depends_on:
       - db
     environment:
       APP_ENV: dev
-      DATABASE_URL: "mysql://symfony:symfony@db:3306/app"
+      DATABASE_URL: "mysql://root:root@db:3306/donwok?serverVersion=8.0"
+      JWT_PUBLIC_KEY: /app/config/jwt/public.pem
     networks:
       - internal_net
 
@@ -44,7 +46,7 @@ services:
       JWT_ISSUER: auth-service
       JWT_AUDIENCE: core-service
       JWT_TTL: 600
-      DATABASE_URL: "mysql://symfony:symfony@db:3306/app"
+      DATABASE_URL: "mysql://root:root@db:3306/donwok_auth?serverVersion=8.0"
     networks:
       - internal_net
 
@@ -98,11 +100,10 @@ services:
     restart: unless-stopped
     environment:
       MARIADB_ROOT_PASSWORD: root
-      MARIADB_DATABASE: app
       MARIADB_USER: symfony
       MARIADB_PASSWORD: symfony
     volumes:
-      - ./db_data:/var/lib/mysql
+      - ./db_data:/var/lib/mysql:rw
     ports:
       - "3306:3306"
     networks:
