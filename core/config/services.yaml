@@ -9,7 +9,7 @@
 
 
 services:
-    App\Service\TokenVerifierService:
+    App\Infrastructure\Security\TokenVerifierService:
         arguments:
             $publicKeyPath: '%env(resolve:JWT_PUBLIC_KEY)%'
 
@@ -24,6 +24,6 @@ services:
     App\:
         resource: '../src/'
         exclude:
-            - '../src/Service/TokenVerifierService.php'
+            - '../src/Infrastructure/Security/TokenVerifierService.php'
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

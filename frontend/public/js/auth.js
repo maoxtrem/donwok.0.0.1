@@ -1,68 +1,77 @@
-// public/js/auth.js
+// auth.js
+export default class Auth {
+  constructor({ authBaseUrl, coreBaseUrl }) {
+    this.authBaseUrl = authBaseUrl; // ejemplo: 'http://localhost:8001'
+    this.coreBaseUrl = coreBaseUrl; // ejemplo: 'http://localhost:8000'
+    this.token = null;
+  }
 
-const CORE_BASE_URL = 'http://localhost:8000'; // core-dev
-
-/**
- * LOGIN
- */
-export async function login(username, password) {
-    const response = await fetch(`${CORE_BASE_URL}/login`, {
-        method: 'POST',
-        credentials: 'include', // 🔥 sesión
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
+  // 1️⃣ Login al Auth Service y obtener token
+  async loginAuth(username, password) {
+    const response = await fetch(`${this.authBaseUrl}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
     });
 
     if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Login failed');
+      const error = await response.json();
+      throw new Error(error.error || 'Error en Auth login');
     }
 
-    return await response.json();
-}
+    const data = await response.json();
+    this.token = data.token; // Guardamos el JWT
+    return data.token;
+  }
 
-/**
- * OBTENER USUARIO AUTENTICADO
- */
-export async function getCurrentUser() {
-    const response = await fetch(`${CORE_BASE_URL}/me`, {
-        method: 'GET',
-        credentials: 'include',
+  // 2️⃣ Enviar token al Core para crear sesión
+  async loginCoreWithToken() {
+    if (!this.token) {
+      throw new Error('No hay token disponible. Primero llama a loginAuth.');
+    }
+
+    const response = await fetch(`${this.coreBaseUrl}/login-by-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.token}`
+      }
     });
-
-    if (response.status === 401) {
-        return null;
-    }
 
     if (!response.ok) {
-        throw new Error('Error fetching user');
+      const error = await response.json();
+      throw new Error(error.error || 'Error en Core login con token');
     }
 
     return await response.json();
-}
+  }
 
-/**
- * LOGOUT
- */
-export async function logout() {
-    await fetch(`${CORE_BASE_URL}/logout`, {
-        method: 'POST',
-        credentials: 'include',
+  // 3️⃣ Obtener información del usuario desde Core
+  async me() {
+    const response = await fetch(`${this.coreBaseUrl}/me`, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include' // Importante si Core usa sesión cookie
     });
-}
 
-/**
- * PROTECCIÓN DE RUTAS (frontend)
- */
-export async function requireAuth(redirectTo = '/login') {
-    const user = await getCurrentUser();
-
-    if (!user) {
-        window.location.href = redirectTo;
-        return null;
+    if (!response.ok) {
+      throw new Error('No autorizado o error al obtener /me');
     }
 
-    return user;
+    return await response.json();
+  }
+
+  // 4️⃣ Logout del Core
+  async logout() {
+    const response = await fetch(`${this.coreBaseUrl}/logout`, {
+      method: 'GET',
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al cerrar sesión');
+    }
+
+    this.token = null; // Limpiamos token local
+    return true;
+  }
 }

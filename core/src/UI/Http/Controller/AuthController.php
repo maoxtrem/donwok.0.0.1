@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Controller;
+namespace App\UI\Http\Controller;
 
-use App\Service\TokenVerifierService;
+use App\Infrastructure\Security\TokenVerifierService;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
