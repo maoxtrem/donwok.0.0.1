@@ -18,23 +18,37 @@ class ProductoRepository extends ServiceEntityRepository implements \App\Domain\
     }
     public function guardar(Producto $producto): void
     {
-        $this->persist($producto);
-        $this->flush();
+        $this->getEntityManager()->persist($producto);
+        $this->getEntityManager()->flush();
     }
 
     public function buscarPorId(int $id): ?Producto
     {
-        return $this->find($id);
-    }
-
-    public function buscarPorNombre(string $nombre): ?Producto
-    {
-        return $this->findOneBy(['nombre' => $nombre]);
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.id = :id')
+            ->andWhere('p.fechaEliminacion IS NULL')
+            ->setParameter('id', $id)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     public function buscarTodos(): array
     {
-        return $this->findAll();
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.fechaEliminacion IS NULL')
+            ->getQuery()
+            ->getResult();
+    }
+
+
+    public function buscarPorNombre(string $nombre): ?Producto
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.nombre = :nombre')
+            ->andWhere('p.fechaEliminacion IS NULL')
+            ->setParameter('nombre', $nombre)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     public function existeConNombre(string $nombre): bool

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\UI\Http\Controller;
+namespace App\UI\Http\Web\Controller;
 
 use App\Infrastructure\Security\TokenVerifierService;
 use Symfony\Component\HttpFoundation\JsonResponse;

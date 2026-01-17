@@ -17,3 +17,40 @@ GET http://localhost:8000/me
 
 #### logout
 GET http://localhost:8000/logout
+
+### LISTAR PRODUCTOS
+GET http://localhost:8000/productos
+Accept: application/json
+
+###
+
+### CREAR PRODUCTO
+POST http://localhost:8000/productos
+Content-Type: application/json
+
+{
+  "nombre": "Producto A",
+  "precioActual": 150.50,
+  "costoActual": 100.00,
+  "activo": true
+}
+
+###
+
+### ACTUALIZAR PRODUCTO
+PUT http://localhost:8000/productos/1
+Content-Type: application/json
+
+{
+  "nombre": "Producto A Modificado",
+  "precioActual": 160.00,
+  "costoActual": 110.00,
+  "activo": true
+}
+
+###
+
+### ELIMINAR PRODUCTO (Soft Delete)
+DELETE http://localhost:8000/productos/1
+Accept: application/json
+
