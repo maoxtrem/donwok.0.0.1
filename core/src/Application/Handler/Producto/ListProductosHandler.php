@@ -2,8 +2,10 @@
 // src/Application/Handler/Producto/ListProductosHandler.php
 namespace App\Application\Handler\Producto;
 
-use App\Application\DTO\Response\ProductoResponseDTO;
+
 use App\Domain\Repository\ProductoRepositoryInterface;
+use App\Domain\Entity\Producto;
+use App\Application\Assembler\ProductoResponseAssembler;
 
 class ListProductosHandler
 {
@@ -11,17 +13,9 @@ class ListProductosHandler
 
     public function handle(): array
     {
-        $productos = $this->repo->buscarTodos(); // asumimos método del repo
-
         return array_map(
-            fn($p) => new ProductoResponseDTO(
-                $p->getId(),
-                $p->getNombre(),
-                $p->getPrecioActual(),
-                $p->getCostoActual(),
-                $p->isActivo()
-            ),
-            $productos
+            fn(Producto $p) => ProductoResponseAssembler::fromEntity($p),
+            $this->repo->buscarTodos()
         );
     }
 }

@@ -3,13 +3,12 @@
 namespace App\Command;
 
 use Symfony\Component\Console\Attribute\AsCommand;
-use App\Entity\User;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Domain\Entity\User;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use App\Domain\Repository\UserRepositoryInterface;
 
 #[AsCommand(
     name: 'app:create-user',
@@ -18,36 +17,37 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class CreateUserCommand extends Command
 {
-
-
     public function __construct(
-        private EntityManagerInterface $em,
-        private UserPasswordHasherInterface $hasher
+        private UserRepositoryInterface $userRepository,
+        private UserPasswordHasherInterface $passwordHasher
     ) {
         parent::__construct();
     }
 
-    protected function configure(): void
-    {
-        $this
-            ->addArgument('username', InputArgument::REQUIRED, 'Email del usuario')
-            ->addArgument('password', InputArgument::REQUIRED, 'Contraseña del usuario');
-    }
+    protected function execute(
+        InputInterface $input,
+        OutputInterface $output
+    ): int {
+        if ($this->userRepository->existeConUsername('admin')) {
+            $output->writeln('<info>El usuario admin ya existe</info>');
+            return Command::SUCCESS;
+        }
 
-    protected function execute(InputInterface $input, OutputInterface $output): int
-    {
-        $email = $input->getArgument('username');
-        $password = $input->getArgument('password');
+        $user = new User(
+            username: 'admin',
+            roles: ['ROLE_ADMIN']
+        );
 
-        $user = new User();
-        $user->setUsername($email);
-        $user->setPassword($this->hasher->hashPassword($user, $password));
-        $user->setRoles(['ROLE_USER']);
+        $hashedPassword = $this->passwordHasher->hashPassword(
+            $user,
+            'admin123'
+        );
 
-        $this->em->persist($user);
-        $this->em->flush();
+        $user->setPassword($hashedPassword);
 
-        $output->writeln("Usuario $email creado con éxito.");
+        $this->userRepository->guardar($user);
+
+        $output->writeln('<info>Usuario admin creado correctamente</info>');
 
         return Command::SUCCESS;
     }

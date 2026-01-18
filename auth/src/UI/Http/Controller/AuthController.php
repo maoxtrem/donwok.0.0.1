@@ -1,21 +1,23 @@
 <?php
 
-// src/Controller/AuthController.php
-namespace App\Controller;
 
-use App\Repository\UserRepository;
-use App\Service\TokenService;
+namespace App\UI\Http\Controller;
+
+
+use App\Infrastructure\Security\TokenService;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use App\Domain\Repository\UserRepositoryInterface;
 
 class AuthController
 {
+
     #[Route('/login', methods: ['POST'])]
     public function login(
         Request $request,
-        UserRepository $userRepository,
+        UserRepositoryInterface $userRepository,
         UserPasswordHasherInterface $passwordHasher,
         TokenService $tokenService
     ): JsonResponse {
@@ -40,7 +42,7 @@ class AuthController
         $token = $tokenService->sign([
             'uid' => $user->getId(),
             'username' => $user->getUserIdentifier(),
-            'roles' => $user->getRoles(),
+            'roles' => $user->getRoles()?$user->getRoles():['ROLE_USER'],
         ]);
 
         // 4️⃣ Devolver JSON
