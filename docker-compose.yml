@@ -23,6 +23,9 @@ services:
       APP_ENV: dev
       DATABASE_URL: "mysql://root:root@db:3306/donwok?serverVersion=8.0"
       JWT_PUBLIC_KEY: /app/config/jwt/public.pem
+      CORE_SERVICE_NAME: core
+      CORE_SERVICE_SECRET: super-secret-core-key
+      AUTH_BASE_URL: http://auth:8000
     networks:
       - internal_net
 
@@ -47,6 +50,9 @@ services:
       JWT_AUDIENCE: core-service
       JWT_TTL: 600
       DATABASE_URL: "mysql://root:root@db:3306/donwok_auth?serverVersion=8.0"
+      CORE_SERVICE_NAME: core
+      CORE_SERVICE_SECRET: super-secret-core-key
+
     networks:
       - internal_net
 

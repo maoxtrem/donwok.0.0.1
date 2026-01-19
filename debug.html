@@ -1,0 +1,866 @@
+<script> Sfdump = window.Sfdump || (function (doc) { doc.documentElement.classList.add('sf-js-enabled'); var rxEsc = /([.*+?^${}()|\[\]\/\\])/g, idRx = /\bsf-dump-\d+-ref[012]\w+\b/, keyHint = 0 <= navigator.platform.toUpperCase().indexOf('MAC') ? 'Cmd' : 'Ctrl', addEventListener = function (e, n, cb) { e.addEventListener(n, cb, false); }; if (!doc.addEventListener) { addEventListener = function (element, eventName, callback) { element.attachEvent('on' + eventName, function (e) { e.preventDefault = function () {e.returnValue = false;}; e.target = e.srcElement; callback(e); }); }; } function toggle(a, recursive) { var s = a.nextSibling || {}, oldClass = s.className, arrow, newClass; if (/\bsf-dump-compact\b/.test(oldClass)) { arrow = '&#9660;'; newClass = 'sf-dump-expanded'; } else if (/\bsf-dump-expanded\b/.test(oldClass)) { arrow = '&#9654;'; newClass = 'sf-dump-compact'; } else { return false; } if (doc.createEvent && s.dispatchEvent) { var event = doc.createEvent('Event'); event.initEvent('sf-dump-expanded' === newClass ? 'sfbeforedumpexpand' : 'sfbeforedumpcollapse', true, false); s.dispatchEvent(event); } a.lastChild.innerHTML = arrow; s.className = s.className.replace(/\bsf-dump-(compact|expanded)\b/, newClass); if (recursive) { try { a = s.querySelectorAll('.'+oldClass); for (s = 0; s < a.length; ++s) { if (-1 == a[s].className.indexOf(newClass)) { a[s].className = newClass; a[s].previousSibling.lastChild.innerHTML = arrow; } } } catch (e) { } } return true; }; function collapse(a, recursive) { var s = a.nextSibling || {}, oldClass = s.className; if (/\bsf-dump-expanded\b/.test(oldClass)) { toggle(a, recursive); return true; } return false; }; function expand(a, recursive) { var s = a.nextSibling || {}, oldClass = s.className; if (/\bsf-dump-compact\b/.test(oldClass)) { toggle(a, recursive); return true; } return false; }; function collapseAll(root) { var a = root.querySelector('a.sf-dump-toggle'); if (a) { collapse(a, true); expand(a); return true; } return false; } function reveal(node) { var previous, parents = []; while ((node = node.parentNode || {}) && (previous = node.previousSibling) && 'A' === previous.tagName) { parents.push(previous); } if (0 !== parents.length) { parents.forEach(function (parent) { expand(parent); }); return true; } return false; } function highlight(root, activeNode, nodes) { resetHighlightedNodes(root); Array.from(nodes||[]).forEach(function (node) { if (!/\bsf-dump-highlight\b/.test(node.className)) { node.className = node.className + ' sf-dump-highlight'; } }); if (!/\bsf-dump-highlight-active\b/.test(activeNode.className)) { activeNode.className = activeNode.className + ' sf-dump-highlight-active'; } } function resetHighlightedNodes(root) { Array.from(root.querySelectorAll('.sf-dump-str, .sf-dump-key, .sf-dump-public, .sf-dump-protected, .sf-dump-private')).forEach(function (strNode) { strNode.className = strNode.className.replace(/\bsf-dump-highlight\b/, ''); strNode.className = strNode.className.replace(/\bsf-dump-highlight-active\b/, ''); }); } return function (root, x) { root = doc.getElementById(root); var indentRx = new RegExp('^('+(root.getAttribute('data-indent-pad') || ' ').replace(rxEsc, '\\$1')+')+', 'm'), options = {"maxDepth":1,"maxStringLength":160,"fileLinkFormat":false}, elt = root.getElementsByTagName('A'), len = elt.length, i = 0, s, h, t = []; while (i < len) t.push(elt[i++]); for (i in x) { options[i] = x[i]; } function a(e, f) { addEventListener(root, e, function (e, n) { if ('A' == e.target.tagName) { f(e.target, e); } else if ('A' == e.target.parentNode.tagName) { f(e.target.parentNode, e); } else { n = /\bsf-dump-ellipsis\b/.test(e.target.className) ? e.target.parentNode : e.target; if ((n = n.nextElementSibling) && 'A' == n.tagName) { if (!/\bsf-dump-toggle\b/.test(n.className)) { n = n.nextElementSibling || n; } f(n, e, true); } } }); }; function isCtrlKey(e) { return e.ctrlKey || e.metaKey; } function xpathString(str) { var parts = str.match(/[^'"]+|['"]/g).map(function (part) { if ("'" == part) { return '"\'"'; } if ('"' == part) { return "'\"'"; } return "'" + part + "'"; }); return "concat(" + parts.join(",") + ", '')"; } function xpathHasClass(className) { return "contains(concat(' ', normalize-space(@class), ' '), ' " + className +" ')"; } a('mouseover', function (a, e, c) { if (c) { e.target.style.cursor = "pointer"; } }); a('click', function (a, e, c) { if (/\bsf-dump-toggle\b/.test(a.className)) { e.preventDefault(); if (!toggle(a, isCtrlKey(e))) { var r = doc.getElementById(a.getAttribute('href').slice(1)), s = r.previousSibling, f = r.parentNode, t = a.parentNode; t.replaceChild(r, a); f.replaceChild(a, s); t.insertBefore(s, r); f = f.firstChild.nodeValue.match(indentRx); t = t.firstChild.nodeValue.match(indentRx); if (f && t && f[0] !== t[0]) { r.innerHTML = r.innerHTML.replace(new RegExp('^'+f[0].replace(rxEsc, '\\$1'), 'mg'), t[0]); } if (/\bsf-dump-compact\b/.test(r.className)) { toggle(s, isCtrlKey(e)); } } if (c) { } else if (doc.getSelection) { try { doc.getSelection().removeAllRanges(); } catch (e) { doc.getSelection().empty(); } } else { doc.selection.empty(); } } else if (/\bsf-dump-str-toggle\b/.test(a.className)) { e.preventDefault(); e = a.parentNode.parentNode; e.className = e.className.replace(/\bsf-dump-str-(expand|collapse)\b/, a.parentNode.className); } }); elt = root.getElementsByTagName('SAMP'); len = elt.length; i = 0; while (i < len) t.push(elt[i++]); len = t.length; for (i = 0; i < len; ++i) { elt = t[i]; if ('SAMP' == elt.tagName) { a = elt.previousSibling || {}; if ('A' != a.tagName) { a = doc.createElement('A'); a.className = 'sf-dump-ref'; elt.parentNode.insertBefore(a, elt); } else { a.innerHTML += ' '; } a.title = (a.title ? a.title+'\n[' : '[')+keyHint+'+click] Expand all children'; a.innerHTML += elt.className == 'sf-dump-compact' ? '<span>&#9654;</span>' : '<span>&#9660;</span>'; a.className += ' sf-dump-toggle'; x = 1; if ('sf-dump' != elt.parentNode.className) { x += elt.parentNode.getAttribute('data-depth')/1; } } else if (/\bsf-dump-ref\b/.test(elt.className) && (a = elt.getAttribute('href'))) { a = a.slice(1); elt.className += ' sf-dump-hover'; elt.className += ' '+a; if (/[\[{]$/.test(elt.previousSibling.nodeValue)) { a = a != elt.nextSibling.id && doc.getElementById(a); try { s = a.nextSibling; elt.appendChild(a); s.parentNode.insertBefore(a, s); if (/^[@#]/.test(elt.innerHTML)) { elt.innerHTML += ' <span>&#9654;</span>'; } else { elt.innerHTML = '<span>&#9654;</span>'; elt.className = 'sf-dump-ref'; } elt.className += ' sf-dump-toggle'; } catch (e) { if ('&' == elt.innerHTML.charAt(0)) { elt.innerHTML = '&#8230;'; elt.className = 'sf-dump-ref'; } } } } } if (doc.evaluate && Array.from && root.children.length > 1) { root.setAttribute('tabindex', 0); SearchState = function () { this.nodes = []; this.idx = 0; }; SearchState.prototype = { next: function () { if (this.isEmpty()) { return this.current(); } this.idx = this.idx < (this.nodes.length - 1) ? this.idx + 1 : 0; return this.current(); }, previous: function () { if (this.isEmpty()) { return this.current(); } this.idx = this.idx > 0 ? this.idx - 1 : (this.nodes.length - 1); return this.current(); }, isEmpty: function () { return 0 === this.count(); }, current: function () { if (this.isEmpty()) { return null; } return this.nodes[this.idx]; }, reset: function () { this.nodes = []; this.idx = 0; }, count: function () { return this.nodes.length; }, }; function showCurrent(state) { var currentNode = state.current(), currentRect, searchRect; if (currentNode) { reveal(currentNode); highlight(root, currentNode, state.nodes); if ('scrollIntoView' in currentNode) { currentNode.scrollIntoView(true); currentRect = currentNode.getBoundingClientRect(); searchRect = search.getBoundingClientRect(); if (currentRect.top < (searchRect.top + searchRect.height)) { window.scrollBy(0, -(searchRect.top + searchRect.height + 5)); } } } counter.textContent = (state.isEmpty() ? 0 : state.idx + 1) + ' of ' + state.count(); } var search = doc.createElement('div'); search.className = 'sf-dump-search-wrapper sf-dump-search-hidden'; search.innerHTML = ' <input type="text" class="sf-dump-search-input"> <span class="sf-dump-search-count">0 of 0<\/span> <button type="button" class="sf-dump-search-input-previous" tabindex="-1"> <svg viewBox="0 0 1792 1792" xmlns="http://www.w3.org/2000/svg"><path d="M1683 1331l-166 165q-19 19-45 19t-45-19L896 965l-531 531q-19 19-45 19t-45-19l-166-165q-19-19-19-45.5t19-45.5l742-741q19-19 45-19t45 19l742 741q19 19 19 45.5t-19 45.5z"\/><\/svg> <\/button> <button type="button" class="sf-dump-search-input-next" tabindex="-1"> <svg viewBox="0 0 1792 1792" xmlns="http://www.w3.org/2000/svg"><path d="M1683 808l-742 741q-19 19-45 19t-45-19L109 808q-19-19-19-45.5t19-45.5l166-165q19-19 45-19t45 19l531 531 531-531q19-19 45-19t45 19l166 165q19 19 19 45.5t-19 45.5z"\/><\/svg> <\/button> '; root.insertBefore(search, root.firstChild); var state = new SearchState(); var searchInput = search.querySelector('.sf-dump-search-input'); var counter = search.querySelector('.sf-dump-search-count'); var searchInputTimer = 0; var previousSearchQuery = ''; addEventListener(searchInput, 'keyup', function (e) { var searchQuery = e.target.value; /* Don't perform anything if the pressed key didn't change the query */ if (searchQuery === previousSearchQuery) { return; } previousSearchQuery = searchQuery; clearTimeout(searchInputTimer); searchInputTimer = setTimeout(function () { state.reset(); collapseAll(root); resetHighlightedNodes(root); if ('' === searchQuery) { counter.textContent = '0 of 0'; return; } var classMatches = [ "sf-dump-str", "sf-dump-key", "sf-dump-public", "sf-dump-protected", "sf-dump-private", ].map(xpathHasClass).join(' or '); var xpathResult = doc.evaluate('.//span[' + classMatches + '][contains(translate(child::text(), ' + xpathString(searchQuery.toUpperCase()) + ', ' + xpathString(searchQuery.toLowerCase()) + '), ' + xpathString(searchQuery.toLowerCase()) + ')]', root, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null); while (node = xpathResult.iterateNext()) state.nodes.push(node); showCurrent(state); }, 400); }); Array.from(search.querySelectorAll('.sf-dump-search-input-next, .sf-dump-search-input-previous')).forEach(function (btn) { addEventListener(btn, 'click', function (e) { e.preventDefault(); -1 !== e.target.className.indexOf('next') ? state.next() : state.previous(); searchInput.focus(); collapseAll(root); showCurrent(state); }) }); addEventListener(root, 'keydown', function (e) { var isSearchActive = !/\bsf-dump-search-hidden\b/.test(search.className); if ((114 === e.keyCode && !isSearchActive) || (isCtrlKey(e) && 70 === e.keyCode)) { /* F3 or CMD/CTRL + F */ if (70 === e.keyCode && document.activeElement === searchInput) { /* * If CMD/CTRL + F is hit while having focus on search input, * the user probably meant to trigger browser search instead. * Let the browser execute its behavior: */ return; } e.preventDefault(); search.className = search.className.replace(/\bsf-dump-search-hidden\b/, ''); searchInput.focus(); } else if (isSearchActive) { if (27 === e.keyCode) { /* ESC key */ search.className += ' sf-dump-search-hidden'; e.preventDefault(); resetHighlightedNodes(root); searchInput.value = ''; } else if ( (isCtrlKey(e) && 71 === e.keyCode) /* CMD/CTRL + G */ || 13 === e.keyCode /* Enter */ || 114 === e.keyCode /* F3 */ ) { e.preventDefault(); e.shiftKey ? state.previous() : state.next(); collapseAll(root); showCurrent(state); } } }); } if (0 >= options.maxStringLength) { return; } try { elt = root.querySelectorAll('.sf-dump-str'); len = elt.length; i = 0; t = []; while (i < len) t.push(elt[i++]); len = t.length; for (i = 0; i < len; ++i) { elt = t[i]; s = elt.innerText || elt.textContent; x = s.length - options.maxStringLength; if (0 < x) { h = elt.innerHTML; elt[elt.innerText ? 'innerText' : 'textContent'] = s.substring(0, options.maxStringLength); elt.className += ' sf-dump-str-collapse'; elt.innerHTML = '<span class=sf-dump-str-collapse>'+h+'<a class="sf-dump-ref sf-dump-str-toggle" title="Collapse"> &#9664;</a></span>'+ '<span class=sf-dump-str-expand>'+elt.innerHTML+'<a class="sf-dump-ref sf-dump-str-toggle" title="'+x+' remaining characters"> &#9654;</a></span>'; } } } catch (e) { } }; })(document); </script><style> .sf-js-enabled pre.sf-dump .sf-dump-compact, .sf-js-enabled .sf-dump-str-collapse .sf-dump-str-collapse, .sf-js-enabled .sf-dump-str-expand .sf-dump-str-expand { display: none; } .sf-dump-hover:hover { background-color: #B729D9; color: #FFF !important; border-radius: 2px; } pre.sf-dump { display: block; white-space: pre; padding: 5px; overflow: initial !important; } pre.sf-dump:after { content: ""; visibility: hidden; display: block; height: 0; clear: both; } pre.sf-dump .sf-dump-ellipsization { display: inline-flex; } pre.sf-dump a { text-decoration: none; cursor: pointer; border: 0; outline: none; color: inherit; } pre.sf-dump img { max-width: 50em; max-height: 50em; margin: .5em 0 0 0; padding: 0; background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAAAAAA6mKC9AAAAHUlEQVQY02O8zAABilCaiQEN0EeA8QuUcX9g3QEAAjcC5piyhyEAAAAASUVORK5CYII=) #D3D3D3; } pre.sf-dump .sf-dump-ellipsis { text-overflow: ellipsis; white-space: nowrap; overflow: hidden; } pre.sf-dump .sf-dump-ellipsis-tail { flex-shrink: 0; } pre.sf-dump code { display:inline; padding:0; background:none; } .sf-dump-public.sf-dump-highlight, .sf-dump-protected.sf-dump-highlight, .sf-dump-private.sf-dump-highlight, .sf-dump-str.sf-dump-highlight, .sf-dump-key.sf-dump-highlight { background: rgba(111, 172, 204, 0.3); border: 1px solid #7DA0B1; border-radius: 3px; } .sf-dump-public.sf-dump-highlight-active, .sf-dump-protected.sf-dump-highlight-active, .sf-dump-private.sf-dump-highlight-active, .sf-dump-str.sf-dump-highlight-active, .sf-dump-key.sf-dump-highlight-active { background: rgba(253, 175, 0, 0.4); border: 1px solid #ffa500; border-radius: 3px; } pre.sf-dump .sf-dump-search-hidden { display: none !important; } pre.sf-dump .sf-dump-search-wrapper { font-size: 0; white-space: nowrap; margin-bottom: 5px; display: flex; position: -webkit-sticky; position: sticky; top: 5px; } pre.sf-dump .sf-dump-search-wrapper > * { vertical-align: top; box-sizing: border-box; height: 21px; font-weight: normal; border-radius: 0; background: #FFF; color: #757575; border: 1px solid #BBB; } pre.sf-dump .sf-dump-search-wrapper > input.sf-dump-search-input { padding: 3px; height: 21px; font-size: 12px; border-right: none; border-top-left-radius: 3px; border-bottom-left-radius: 3px; color: #000; min-width: 15px; width: 100%; } pre.sf-dump .sf-dump-search-wrapper > .sf-dump-search-input-next, pre.sf-dump .sf-dump-search-wrapper > .sf-dump-search-input-previous { background: #F2F2F2; outline: none; border-left: none; font-size: 0; line-height: 0; } pre.sf-dump .sf-dump-search-wrapper > .sf-dump-search-input-next { border-top-right-radius: 3px; border-bottom-right-radius: 3px; } pre.sf-dump .sf-dump-search-wrapper > .sf-dump-search-input-next > svg, pre.sf-dump .sf-dump-search-wrapper > .sf-dump-search-input-previous > svg { pointer-events: none; width: 12px; height: 12px; } pre.sf-dump .sf-dump-search-wrapper > .sf-dump-search-count { display: inline-block; padding: 0 5px; margin: 0; border-left: none; line-height: 21px; font-size: 12px; }pre.sf-dump, pre.sf-dump .sf-dump-default{background-color:#18171B; color:#FF8400; line-height:1.2em; font:12px Menlo, Monaco, Consolas, monospace; word-wrap: break-word; white-space: pre-wrap; position:relative; z-index:99999; word-break: break-all}pre.sf-dump .sf-dump-num{font-weight:bold; color:#1299DA}pre.sf-dump .sf-dump-const{font-weight:bold}pre.sf-dump .sf-dump-virtual{font-style:italic}pre.sf-dump .sf-dump-str{font-weight:bold; color:#56DB3A}pre.sf-dump .sf-dump-note{color:#1299DA}pre.sf-dump .sf-dump-ref{color:#A0A0A0}pre.sf-dump .sf-dump-public{color:#FFFFFF}pre.sf-dump .sf-dump-protected{color:#FFFFFF}pre.sf-dump .sf-dump-private{color:#FFFFFF}pre.sf-dump .sf-dump-meta{color:#B729D9}pre.sf-dump .sf-dump-key{color:#56DB3A}pre.sf-dump .sf-dump-index{color:#1299DA}pre.sf-dump .sf-dump-ellipsis{color:#FF8400}pre.sf-dump .sf-dump-ns{user-select:none;}pre.sf-dump .sf-dump-label{background-color:#18171B; color:#FF8400; line-height:1.2em; font:12px Menlo, Monaco, Consolas, monospace; word-wrap: break-word; white-space: pre-wrap; position:relative; z-index:99999; word-break: break-all}pre.sf-dump .sf-dump-ellipsis-note{color:#1299DA}</style><pre class=sf-dump id=sf-dump-1145392950 data-indent-pad="  "><span class=sf-dump-label></span> <span class=sf-dump-note>Symfony\Component\HttpClient\Response\TraceableResponse</span> {<a class=sf-dump-ref>#542</a><samp data-depth=1 class=sf-dump-expanded>
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpClient</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">CurlHttpClient</span></span> {<a class=sf-dump-ref>#310</a><samp data-depth=2 class=sf-dump-compact>
+    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpClient\CurlHttpClient`">defaultOptions</span>: <span class=sf-dump-note>array:31</span> [<samp data-depth=3 class=sf-dump-compact>
+      "<span class=sf-dump-key>auth_basic</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>auth_bearer</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>query</span>" => []
+      "<span class=sf-dump-key>headers</span>" => []
+      "<span class=sf-dump-key>body</span>" => ""
+      "<span class=sf-dump-key>json</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>user_data</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>max_redirects</span>" => <span class=sf-dump-num>20</span>
+      "<span class=sf-dump-key>http_version</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>base_uri</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>buffer</span>" => <span class=sf-dump-const>true</span>
+      "<span class=sf-dump-key>on_progress</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>resolve</span>" => []
+      "<span class=sf-dump-key>proxy</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>no_proxy</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>timeout</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>max_duration</span>" => <span class=sf-dump-num>0</span>
+      "<span class=sf-dump-key>bindto</span>" => "<span class=sf-dump-str>0</span>"
+      "<span class=sf-dump-key>verify_peer</span>" => <span class=sf-dump-const>true</span>
+      "<span class=sf-dump-key>verify_host</span>" => <span class=sf-dump-const>true</span>
+      "<span class=sf-dump-key>cafile</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>capath</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>local_cert</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>local_pk</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>passphrase</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>ciphers</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>peer_fingerprint</span>" => <span class=sf-dump-const>null</span>
+      "<span class=sf-dump-key>capture_peer_cert_chain</span>" => <span class=sf-dump-const>false</span>
+      "<span class=sf-dump-key>crypto_method</span>" => <span class=sf-dump-num>33</span>
+      "<span class=sf-dump-key>extra</span>" => []
+      "<span class=sf-dump-key>auth_ntlm</span>" => <span class=sf-dump-const>null</span>
+    </samp>]
+    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpClient\CurlHttpClient`">logger</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Monolog\Logger
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Monolog</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">Logger</span></span> {<a class=sf-dump-ref>#316</a><samp data-depth=3 class=sf-dump-compact>
+      #<span class=sf-dump-protected title="Protected property">name</span>: "<span class=sf-dump-str title="11 characters">http_client</span>"
+      #<span class=sf-dump-protected title="Protected property">handlers</span>: <span class=sf-dump-note>array:2</span> [<samp data-depth=4 class=sf-dump-compact>
+        <span class=sf-dump-index>0</span> => <span class="sf-dump-note sf-dump-ellipsization" title="Monolog\Handler\StreamHandler
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Monolog\Handler</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">StreamHandler</span></span> {<a class=sf-dump-ref>#86</a><samp data-depth=5 class=sf-dump-compact>
+          #<span class=sf-dump-protected title="Protected property">level</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Monolog\Level
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Monolog</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">Level</span></span> {<a class=sf-dump-ref href=#sf-dump-1145392950-ref2100 title="3 occurrences">#100</a><samp data-depth=6 id=sf-dump-1145392950-ref2100 class=sf-dump-compact>
+            +<span class=sf-dump-public title="Public property">name</span>: "<span class=sf-dump-str title="5 characters">Debug</span>"
+            +<span class=sf-dump-public title="Public property">value</span>: <span class=sf-dump-num>100</span>
+          </samp>}
+          #<span class=sf-dump-protected title="Protected property">bubble</span>: <span class=sf-dump-const>true</span>
+          #<span class=sf-dump-protected title="Protected property">processors</span>: <span class=sf-dump-note>array:1</span> [<samp data-depth=6 class=sf-dump-compact>
+            <span class=sf-dump-index>0</span> => <span class="sf-dump-note sf-dump-ellipsization" title="Monolog\Processor\PsrLogMessageProcessor
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Monolog\Processor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">PsrLogMessageProcessor</span></span> {<a class=sf-dump-ref>#85</a><samp data-depth=7 class=sf-dump-compact>
+              -<span class=sf-dump-private title="Private property defined in class:&#10;`Monolog\Processor\PsrLogMessageProcessor`">dateFormat</span>: <span class=sf-dump-const>null</span>
+              -<span class=sf-dump-private title="Private property defined in class:&#10;`Monolog\Processor\PsrLogMessageProcessor`">removeUsedContextFields</span>: <span class=sf-dump-const>false</span>
+            </samp>}
+          </samp>]
+          #<span class=sf-dump-protected title="Protected property">formatter</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Monolog\Formatter\LineFormatter
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Monolog\Formatter</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">LineFormatter</span></span> {<a class=sf-dump-ref>#237</a><samp data-depth=6 class=sf-dump-compact>
+            #<span class=sf-dump-protected title="Protected property">dateFormat</span>: "<span class=sf-dump-str title="13 characters">Y-m-d\TH:i:sP</span>"
+            #<span class=sf-dump-protected title="Protected property">maxNormalizeDepth</span>: <span class=sf-dump-num>9</span>
+            #<span class=sf-dump-protected title="Protected property">maxNormalizeItemCount</span>: <span class=sf-dump-num>1000</span>
+            -<span class=sf-dump-private title="Private property defined in class:&#10;`Monolog\Formatter\NormalizerFormatter`">jsonEncodeOptions</span>: <span class=sf-dump-num>2099008</span>
+            #<span class=sf-dump-protected title="Protected property">basePath</span>: ""
+            #<span class=sf-dump-protected title="Protected property">format</span>: "<span class=sf-dump-str title="65 characters">[%datetime%] %channel%.%level_name%: %message% %context% %extra%<span class="sf-dump-default sf-dump-ns">\n</span></span>"
+            #<span class=sf-dump-protected title="Protected property">allowInlineLineBreaks</span>: <span class=sf-dump-const>false</span>
+            #<span class=sf-dump-protected title="Protected property">ignoreEmptyContextAndExtra</span>: <span class=sf-dump-const>false</span>
+            #<span class=sf-dump-protected title="Protected property">includeStacktraces</span>: <span class=sf-dump-const>false</span>
+            #<span class=sf-dump-protected title="Protected property">maxLevelNameLength</span>: <span class=sf-dump-const>null</span>
+            #<span class=sf-dump-protected title="Protected property">indentStacktraces</span>: ""
+            #<span class=sf-dump-protected title="Protected property">stacktracesParser</span>: <span class=sf-dump-const>null</span>
+          </samp>}
+          #<span class=sf-dump-protected title="Protected property">streamChunkSize</span>: <span class=sf-dump-num>13421772</span>
+          #<span class=sf-dump-protected title="Protected property">stream</span>: <span class=sf-dump-note>stream resource</span> <a class=sf-dump-ref>@34</a><samp data-depth=6 class=sf-dump-compact>
+            <span class=sf-dump-meta>timed_out</span>: <span class=sf-dump-const>false</span>
+            <span class=sf-dump-meta>blocked</span>: <span class=sf-dump-const>true</span>
+            <span class=sf-dump-meta>eof</span>: <span class=sf-dump-const>false</span>
+            <span class=sf-dump-meta>wrapper_type</span>: "<span class=sf-dump-str title="9 characters">plainfile</span>"
+            <span class=sf-dump-meta>stream_type</span>: "<span class=sf-dump-str title="5 characters">STDIO</span>"
+            <span class=sf-dump-meta>mode</span>: "<span class=sf-dump-str>a</span>"
+            <span class=sf-dump-meta>unread_bytes</span>: <span class=sf-dump-num>0</span>
+            <span class=sf-dump-meta>seekable</span>: <span class=sf-dump-const>true</span>
+            <span class=sf-dump-meta>uri</span>: "<span class="sf-dump-str sf-dump-ellipsization" title="/app/var/log/dev.log
+20 characters"><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/</span><span class="sf-dump-ellipsis-tail">var/log/dev.log</span></span>"
+            <span class=sf-dump-meta>options</span>: []
+          </samp>}
+          #<span class=sf-dump-protected title="Protected property">url</span>: "<span class=sf-dump-str title="20 characters">/app/var/log/dev.log</span>"
+          -<span class=sf-dump-private title="Private property defined in class:&#10;`Monolog\Handler\StreamHandler`">errorMessage</span>: <span class=sf-dump-const>null</span>
+          #<span class=sf-dump-protected title="Protected property">filePermission</span>: <span class=sf-dump-const>null</span>
+          #<span class=sf-dump-protected title="Protected property">useLocking</span>: <span class=sf-dump-const>false</span>
+          #<span class=sf-dump-protected title="Protected property">fileOpenMode</span>: "<span class=sf-dump-str>a</span>"
+          -<span class=sf-dump-private title="Private property defined in class:&#10;`Monolog\Handler\StreamHandler`">dirCreated</span>: <span class=sf-dump-const>true</span>
+          -<span class=sf-dump-private title="Private property defined in class:&#10;`Monolog\Handler\StreamHandler`">retrying</span>: <span class=sf-dump-const>false</span>
+          -<span class=sf-dump-private title="Private property defined in class:&#10;`Monolog\Handler\StreamHandler`">inodeUrl</span>: <span class=sf-dump-num>5901514</span>
+        </samp>}
+        <span class=sf-dump-index>1</span> => <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Bridge\Monolog\Handler\ConsoleHandler
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Bridge\Monolog\Handler</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">ConsoleHandler</span></span> {<a class=sf-dump-ref>#87</a><samp data-depth=5 class=sf-dump-compact>
+          #<span class=sf-dump-protected title="Protected property">level</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Monolog\Level
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Monolog</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">Level</span></span> {<a class=sf-dump-ref href=#sf-dump-1145392950-ref2100 title="3 occurrences">#100</a>}
+          #<span class=sf-dump-protected title="Protected property">bubble</span>: <span class=sf-dump-const>true</span>
+          #<span class=sf-dump-protected title="Protected property">processors</span>: []
+          #<span class=sf-dump-protected title="Protected property">formatter</span>: <span class=sf-dump-const>null</span>
+          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Bridge\Monolog\Handler\ConsoleHandler`">verbosityLevelMap</span>: <span class=sf-dump-note>array:5</span> [<samp data-depth=6 class=sf-dump-compact>
+            <span class=sf-dump-key>16</span> => <span class="sf-dump-note sf-dump-ellipsization" title="Monolog\Level
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Monolog</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">Level</span></span> {<a class=sf-dump-ref>#93</a><samp data-depth=7 class=sf-dump-compact>
+              +<span class=sf-dump-public title="Public property">name</span>: "<span class=sf-dump-str title="5 characters">Error</span>"
+              +<span class=sf-dump-public title="Public property">value</span>: <span class=sf-dump-num>400</span>
+            </samp>}
+            <span class=sf-dump-key>32</span> => <span class="sf-dump-note sf-dump-ellipsization" title="Monolog\Level
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Monolog</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">Level</span></span> {<a class=sf-dump-ref>#94</a><samp data-depth=7 class=sf-dump-compact>
+              +<span class=sf-dump-public title="Public property">name</span>: "<span class=sf-dump-str title="7 characters">Warning</span>"
+              +<span class=sf-dump-public title="Public property">value</span>: <span class=sf-dump-num>300</span>
+            </samp>}
+            <span class=sf-dump-key>64</span> => <span class="sf-dump-note sf-dump-ellipsization" title="Monolog\Level
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Monolog</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">Level</span></span> {<a class=sf-dump-ref>#97</a><samp data-depth=7 class=sf-dump-compact>
+              +<span class=sf-dump-public title="Public property">name</span>: "<span class=sf-dump-str title="6 characters">Notice</span>"
+              +<span class=sf-dump-public title="Public property">value</span>: <span class=sf-dump-num>250</span>
+            </samp>}
+            <span class=sf-dump-key>128</span> => <span class="sf-dump-note sf-dump-ellipsization" title="Monolog\Level
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Monolog</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">Level</span></span> {<a class=sf-dump-ref>#104</a><samp data-depth=7 class=sf-dump-compact>
+              +<span class=sf-dump-public title="Public property">name</span>: "<span class=sf-dump-str title="4 characters">Info</span>"
+              +<span class=sf-dump-public title="Public property">value</span>: <span class=sf-dump-num>200</span>
+            </samp>}
+            <span class=sf-dump-key>256</span> => <span class="sf-dump-note sf-dump-ellipsization" title="Monolog\Level
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Monolog</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">Level</span></span> {<a class=sf-dump-ref href=#sf-dump-1145392950-ref2100 title="3 occurrences">#100</a>}
+          </samp>]
+          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Bridge\Monolog\Handler\ConsoleHandler`">input</span>: <span class=sf-dump-const>null</span>
+          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Bridge\Monolog\Handler\ConsoleHandler`">output</span>: <span class=sf-dump-const>null</span>
+          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Bridge\Monolog\Handler\ConsoleHandler`">consoleFormatterOptions</span>: []
+          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Bridge\Monolog\Handler\ConsoleHandler`">interactiveOnly</span>: <span class=sf-dump-const>false</span>
+        </samp>}
+      </samp>]
+      #<span class=sf-dump-protected title="Protected property">processors</span>: <span class=sf-dump-note>array:1</span> [<samp data-depth=4 class=sf-dump-compact>
+        <span class=sf-dump-index>0</span> => <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Bridge\Monolog\Processor\DebugProcessor
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Bridge\Monolog\Processor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">DebugProcessor</span></span> {<a class=sf-dump-ref>#83</a><samp data-depth=5 class=sf-dump-compact>
+          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Bridge\Monolog\Processor\DebugProcessor`">records</span>: <span class=sf-dump-note>array:1</span> [<samp data-depth=6 class=sf-dump-compact>
+            <span class=sf-dump-key>2</span> => <span class=sf-dump-note>array:8</span> [<samp data-depth=7 class=sf-dump-compact>
+              <span class=sf-dump-index>0</span> => <span class=sf-dump-note>array:7</span> [<samp data-depth=8 class=sf-dump-compact>
+                "<span class=sf-dump-key>timestamp</span>" => <span class=sf-dump-num>1768793002</span>
+                "<span class=sf-dump-key>timestamp_rfc3339</span>" => "<span class=sf-dump-str title="29 characters">2026-01-19T03:23:22.615+00:00</span>"
+                "<span class=sf-dump-key>message</span>" => "<span class=sf-dump-str title="24 characters">Matched route &quot;{route}&quot;.</span>"
+                "<span class=sf-dump-key>priority</span>" => <span class=sf-dump-num>200</span>
+                "<span class=sf-dump-key>priorityName</span>" => "<span class=sf-dump-str title="4 characters">INFO</span>"
+                "<span class=sf-dump-key>context</span>" => <span class=sf-dump-note>array:4</span> [<samp data-depth=9 class=sf-dump-compact>
+                  "<span class=sf-dump-key>route</span>" => "<span class=sf-dump-str title="27 characters">app_ui_http_web_user_create</span>"
+                  "<span class=sf-dump-key>route_parameters</span>" => <span class=sf-dump-note>array:2</span> [<samp data-depth=10 class=sf-dump-compact>
+                    "<span class=sf-dump-key>_route</span>" => "<span class=sf-dump-str title="27 characters">app_ui_http_web_user_create</span>"
+                    "<span class=sf-dump-key>_controller</span>" => "<span class=sf-dump-str title="49 characters">App\UI\Http\Web\Controller\UserController::create</span>"
+                  </samp>]
+                  "<span class=sf-dump-key>request_uri</span>" => "<span class=sf-dump-str title="30 characters">http://localhost:8000/usuarios</span>"
+                  "<span class=sf-dump-key>method</span>" => "<span class=sf-dump-str title="4 characters">POST</span>"
+                </samp>]
+                "<span class=sf-dump-key>channel</span>" => "<span class=sf-dump-str title="7 characters">request</span>"
+              </samp>]
+              <span class=sf-dump-index>1</span> => <span class=sf-dump-note>array:7</span> [<samp data-depth=8 class=sf-dump-compact>
+                "<span class=sf-dump-key>timestamp</span>" => <span class=sf-dump-num>1768793002</span>
+                "<span class=sf-dump-key>timestamp_rfc3339</span>" => "<span class=sf-dump-str title="29 characters">2026-01-19T03:23:22.615+00:00</span>"
+                "<span class=sf-dump-key>message</span>" => "<span class=sf-dump-str title="35 characters">Checking for authenticator support.</span>"
+                "<span class=sf-dump-key>priority</span>" => <span class=sf-dump-num>100</span>
+                "<span class=sf-dump-key>priorityName</span>" => "<span class=sf-dump-str title="5 characters">DEBUG</span>"
+                "<span class=sf-dump-key>context</span>" => <span class=sf-dump-note>array:2</span> [<samp data-depth=9 class=sf-dump-compact>
+                  "<span class=sf-dump-key>firewall_name</span>" => "<span class=sf-dump-str title="4 characters">main</span>"
+                  "<span class=sf-dump-key>authenticators</span>" => <span class=sf-dump-num>0</span>
+                </samp>]
+                "<span class=sf-dump-key>channel</span>" => "<span class=sf-dump-str title="8 characters">security</span>"
+              </samp>]
+              <span class=sf-dump-index>2</span> => <span class=sf-dump-note>array:7</span> [<samp data-depth=8 class=sf-dump-compact>
+                "<span class=sf-dump-key>timestamp</span>" => <span class=sf-dump-num>1768793002</span>
+                "<span class=sf-dump-key>timestamp_rfc3339</span>" => "<span class=sf-dump-str title="29 characters">2026-01-19T03:23:22.616+00:00</span>"
+                "<span class=sf-dump-key>message</span>" => "<span class=sf-dump-str title="46 characters">Read existing security token from the session.</span>"
+                "<span class=sf-dump-key>priority</span>" => <span class=sf-dump-num>100</span>
+                "<span class=sf-dump-key>priorityName</span>" => "<span class=sf-dump-str title="5 characters">DEBUG</span>"
+                "<span class=sf-dump-key>context</span>" => <span class=sf-dump-note>array:2</span> [<samp data-depth=9 class=sf-dump-compact>
+                  "<span class=sf-dump-key>key</span>" => "<span class=sf-dump-str title="14 characters">_security_main</span>"
+                  "<span class=sf-dump-key>token_class</span>" => "<span class=sf-dump-str title="74 characters">Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken</span>"
+                </samp>]
+                "<span class=sf-dump-key>channel</span>" => "<span class=sf-dump-str title="8 characters">security</span>"
+              </samp>]
+              <span class=sf-dump-index>3</span> => <span class=sf-dump-note>array:7</span> [<samp data-depth=8 class=sf-dump-compact>
+                "<span class=sf-dump-key>timestamp</span>" => <span class=sf-dump-num>1768793002</span>
+                "<span class=sf-dump-key>timestamp_rfc3339</span>" => "<span class=sf-dump-str title="29 characters">2026-01-19T03:23:22.616+00:00</span>"
+                "<span class=sf-dump-key>message</span>" => "<span class=sf-dump-str title="39 characters">User was reloaded from a user provider.</span>"
+                "<span class=sf-dump-key>priority</span>" => <span class=sf-dump-num>100</span>
+                "<span class=sf-dump-key>priorityName</span>" => "<span class=sf-dump-str title="5 characters">DEBUG</span>"
+                "<span class=sf-dump-key>context</span>" => <span class=sf-dump-note>array:2</span> [<samp data-depth=9 class=sf-dump-compact>
+                  "<span class=sf-dump-key>provider</span>" => "<span class=sf-dump-str title="44 characters">App\Infrastructure\Security\CoreUserProvider</span>"
+                  "<span class=sf-dump-key>username</span>" => "<span class=sf-dump-str title="5 characters">admin</span>"
+                </samp>]
+                "<span class=sf-dump-key>channel</span>" => "<span class=sf-dump-str title="8 characters">security</span>"
+              </samp>]
+              <span class=sf-dump-index>4</span> => <span class=sf-dump-note>array:7</span> [<samp data-depth=8 class=sf-dump-compact>
+                "<span class=sf-dump-key>timestamp</span>" => <span class=sf-dump-num>1768793002</span>
+                "<span class=sf-dump-key>timestamp_rfc3339</span>" => "<span class=sf-dump-str title="29 characters">2026-01-19T03:23:22.617+00:00</span>"
+                "<span class=sf-dump-key>message</span>" => "<span class=sf-dump-str title="220 characters">User Deprecated: Support for MySQL &lt; 8 is deprecated and will be removed in DBAL 5 (AbstractMySQLDriver.php:75 called by AbstractDriverMiddleware.php:32, https://github.com/doctrine/dbal/pull/6343, package doctrine/dbal)</span>"
+                "<span class=sf-dump-key>priority</span>" => <span class=sf-dump-num>200</span>
+                "<span class=sf-dump-key>priorityName</span>" => "<span class=sf-dump-str title="4 characters">INFO</span>"
+                "<span class=sf-dump-key>context</span>" => <span class=sf-dump-note>array:1</span> [<samp data-depth=9 class=sf-dump-compact>
+                  "<span class=sf-dump-key>exception</span>" => <span class=sf-dump-note>ErrorException</span> {<a class=sf-dump-ref>#446</a><samp data-depth=10 class=sf-dump-compact>
+                    #<span class=sf-dump-protected title="Protected property">message</span>: "<span class=sf-dump-str title="220 characters">User Deprecated: Support for MySQL &lt; 8 is deprecated and will be removed in DBAL 5 (AbstractMySQLDriver.php:75 called by AbstractDriverMiddleware.php:32, https://github.com/doctrine/dbal/pull/6343, package doctrine/dbal)</span>"
+                    #<span class=sf-dump-protected title="Protected property">code</span>: <span class=sf-dump-num>0</span>
+                    #<span class=sf-dump-protected title="Protected property">file</span>: "<span class="sf-dump-str sf-dump-ellipsization" title="/app/vendor/doctrine/deprecations/src/Deprecation.php
+53 characters"><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/doctrine/deprecations/</span><span class="sf-dump-ellipsis-tail">src/Deprecation.php</span></span>"
+                    #<span class=sf-dump-protected title="Protected property">line</span>: <span class=sf-dump-num>208</span>
+                    #<span class=sf-dump-protected title="Protected property">severity</span>: <span class=sf-dump-const title="16384">E_USER_DEPRECATED</span>
+                    <span class=sf-dump-meta>trace</span>: {<samp data-depth=11 class=sf-dump-compact>
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/doctrine/deprecations/src/Deprecation.php:208
+Stack level 26."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/doctrine/deprecations/</span><span class="sf-dump-ellipsis-tail">src/Deprecation.php:208</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Doctrine\Deprecations\Deprecation::delegateTriggerToBackend(string $message, array $backtrace, string $link, string $package): void
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Doctrine\Deprecations</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">Deprecation::delegateTriggerToBackend(string $message, array $backtrace, string $link, string $package): void</span></span> &#8230;
+                        &#8250; 
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Doctrine\Deprecations\Deprecation::delegateTriggerToBackend(string $message, array $backtrace, string $link, string $package): void">    @trigger_error($message, E_USER_DEPRECATED);</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>}</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/doctrine/deprecations/src/Deprecation.php:108
+Stack level 25."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/doctrine/deprecations/</span><span class="sf-dump-ellipsis-tail">src/Deprecation.php:108</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Doctrine\Deprecations\Deprecation::trigger(string $package, string $link, string $message, ...$args): void
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Doctrine\Deprecations</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">Deprecation::trigger(string $package, string $link, string $message, ...$args): void</span></span> &#8230;
+                        &#8250; 
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Doctrine\Deprecations\Deprecation::trigger(string $package, string $link, string $message, ...$args): void">    self::delegateTriggerToBackend($message, $backtrace, $link, $package);</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>}</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/doctrine/dbal/src/Driver/AbstractMySQLDriver.php:75
+Stack level 24."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/doctrine/dbal/</span><span class="sf-dump-ellipsis-tail">src/Driver/AbstractMySQLDriver.php:75</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Doctrine\DBAL\Driver\AbstractMySQLDriver-&gt;getDatabasePlatform(ServerVersionProvider $versionProvider): AbstractMySQLPlatform
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Doctrine\DBAL\Driver</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">AbstractMySQLDriver-&gt;getDatabasePlatform(ServerVersionProvider $versionProvider): AbstractMySQLPlatform</span></span> &#8230;
+                        &#8250; 
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Doctrine\DBAL\Driver\AbstractMySQLDriver-&gt;getDatabasePlatform(ServerVersionProvider $versionProvider): AbstractMySQLPlatform">Deprecation::trigger(</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>    &#039;doctrine/dbal&#039;,</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/doctrine/dbal/src/Driver/Middleware/AbstractDriverMiddleware.php:32
+Stack level 23."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/doctrine/dbal/</span><span class="sf-dump-ellipsis-tail">src/Driver/Middleware/AbstractDriverMiddleware.php:32</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Doctrine\DBAL\Driver\Middleware\AbstractDriverMiddleware-&gt;getDatabasePlatform(ServerVersionProvider $versionProvider): AbstractPlatform
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Doctrine\DBAL\Driver\Middleware</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">AbstractDriverMiddleware-&gt;getDatabasePlatform(ServerVersionProvider $versionProvider): AbstractPlatform</span></span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>{</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Doctrine\DBAL\Driver\Middleware\AbstractDriverMiddleware-&gt;getDatabasePlatform(ServerVersionProvider $versionProvider): AbstractPlatform">    return $this-&gt;wrappedDriver-&gt;getDatabasePlatform($versionProvider);</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>}</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/doctrine/dbal/src/Driver/Middleware/AbstractDriverMiddleware.php:32
+Stack level 22."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/doctrine/dbal/</span><span class="sf-dump-ellipsis-tail">src/Driver/Middleware/AbstractDriverMiddleware.php:32</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Doctrine\DBAL\Driver\Middleware\AbstractDriverMiddleware-&gt;getDatabasePlatform(ServerVersionProvider $versionProvider): AbstractPlatform
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Doctrine\DBAL\Driver\Middleware</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">AbstractDriverMiddleware-&gt;getDatabasePlatform(ServerVersionProvider $versionProvider): AbstractPlatform</span></span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>{</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Doctrine\DBAL\Driver\Middleware\AbstractDriverMiddleware-&gt;getDatabasePlatform(ServerVersionProvider $versionProvider): AbstractPlatform">    return $this-&gt;wrappedDriver-&gt;getDatabasePlatform($versionProvider);</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>}</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/doctrine/dbal/src/Driver/Middleware/AbstractDriverMiddleware.php:32
+Stack level 21."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/doctrine/dbal/</span><span class="sf-dump-ellipsis-tail">src/Driver/Middleware/AbstractDriverMiddleware.php:32</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Doctrine\DBAL\Driver\Middleware\AbstractDriverMiddleware-&gt;getDatabasePlatform(ServerVersionProvider $versionProvider): AbstractPlatform
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Doctrine\DBAL\Driver\Middleware</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">AbstractDriverMiddleware-&gt;getDatabasePlatform(ServerVersionProvider $versionProvider): AbstractPlatform</span></span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>{</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Doctrine\DBAL\Driver\Middleware\AbstractDriverMiddleware-&gt;getDatabasePlatform(ServerVersionProvider $versionProvider): AbstractPlatform">    return $this-&gt;wrappedDriver-&gt;getDatabasePlatform($versionProvider);</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>}</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/doctrine/doctrine-bundle/src/ConnectionFactory.php:127
+Stack level 20."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/doctrine/doctrine-bundle/</span><span class="sf-dump-ellipsis-tail">src/ConnectionFactory.php:127</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Doctrine\Bundle\DoctrineBundle\ConnectionFactory-&gt;createConnection(array $params, ?Configuration $config = null, ?EventManager $eventManager = null, array $mappingTypes = [])
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Doctrine\Bundle\DoctrineBundle</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">ConnectionFactory-&gt;createConnection(array $params, ?Configuration $config = null, ?EventManager $eventManager = null, array $mappingTypes = [])</span></span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>/** @phpstan-ignore arguments.count (DBAL &lt; 4.x doesn&#039;t accept an argument) */</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Doctrine\Bundle\DoctrineBundle\ConnectionFactory-&gt;createConnection(array $params, ?Configuration $config = null, ?EventManager $eventManager = null, array $mappingTypes = [])">$platform = $driver-&gt;getDatabasePlatform(</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>    ...(class_exists(StaticServerVersionProvider::class)</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/var/cache/dev/ContainerSiDViOA/getDoctrine_Dbal_DefaultConnectionService.php:50
+Stack level 19."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/</span><span class="sf-dump-ellipsis-tail">var/cache/dev/ContainerSiDViOA/getDoctrine_Dbal_DefaultConnectionService.php:50</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="ContainerSiDViOA\getDoctrine_Dbal_DefaultConnectionService::do($container, $lazyLoad = true)
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">ContainerSiDViOA</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">getDoctrine_Dbal_DefaultConnectionService::do($container, $lazyLoad = true)</span></span> &#8230;
+                        &#8250; 
+                        &#8250; <code class="php"><span class=sf-dump-const title="in ContainerSiDViOA\getDoctrine_Dbal_DefaultConnectionService::do($container, $lazyLoad = true)">    return $container-&gt;services[&#039;doctrine.dbal.default_connection&#039;] = (new \Doctrine\Bundle\DoctrineBundle\ConnectionFactory($container-&gt;parameters[&#039;doctrine.dbal.connection_factory.types&#039;], new \Doctrine\DBAL\Tools\DsnParser([&#039;db2&#039; =&gt; &#039;ibm_db2&#039;, &#039;mssql&#039; =&gt; &#039;pdo_sqlsrv&#039;, &#039;mysql&#039; =&gt; &#039;pdo_mysql&#039;, &#039;mysql2&#039; =&gt; &#039;pdo_mysql&#039;, &#039;postgres&#039; =&gt; &#039;pdo_pgsql&#039;, &#039;postgresql&#039; =&gt; &#039;pdo_pgsql&#039;, &#039;pgsql&#039; =&gt; &#039;pdo_pgsql&#039;, &#039;sqlite&#039; =&gt; &#039;pdo_sqlite&#039;, &#039;sqlite3&#039; =&gt; &#039;pdo_sqlite&#039;])))-&gt;createConnection([&#039;url&#039; =&gt; $container-&gt;getEnv(&#039;resolve:DATABASE_URL&#039;), &#039;use_savepoints&#039; =&gt; true, &#039;driver&#039; =&gt; &#039;pdo_mysql&#039;, &#039;idle_connection_ttl&#039; =&gt; 600, &#039;host&#039; =&gt; &#039;localhost&#039;, &#039;port&#039; =&gt; NULL, &#039;user&#039; =&gt; &#039;root&#039;, &#039;password&#039; =&gt; NULL, &#039;driverOptions&#039; =&gt; [], &#039;defaultTableOptions&#039; =&gt; []], $a, NULL, []);</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>}</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/var/cache/dev/ContainerSiDViOA/App_KernelDevDebugContainer.php:359
+Stack level 18."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/</span><span class="sf-dump-ellipsis-tail">var/cache/dev/ContainerSiDViOA/App_KernelDevDebugContainer.php:359</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="ContainerSiDViOA\App_KernelDevDebugContainer-&gt;load($file, $lazyLoad = true): mixed
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">ContainerSiDViOA</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">App_KernelDevDebugContainer-&gt;load($file, $lazyLoad = true): mixed</span></span> &#8230;
+                        &#8250; 
+                        &#8250; <code class="php"><span class=sf-dump-const title="in ContainerSiDViOA\App_KernelDevDebugContainer-&gt;load($file, $lazyLoad = true): mixed">    return class_exists($class, false) ? $class::do($this, $lazyLoad) : $service;</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>}</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/var/cache/dev/ContainerSiDViOA/getDoctrine_Orm_DefaultEntityManagerService.php:31
+Stack level 17."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/</span><span class="sf-dump-ellipsis-tail">var/cache/dev/ContainerSiDViOA/getDoctrine_Orm_DefaultEntityManagerService.php:31</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="ContainerSiDViOA\getDoctrine_Orm_DefaultEntityManagerService::do($container, $lazyLoad = true)
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">ContainerSiDViOA</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">getDoctrine_Orm_DefaultEntityManagerService::do($container, $lazyLoad = true)</span></span> &#8230;
+                        &#8250; 
+                        &#8250; <code class="php"><span class=sf-dump-const title="in ContainerSiDViOA\getDoctrine_Orm_DefaultEntityManagerService::do($container, $lazyLoad = true)">$instance = ($lazyLoad-&gt;__construct(($container-&gt;services[&#039;doctrine.dbal.default_connection&#039;] ?? $container-&gt;load(&#039;getDoctrine_Dbal_DefaultConnectionService&#039;)), ($container-&gt;privates[&#039;doctrine.orm.default_configuration&#039;] ?? $container-&gt;load(&#039;getDoctrine_Orm_DefaultConfigurationService&#039;)), ($container-&gt;privates[&#039;doctrine.dbal.default_connection.event_manager&#039;] ?? $container-&gt;load(&#039;getDoctrine_Dbal_DefaultConnection_EventManagerService&#039;))) &amp;&amp; false ?: $lazyLoad);</span></code>
+                        &#8250; 
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/var/cache/dev/ContainerSiDViOA/getDoctrine_Orm_DefaultEntityManagerService.php:22
+Stack level 16."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/</span><span class="sf-dump-ellipsis-tail">var/cache/dev/ContainerSiDViOA/getDoctrine_Orm_DefaultEntityManagerService.php:22</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="ContainerSiDViOA\getDoctrine_Orm_DefaultEntityManagerService::ContainerSiDViOA\{closure}
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">ContainerSiDViOA\getDoctrine_Orm_DefaultEntityManagerService::ContainerSiDViOA</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">{closure}</span></span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>if (true === $lazyLoad) {</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in ContainerSiDViOA\getDoctrine_Orm_DefaultEntityManagerService::ContainerSiDViOA\{closure}">    return $container-&gt;services[&#039;doctrine.orm.default_entity_manager&#039;] = $container-&gt;createProxy(&#039;EntityManagerGhost614a58f&#039;, static fn () =&gt; \EntityManagerGhost614a58f::createLazyGhost(static fn ($proxy) =&gt; self::do($container, $proxy)));</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>}</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/symfony/var-exporter/Internal/LazyObjectState.php:60
+Stack level 15."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/symfony/var-exporter/</span><span class="sf-dump-ellipsis-tail">Internal/LazyObjectState.php:60</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\VarExporter\Internal\LazyObjectState-&gt;initialize($instance, $propertyName, $writeScope)
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\VarExporter\Internal</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">LazyObjectState-&gt;initialize($instance, $propertyName, $writeScope)</span></span> &#8230;
+                        &#8250; 
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Symfony\Component\VarExporter\Internal\LazyObjectState-&gt;initialize($instance, $propertyName, $writeScope)">    ($this-&gt;initializer)($instance);</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>} catch (\Throwable $e) {</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/symfony/var-exporter/LazyGhostTrait.php:153
+Stack level 14."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/symfony/var-exporter/</span><span class="sf-dump-ellipsis-tail">LazyGhostTrait.php:153</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="ContainerSiDViOA\EntityManagerGhost614a58f-&gt;__get&amp;($name): mixed
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">ContainerSiDViOA</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">EntityManagerGhost614a58f-&gt;__get&amp;($name): mixed</span></span> &#8230;
+                        &#8250; 
+                        &#8250; <code class="php"><span class=sf-dump-const title="in ContainerSiDViOA\EntityManagerGhost614a58f-&gt;__get&amp;($name): mixed">if ($property?-&gt;isInitialized($this) ?? LazyObjectState::STATUS_UNINITIALIZED_PARTIAL !== $state-&gt;initialize($this, $name, $writeScope ?? $scope)) {</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>    goto get_in_scope;</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/doctrine/orm/src/EntityManager.php:162
+Stack level 13."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/doctrine/orm/</span><span class="sf-dump-ellipsis-tail">src/EntityManager.php:162</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Doctrine\ORM\EntityManager-&gt;getMetadataFactory(): ClassMetadataFactory
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Doctrine\ORM</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">EntityManager-&gt;getMetadataFactory(): ClassMetadataFactory</span></span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>{</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Doctrine\ORM\EntityManager-&gt;getMetadataFactory(): ClassMetadataFactory">    return $this-&gt;metadataFactory;</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>}</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/doctrine/persistence/src/Persistence/AbstractManagerRegistry.php:149
+Stack level 12."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/doctrine/persistence/</span><span class="sf-dump-ellipsis-tail">src/Persistence/AbstractManagerRegistry.php:149</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Doctrine\Persistence\AbstractManagerRegistry-&gt;getManagerForClass(string $class): ObjectManager
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Doctrine\Persistence</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">AbstractManagerRegistry-&gt;getManagerForClass(string $class): ObjectManager</span></span> &#8230;
+                        &#8250; 
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Doctrine\Persistence\AbstractManagerRegistry-&gt;getManagerForClass(string $class): ObjectManager">if (! $manager-&gt;getMetadataFactory()-&gt;isTransient($class)) {</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>    return $manager;</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/symfony/doctrine-bridge/ArgumentResolver/EntityValueResolver.php:95
+Stack level 11."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/symfony/doctrine-bridge/</span><span class="sf-dump-ellipsis-tail">ArgumentResolver/EntityValueResolver.php:95</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Bridge\Doctrine\ArgumentResolver\EntityValueResolver-&gt;getManager(?string $name, string $class): ObjectManager
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Bridge\Doctrine\ArgumentResolver</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">EntityValueResolver-&gt;getManager(?string $name, string $class): ObjectManager</span></span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>if (null === $name) {</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Symfony\Bridge\Doctrine\ArgumentResolver\EntityValueResolver-&gt;getManager(?string $name, string $class): ObjectManager">    return $this-&gt;registry-&gt;getManagerForClass($class);</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>}</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/symfony/doctrine-bridge/ArgumentResolver/EntityValueResolver.php:59
+Stack level 10."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/symfony/doctrine-bridge/</span><span class="sf-dump-ellipsis-tail">ArgumentResolver/EntityValueResolver.php:59</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Bridge\Doctrine\ArgumentResolver\EntityValueResolver-&gt;resolve(Request $request, ArgumentMetadata $argument): array
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Bridge\Doctrine\ArgumentResolver</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">EntityValueResolver-&gt;resolve(Request $request, ArgumentMetadata $argument): array</span></span> &#8230;
+                        &#8250; 
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Symfony\Bridge\Doctrine\ArgumentResolver\EntityValueResolver-&gt;resolve(Request $request, ArgumentMetadata $argument): array">if (!$manager = $this-&gt;getManager($options-&gt;objectManager, $options-&gt;class)) {</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>    return [];</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/symfony/http-kernel/Controller/ArgumentResolver/TraceableValueResolver.php:37
+Stack level 9."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/symfony/http-kernel/</span><span class="sf-dump-ellipsis-tail">Controller/ArgumentResolver/TraceableValueResolver.php:37</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpKernel\Controller\ArgumentResolver\TraceableValueResolver-&gt;resolve(Request $request, ArgumentMetadata $argument): iterable
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpKernel\Controller\ArgumentResolver</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">TraceableValueResolver-&gt;resolve(Request $request, ArgumentMetadata $argument): iterable</span></span> &#8230;
+                        &#8250; 
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Symfony\Component\HttpKernel\Controller\ArgumentResolver\TraceableValueResolver-&gt;resolve(Request $request, ArgumentMetadata $argument): iterable">yield from $this-&gt;inner-&gt;resolve($request, $argument);</span></code>
+                        &#8250; 
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/symfony/http-kernel/Controller/ArgumentResolver.php:91
+Stack level 8."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/symfony/http-kernel/</span><span class="sf-dump-ellipsis-tail">Controller/ArgumentResolver.php:91</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpKernel\Controller\ArgumentResolver-&gt;getArguments(Request $request, callable $controller, ?ReflectionFunctionAbstract $reflector = null): array
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpKernel\Controller</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">ArgumentResolver-&gt;getArguments(Request $request, callable $controller, ?ReflectionFunctionAbstract $reflector = null): array</span></span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>$count = 0;</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Symfony\Component\HttpKernel\Controller\ArgumentResolver-&gt;getArguments(Request $request, callable $controller, ?ReflectionFunctionAbstract $reflector = null): array">foreach ($resolver-&gt;resolve($request, $metadata) as $argument) {</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>    ++$count;</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/symfony/http-kernel/Controller/TraceableArgumentResolver.php:33
+Stack level 7."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/symfony/http-kernel/</span><span class="sf-dump-ellipsis-tail">Controller/TraceableArgumentResolver.php:33</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpKernel\Controller\TraceableArgumentResolver-&gt;getArguments(Request $request, callable $controller, ?ReflectionFunctionAbstract $reflector = null): array
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpKernel\Controller</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">TraceableArgumentResolver-&gt;getArguments(Request $request, callable $controller, ?ReflectionFunctionAbstract $reflector = null): array</span></span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>try {</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Symfony\Component\HttpKernel\Controller\TraceableArgumentResolver-&gt;getArguments(Request $request, callable $controller, ?ReflectionFunctionAbstract $reflector = null): array">    return $this-&gt;resolver-&gt;getArguments($request, $controller, $reflector);</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>} finally {</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/symfony/http-kernel/HttpKernel.php:175
+Stack level 6."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/symfony/http-kernel/</span><span class="sf-dump-ellipsis-tail">HttpKernel.php:175</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpKernel\HttpKernel-&gt;handleRaw(Request $request, int $type = self::MAIN_REQUEST): Response
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpKernel</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">HttpKernel-&gt;handleRaw(Request $request, int $type = self::MAIN_REQUEST): Response</span></span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>// controller arguments</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Symfony\Component\HttpKernel\HttpKernel-&gt;handleRaw(Request $request, int $type = self::MAIN_REQUEST): Response">$arguments = $this-&gt;argumentResolver-&gt;getArguments($request, $controller, $event-&gt;getControllerReflector());</span></code>
+                        &#8250; 
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/symfony/http-kernel/HttpKernel.php:76
+Stack level 5."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/symfony/http-kernel/</span><span class="sf-dump-ellipsis-tail">HttpKernel.php:76</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpKernel\HttpKernel-&gt;handle(Request $request, int $type = HttpKernelInterface::MAIN_REQUEST, bool $catch = true): Response
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpKernel</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">HttpKernel-&gt;handle(Request $request, int $type = HttpKernelInterface::MAIN_REQUEST, bool $catch = true): Response</span></span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>try {</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Symfony\Component\HttpKernel\HttpKernel-&gt;handle(Request $request, int $type = HttpKernelInterface::MAIN_REQUEST, bool $catch = true): Response">    return $response = $this-&gt;handleRaw($request, $type);</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>} catch (\Throwable $e) {</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/symfony/http-kernel/Kernel.php:193
+Stack level 4."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/symfony/http-kernel/</span><span class="sf-dump-ellipsis-tail">Kernel.php:193</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpKernel\Kernel-&gt;handle(Request $request, int $type = HttpKernelInterface::MAIN_REQUEST, bool $catch = true): Response
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpKernel</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">Kernel-&gt;handle(Request $request, int $type = HttpKernelInterface::MAIN_REQUEST, bool $catch = true): Response</span></span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>try {</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Symfony\Component\HttpKernel\Kernel-&gt;handle(Request $request, int $type = HttpKernelInterface::MAIN_REQUEST, bool $catch = true): Response">    return $this-&gt;getHttpKernel()-&gt;handle($request, $type, $catch);</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>} finally {</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/symfony/runtime/Runner/Symfony/HttpKernelRunner.php:35
+Stack level 3."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/symfony/runtime/</span><span class="sf-dump-ellipsis-tail">Runner/Symfony/HttpKernelRunner.php:35</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\Runtime\Runner\Symfony\HttpKernelRunner-&gt;run(): int
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\Runtime\Runner\Symfony</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">HttpKernelRunner-&gt;run(): int</span></span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>{</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in Symfony\Component\Runtime\Runner\Symfony\HttpKernelRunner-&gt;run(): int">    $response = $this-&gt;kernel-&gt;handle($this-&gt;request);</span></code>
+                        &#8250; 
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/vendor/autoload_runtime.php:32
+Stack level 2."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app/vendor</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/autoload_runtime.php:3</span><span class="sf-dump-ellipsis-tail">2</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        <span class=sf-dump-note>require_once</span> &#8230;
+                        &#8250; <code class="php"><span class=sf-dump-default>        -&gt;getRunner($app)</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-const title="in require_once">        -&gt;run()</span></code>
+                        &#8250; <code class="php"><span class=sf-dump-default>);</span></code>
+                      </samp>}
+                      <span class="sf-dump-meta sf-dump-ellipsization" title="/app/public/index.php:5
+Stack level 1."><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/app</span><span class="sf-dump-ellipsis sf-dump-ellipsis-path">/</span><span class="sf-dump-ellipsis-tail">public/index.php:5</span></span> {<samp data-depth=12 class=sf-dump-compact>
+                        &#8250; 
+                        &#8250; <code class="php"><span class=sf-dump-const>require_once dirname(__DIR__).&#039;/vendor/autoload_runtime.php&#039;;</span></code>
+                        &#8250; 
+                      </samp>}
+                    </samp>}
+                  </samp>}
+                </samp>]
+                "<span class=sf-dump-key>channel</span>" => "<span class=sf-dump-str title="11 characters">deprecation</span>"
+              </samp>]
+              <span class=sf-dump-index>5</span> => <span class=sf-dump-note>array:7</span> [<samp data-depth=8 class=sf-dump-compact>
+                "<span class=sf-dump-key>timestamp</span>" => <span class=sf-dump-num>1768793002</span>
+                "<span class=sf-dump-key>timestamp_rfc3339</span>" => "<span class=sf-dump-str title="29 characters">2026-01-19T03:23:22.618+00:00</span>"
+                "<span class=sf-dump-key>message</span>" => "<span class=sf-dump-str title="41 characters">Lock acquired, now computing item &quot;{key}&quot;</span>"
+                "<span class=sf-dump-key>priority</span>" => <span class=sf-dump-num>200</span>
+                "<span class=sf-dump-key>priorityName</span>" => "<span class=sf-dump-str title="4 characters">INFO</span>"
+                "<span class=sf-dump-key>context</span>" => <span class=sf-dump-note>array:1</span> [<samp data-depth=9 class=sf-dump-compact>
+                  "<span class=sf-dump-key>key</span>" => "<span class=sf-dump-str title="18 characters">auth.service_token</span>"
+                </samp>]
+                "<span class=sf-dump-key>channel</span>" => "<span class=sf-dump-str title="5 characters">cache</span>"
+              </samp>]
+              <span class=sf-dump-index>6</span> => <span class=sf-dump-note>array:7</span> [<samp data-depth=8 class=sf-dump-compact>
+                "<span class=sf-dump-key>timestamp</span>" => <span class=sf-dump-num>1768793002</span>
+                "<span class=sf-dump-key>timestamp_rfc3339</span>" => "<span class=sf-dump-str title="29 characters">2026-01-19T03:23:22.618+00:00</span>"
+                "<span class=sf-dump-key>message</span>" => "<span class=sf-dump-str title="46 characters">Request: &quot;POST http://auth:8000/service/login&quot;</span>"
+                "<span class=sf-dump-key>priority</span>" => <span class=sf-dump-num>200</span>
+                "<span class=sf-dump-key>priorityName</span>" => "<span class=sf-dump-str title="4 characters">INFO</span>"
+                "<span class=sf-dump-key>context</span>" => []
+                "<span class=sf-dump-key>channel</span>" => "<span class=sf-dump-str title="11 characters">http_client</span>"
+              </samp>]
+              <span class=sf-dump-index>7</span> => <span class=sf-dump-note>array:7</span> [<samp data-depth=8 class=sf-dump-compact>
+                "<span class=sf-dump-key>timestamp</span>" => <span class=sf-dump-num>1768793002</span>
+                "<span class=sf-dump-key>timestamp_rfc3339</span>" => "<span class=sf-dump-str title="29 characters">2026-01-19T03:23:22.626+00:00</span>"
+                "<span class=sf-dump-key>message</span>" => "<span class=sf-dump-str title="50 characters">Response: &quot;{http_code} {url}&quot; {total_time} seconds</span>"
+                "<span class=sf-dump-key>priority</span>" => <span class=sf-dump-num>200</span>
+                "<span class=sf-dump-key>priorityName</span>" => "<span class=sf-dump-str title="4 characters">INFO</span>"
+                "<span class=sf-dump-key>context</span>" => <span class=sf-dump-note>array:3</span> [<samp data-depth=9 class=sf-dump-compact>
+                  "<span class=sf-dump-key>http_code</span>" => <span class=sf-dump-num>200</span>
+                  "<span class=sf-dump-key>url</span>" => "<span class=sf-dump-str title="30 characters">http://auth:8000/service/login</span>"
+                  "<span class=sf-dump-key>total_time</span>" => <span class=sf-dump-num>0.00806</span>
+                </samp>]
+                "<span class=sf-dump-key>channel</span>" => "<span class=sf-dump-str title="11 characters">http_client</span>"
+              </samp>]
+            </samp>]
+          </samp>]
+          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Bridge\Monolog\Processor\DebugProcessor`">errorCount</span>: <span class=sf-dump-note>array:1</span> [<samp data-depth=6 class=sf-dump-compact>
+            <span class=sf-dump-key>2</span> => <span class=sf-dump-num>0</span>
+          </samp>]
+          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Bridge\Monolog\Processor\DebugProcessor`">requestStack</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpKernel\Debug\VirtualRequestStack
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpKernel\Debug</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">VirtualRequestStack</span></span> {<a class=sf-dump-ref>#82</a><samp data-depth=6 class=sf-dump-compact>
+            -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\RequestStack`">requests</span>: []
+            -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpKernel\Debug\VirtualRequestStack`">decorated</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\RequestStack
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">RequestStack</span></span> {<a class=sf-dump-ref>#81</a><samp data-depth=7 class=sf-dump-compact>
+              -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\RequestStack`">requests</span>: <span class=sf-dump-note>array:1</span> [<samp data-depth=8 class=sf-dump-compact>
+                <span class=sf-dump-index>0</span> => <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\Request
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">Request</span></span> {<a class=sf-dump-ref>#2</a><samp data-depth=9 class=sf-dump-compact>
+                  +<span class=sf-dump-public title="Public property">attributes</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\ParameterBag
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">ParameterBag</span></span> {<a class=sf-dump-ref>#17</a><samp data-depth=10 class=sf-dump-compact>
+                    #<span class=sf-dump-protected title="Protected property">parameters</span>: <span class=sf-dump-note>array:8</span> [<samp data-depth=11 class=sf-dump-compact>
+                      "<span class=sf-dump-key>_stopwatch_token</span>" => "<span class=sf-dump-str title="6 characters">1b97fd</span>"
+                      "<span class=sf-dump-key>_route</span>" => "<span class=sf-dump-str title="27 characters">app_ui_http_web_user_create</span>"
+                      "<span class=sf-dump-key>_controller</span>" => "<span class=sf-dump-str title="49 characters">App\UI\Http\Web\Controller\UserController::create</span>"
+                      "<span class=sf-dump-key>_route_params</span>" => []
+                      "<span class=sf-dump-key>_firewall_context</span>" => "<span class=sf-dump-str title="34 characters">security.firewall.map.context.main</span>"
+                      "<span class=sf-dump-key>_security_skipped_authenticators</span>" => []
+                      "<span class=sf-dump-key>_security_authenticators</span>" => []
+                      "<span class=sf-dump-key>_security_firewall_run</span>" => "<span class=sf-dump-str title="14 characters">_security_main</span>"
+                    </samp>]
+                  </samp>}
+                  +<span class=sf-dump-public title="Public property">request</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\InputBag
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">InputBag</span></span> {<a class=sf-dump-ref>#7</a><samp data-depth=10 class=sf-dump-compact>
+                    #<span class=sf-dump-protected title="Protected property">parameters</span>: []
+                  </samp>}
+                  +<span class=sf-dump-public title="Public property">query</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\InputBag
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">InputBag</span></span> {<a class=sf-dump-ref>#12</a><samp data-depth=10 class=sf-dump-compact>
+                    #<span class=sf-dump-protected title="Protected property">parameters</span>: []
+                  </samp>}
+                  +<span class=sf-dump-public title="Public property">server</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\ServerBag
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">ServerBag</span></span> {<a class=sf-dump-ref>#20</a><samp data-depth=10 class=sf-dump-compact>
+                    #<span class=sf-dump-protected title="Protected property">parameters</span>: <span class=sf-dump-note>array:87</span> [<samp data-depth=11 class=sf-dump-compact>
+                      "<span class=sf-dump-key>DATABASE_URL</span>" => "<span class=sf-dump-str title="50 characters">mysql://root:root@db:3306/donwok?serverVersion=8.0</span>"
+                      "<span class=sf-dump-key>APP_DEBUG</span>" => "<span class=sf-dump-str>1</span>"
+                      "<span class=sf-dump-key>HOSTNAME</span>" => "<span class=sf-dump-str title="12 characters">d26443e4869d</span>"
+                      "<span class=sf-dump-key>PHP_INI_DIR</span>" => "<span class=sf-dump-str title="18 characters">/usr/local/etc/php</span>"
+                      "<span class=sf-dump-key>SHLVL</span>" => "<span class=sf-dump-str>1</span>"
+                      "<span class=sf-dump-key>HOME</span>" => "<span class=sf-dump-str title="5 characters">/root</span>"
+                      "<span class=sf-dump-key>CORE_SERVICE_SECRET</span>" => "<span class=sf-dump-str title="21 characters">super-secret-core-key</span>"
+                      "<span class=sf-dump-key>PHP_LDFLAGS</span>" => "<span class=sf-dump-str title="12 characters">-Wl,-O1 -pie</span>"
+                      "<span class=sf-dump-key>PHP_CFLAGS</span>" => "<span class=sf-dump-str title="83 characters">-fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64</span>"
+                      "<span class=sf-dump-key>PHP_VERSION</span>" => "<span class=sf-dump-str title="6 characters">8.3.29</span>"
+                      "<span class=sf-dump-key>GPG_KEYS</span>" => "<span class=sf-dump-str title="122 characters">1198C0117593497A5EC5C199286AF1F9897469DC C28D937575603EB4ABB725861C0779DC5C0A9DE4 AFD8691FDAEDF03BDF6E460563F15A9B715376CA</span>"
+                      "<span class=sf-dump-key>PHP_CPPFLAGS</span>" => "<span class=sf-dump-str title="83 characters">-fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64</span>"
+                      "<span class=sf-dump-key>PHP_ASC_URL</span>" => "<span class=sf-dump-str title="55 characters">https://www.php.net/distributions/php-8.3.29.tar.xz.asc</span>"
+                      "<span class=sf-dump-key>PHP_URL</span>" => "<span class=sf-dump-str title="51 characters">https://www.php.net/distributions/php-8.3.29.tar.xz</span>"
+                      "<span class=sf-dump-key>PATH</span>" => "<span class=sf-dump-str title="60 characters">/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin</span>"
+                      "<span class=sf-dump-key>APP_ENV</span>" => "<span class=sf-dump-str title="3 characters">dev</span>"
+                      "<span class=sf-dump-key>PHPIZE_DEPS</span>" => "<span class=sf-dump-str title="78 characters">autoconf <span class="sf-dump-default">\t\t</span>dpkg-dev dpkg <span class="sf-dump-default">\t\t</span>file <span class="sf-dump-default">\t\t</span>g++ <span class="sf-dump-default">\t\t</span>gcc <span class="sf-dump-default">\t\t</span>libc-dev <span class="sf-dump-default">\t\t</span>make <span class="sf-dump-default">\t\t</span>pkgconf <span class="sf-dump-default">\t\t</span>re2c</span>"
+                      "<span class=sf-dump-key>PWD</span>" => "<span class=sf-dump-str title="4 characters">/app</span>"
+                      "<span class=sf-dump-key>AUTH_BASE_URL</span>" => "<span class=sf-dump-str title="16 characters">http://auth:8000</span>"
+                      "<span class=sf-dump-key>PHP_SHA256</span>" => "<span class=sf-dump-str title="64 characters">f7950ca034b15a78f5de9f1b22f4d9bad1dd497114d175cb1672a4ca78077af5</span>"
+                      "<span class=sf-dump-key>JWT_PUBLIC_KEY</span>" => "<span class=sf-dump-str title="26 characters">/app/config/jwt/public.pem</span>"
+                      "<span class=sf-dump-key>CORE_SERVICE_NAME</span>" => "<span class=sf-dump-str title="4 characters">core</span>"
+                      "<span class=sf-dump-key>SYMFONY_TUNNEL</span>" => ""
+                      "<span class=sf-dump-key>SYMFONY_TUNNEL_ENV</span>" => ""
+                      "<span class=sf-dump-key>SYMFONY_TUNNEL_BRAND</span>" => ""
+                      "<span class=sf-dump-key>SYMFONY_DOCKER_ENV</span>" => ""
+                      "<span class=sf-dump-key>PHP_BINARY</span>" => "<span class=sf-dump-str title="18 characters">/usr/local/bin/php</span>"
+                      "<span class=sf-dump-key>PHP_PATH</span>" => "<span class=sf-dump-str title="18 characters">/usr/local/bin/php</span>"
+                      "<span class=sf-dump-key>PHP_PEAR_PHP_BIN</span>" => "<span class=sf-dump-str title="18 characters">/usr/local/bin/php</span>"
+                      "<span class=sf-dump-key>CONTENT_LENGTH</span>" => "<span class=sf-dump-str title="2 characters">49</span>"
+                      "<span class=sf-dump-key>SYMFONY_PROJECT_DEFAULT_ROUTE_PATH</span>" => "<span class=sf-dump-str>/</span>"
+                      "<span class=sf-dump-key>SYMFONY_PROJECT_DEFAULT_ROUTE_HOST</span>" => "<span class=sf-dump-str title="14 characters">127.0.0.1:8000</span>"
+                      "<span class=sf-dump-key>SYMFONY_APPLICATION_DEFAULT_ROUTE_PATH</span>" => "<span class=sf-dump-str>/</span>"
+                      "<span class=sf-dump-key>SYMFONY_PROJECT_DEFAULT_ROUTE_URL</span>" => "<span class=sf-dump-str title="22 characters">http://127.0.0.1:8000/</span>"
+                      "<span class=sf-dump-key>HTTPS</span>" => ""
+                      "<span class=sf-dump-key>SYMFONY_APPLICATION_DEFAULT_ROUTE_SCHEME</span>" => "<span class=sf-dump-str title="4 characters">http</span>"
+                      "<span class=sf-dump-key>HTTP_USER_AGENT</span>" => "<span class=sf-dump-str title="17 characters">vscode-restclient</span>"
+                      "<span class=sf-dump-key>HTTP_COOKIE</span>" => "<span class=sf-dump-str title="75 characters">main_auth_profile_token=413cc3; CORESESSID=22a6dfcbeeb68f10be1ef8913d95ab6b</span>"
+                      "<span class=sf-dump-key>HTTP_CONTENT_LENGTH</span>" => "<span class=sf-dump-str title="2 characters">49</span>"
+                      "<span class=sf-dump-key>SCRIPT_FILENAME</span>" => "<span class=sf-dump-str title="21 characters">/app/public/index.php</span>"
+                      "<span class=sf-dump-key>HTTP_HOST</span>" => "<span class=sf-dump-str title="14 characters">localhost:8000</span>"
+                      "<span class=sf-dump-key>REQUEST_URI</span>" => "<span class=sf-dump-str title="9 characters">/usuarios</span>"
+                      "<span class=sf-dump-key>SYMFONY_DEFAULT_ROUTE_PATH</span>" => "<span class=sf-dump-str>/</span>"
+                      "<span class=sf-dump-key>SERVER_PROTOCOL</span>" => "<span class=sf-dump-str title="8 characters">HTTP/1.1</span>"
+                      "<span class=sf-dump-key>SYMFONY_APPLICATION_DEFAULT_ROUTE_HOST</span>" => "<span class=sf-dump-str title="14 characters">127.0.0.1:8000</span>"
+                      "<span class=sf-dump-key>DOCUMENT_ROOT</span>" => "<span class=sf-dump-str title="12 characters">/app/public/</span>"
+                      "<span class=sf-dump-key>SERVER_SOFTWARE</span>" => "<span class=sf-dump-str title="18 characters">symfony-cli/5.16.1</span>"
+                      "<span class=sf-dump-key>SERVER_NAME</span>" => "<span class=sf-dump-str title="9 characters">localhost</span>"
+                      "<span class=sf-dump-key>HTTP_CONNECTION</span>" => "<span class=sf-dump-str title="5 characters">close</span>"
+                      "<span class=sf-dump-key>SYMFONY_DEFAULT_ROUTE_PORT</span>" => "<span class=sf-dump-str title="4 characters">8000</span>"
+                      "<span class=sf-dump-key>DOCUMENT_URI</span>" => "<span class=sf-dump-str title="10 characters">/index.php</span>"
+                      "<span class=sf-dump-key>SYMFONY_DEFAULT_ROUTE_HOST</span>" => "<span class=sf-dump-str title="14 characters">127.0.0.1:8000</span>"
+                      "<span class=sf-dump-key>HTTP_ACCEPT_ENCODING</span>" => "<span class=sf-dump-str title="13 characters">gzip, deflate</span>"
+                      "<span class=sf-dump-key>SYMFONY_DEFAULT_ROUTE_SCHEME</span>" => "<span class=sf-dump-str title="4 characters">http</span>"
+                      "<span class=sf-dump-key>REDIRECT_STATUS</span>" => "<span class=sf-dump-str title="3 characters">200</span>"
+                      "<span class=sf-dump-key>X_FORWARDED_PORT</span>" => "<span class=sf-dump-str title="4 characters">8000</span>"
+                      "<span class=sf-dump-key>REQUEST_METHOD</span>" => "<span class=sf-dump-str title="4 characters">POST</span>"
+                      "<span class=sf-dump-key>REMOTE_ADDR</span>" => "<span class=sf-dump-str title="10 characters">172.22.0.1</span>"
+                      "<span class=sf-dump-key>SCRIPT_NAME</span>" => "<span class=sf-dump-str title="10 characters">/index.php</span>"
+                      "<span class=sf-dump-key>SYMFONY_APPLICATION_DEFAULT_ROUTE_PORT</span>" => "<span class=sf-dump-str title="4 characters">8000</span>"
+                      "<span class=sf-dump-key>PATH_INFO</span>" => "<span class=sf-dump-str title="9 characters">/usuarios</span>"
+                      "<span class=sf-dump-key>HTTP_CONTENT_TYPE</span>" => "<span class=sf-dump-str title="16 characters">application/json</span>"
+                      "<span class=sf-dump-key>SYMFONY_PROJECT_DEFAULT_ROUTE_SCHEME</span>" => "<span class=sf-dump-str title="4 characters">http</span>"
+                      "<span class=sf-dump-key>QUERY_STRING</span>" => ""
+                      "<span class=sf-dump-key>SYMFONY_DEFAULT_ROUTE_URL</span>" => "<span class=sf-dump-str title="22 characters">http://127.0.0.1:8000/</span>"
+                      "<span class=sf-dump-key>SYMFONY_APPLICATION_DEFAULT_ROUTE_URL</span>" => "<span class=sf-dump-str title="22 characters">http://127.0.0.1:8000/</span>"
+                      "<span class=sf-dump-key>GATEWAY_INTERFACE</span>" => "<span class=sf-dump-str title="7 characters">CGI/1.1</span>"
+                      "<span class=sf-dump-key>REMOTE_PORT</span>" => "<span class=sf-dump-str title="5 characters">32900</span>"
+                      "<span class=sf-dump-key>SERVER_PORT</span>" => "<span class=sf-dump-str title="4 characters">8000</span>"
+                      "<span class=sf-dump-key>SYMFONY_PROJECT_DEFAULT_ROUTE_PORT</span>" => "<span class=sf-dump-str title="4 characters">8000</span>"
+                      "<span class=sf-dump-key>CONTENT_TYPE</span>" => "<span class=sf-dump-str title="16 characters">application/json</span>"
+                      "<span class=sf-dump-key>HTTP_MOD_REWRITE</span>" => "<span class=sf-dump-str title="2 characters">On</span>"
+                      "<span class=sf-dump-key>FCGI_ROLE</span>" => "<span class=sf-dump-str title="9 characters">RESPONDER</span>"
+                      "<span class=sf-dump-key>PHP_SELF</span>" => "<span class=sf-dump-str title="19 characters">/index.php/usuarios</span>"
+                      "<span class=sf-dump-key>REQUEST_TIME_FLOAT</span>" => <span class=sf-dump-num>1768793002.6087</span>
+                      "<span class=sf-dump-key>REQUEST_TIME</span>" => <span class=sf-dump-num>1768793002</span>
+                      "<span class=sf-dump-key>argv</span>" => []
+                      "<span class=sf-dump-key>argc</span>" => <span class=sf-dump-num>0</span>
+                      "<span class=sf-dump-key>APP_RUNTIME_OPTIONS</span>" => <span class=sf-dump-note>array:1</span> [<samp data-depth=12 class=sf-dump-compact>
+                        "<span class=sf-dump-key>project_dir</span>" => "<span class=sf-dump-str title="4 characters">/app</span>"
+                      </samp>]
+                      "<span class=sf-dump-key>APP_RUNTIME</span>" => "<span class=sf-dump-str title="40 characters">Symfony\Component\Runtime\SymfonyRuntime</span>"
+                      "<span class=sf-dump-key>APP_PROJECT_DIR</span>" => "<span class=sf-dump-str title="4 characters">/app</span>"
+                      "<span class=sf-dump-key>SYMFONY_DOTENV_PATH</span>" => "<span class=sf-dump-str title="9 characters">/app/.env</span>"
+                      "<span class=sf-dump-key>APP_SECRET</span>" => "<span class=sf-dump-str title="32 characters">e59cb0cd970d5c11a6c2f075a5870269</span>"
+                      "<span class=sf-dump-key>APP_SHARE_DIR</span>" => "<span class=sf-dump-str title="9 characters">var/share</span>"
+                      "<span class=sf-dump-key>DEFAULT_URI</span>" => "<span class=sf-dump-str title="16 characters">http://localhost</span>"
+                      "<span class=sf-dump-key>CORS_ALLOW_ORIGIN</span>" => "<span class=sf-dump-str title="45 characters">^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$</span>"
+                      "<span class=sf-dump-key>SYMFONY_DOTENV_VARS</span>" => "<span class=sf-dump-str title="54 characters">APP_SECRET,APP_SHARE_DIR,DEFAULT_URI,CORS_ALLOW_ORIGIN</span>"
+                    </samp>]
+                  </samp>}
+                  +<span class=sf-dump-public title="Public property">files</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\FileBag
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">FileBag</span></span> {<a class=sf-dump-ref>#19</a><samp data-depth=10 class=sf-dump-compact>
+                    #<span class=sf-dump-protected title="Protected property">parameters</span>: []
+                  </samp>}
+                  +<span class=sf-dump-public title="Public property">cookies</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\InputBag
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">InputBag</span></span> {<a class=sf-dump-ref>#18</a><samp data-depth=10 class=sf-dump-compact>
+                    #<span class=sf-dump-protected title="Protected property">parameters</span>: <span class=sf-dump-note>array:2</span> [<samp data-depth=11 class=sf-dump-compact>
+                      "<span class=sf-dump-key>main_auth_profile_token</span>" => "<span class=sf-dump-str title="6 characters">413cc3</span>"
+                      "<span class=sf-dump-key>CORESESSID</span>" => "<span class=sf-dump-str title="32 characters">22a6dfcbeeb68f10be1ef8913d95ab6b</span>"
+                    </samp>]
+                  </samp>}
+                  +<span class=sf-dump-public title="Public property">headers</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\HeaderBag
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">HeaderBag</span></span> {<a class=sf-dump-ref>#21</a><samp data-depth=10 class=sf-dump-compact>
+                    #<span class=sf-dump-protected title="Protected property">headers</span>: <span class=sf-dump-note>array:9</span> [<samp data-depth=11 class=sf-dump-compact>
+                      "<span class=sf-dump-key>content-length</span>" => <span class=sf-dump-note>array:1</span> [<samp data-depth=12 class=sf-dump-compact>
+                        <span class=sf-dump-index>0</span> => "<span class=sf-dump-str title="2 characters">49</span>"
+                      </samp>]
+                      "<span class=sf-dump-key>user-agent</span>" => <span class=sf-dump-note>array:1</span> [<samp data-depth=12 class=sf-dump-compact>
+                        <span class=sf-dump-index>0</span> => "<span class=sf-dump-str title="17 characters">vscode-restclient</span>"
+                      </samp>]
+                      "<span class=sf-dump-key>cookie</span>" => <span class=sf-dump-note>array:1</span> [<samp data-depth=12 class=sf-dump-compact>
+                        <span class=sf-dump-index>0</span> => "<span class=sf-dump-str title="75 characters">main_auth_profile_token=413cc3; CORESESSID=22a6dfcbeeb68f10be1ef8913d95ab6b</span>"
+                      </samp>]
+                      "<span class=sf-dump-key>host</span>" => <span class=sf-dump-note>array:1</span> [<samp data-depth=12 class=sf-dump-compact>
+                        <span class=sf-dump-index>0</span> => "<span class=sf-dump-str title="14 characters">localhost:8000</span>"
+                      </samp>]
+                      "<span class=sf-dump-key>connection</span>" => <span class=sf-dump-note>array:1</span> [<samp data-depth=12 class=sf-dump-compact>
+                        <span class=sf-dump-index>0</span> => "<span class=sf-dump-str title="5 characters">close</span>"
+                      </samp>]
+                      "<span class=sf-dump-key>accept-encoding</span>" => <span class=sf-dump-note>array:1</span> [<samp data-depth=12 class=sf-dump-compact>
+                        <span class=sf-dump-index>0</span> => "<span class=sf-dump-str title="13 characters">gzip, deflate</span>"
+                      </samp>]
+                      "<span class=sf-dump-key>content-type</span>" => <span class=sf-dump-note>array:1</span> [<samp data-depth=12 class=sf-dump-compact>
+                        <span class=sf-dump-index>0</span> => "<span class=sf-dump-str title="16 characters">application/json</span>"
+                      </samp>]
+                      "<span class=sf-dump-key>mod-rewrite</span>" => <span class=sf-dump-note>array:1</span> [<samp data-depth=12 class=sf-dump-compact>
+                        <span class=sf-dump-index>0</span> => "<span class=sf-dump-str title="2 characters">On</span>"
+                      </samp>]
+                      "<span class=sf-dump-key>x-php-ob-level</span>" => <span class=sf-dump-note>array:1</span> [<samp data-depth=12 class=sf-dump-compact>
+                        <span class=sf-dump-index>0</span> => "<span class=sf-dump-str>0</span>"
+                      </samp>]
+                    </samp>]
+                    #<span class=sf-dump-protected title="Protected property">cacheControl</span>: []
+                  </samp>}
+                  #<span class=sf-dump-protected title="Protected property">content</span>: """
+                    <span class=sf-dump-str title="49 characters">{<span class="sf-dump-default sf-dump-ns">\n</span></span>
+                    <span class=sf-dump-str title="49 characters">  &quot;username&quot;: &quot;admin2&quot;,<span class="sf-dump-default sf-dump-ns">\n</span></span>
+                    <span class=sf-dump-str title="49 characters">  &quot;password&quot;: &quot;admin&quot;<span class="sf-dump-default sf-dump-ns">\n</span></span>
+                    <span class=sf-dump-str title="49 characters">}</span>
+                    """
+                  #<span class=sf-dump-protected title="Protected property">languages</span>: <span class=sf-dump-const>null</span>
+                  #<span class=sf-dump-protected title="Protected property">charsets</span>: <span class=sf-dump-const>null</span>
+                  #<span class=sf-dump-protected title="Protected property">encodings</span>: <span class=sf-dump-const>null</span>
+                  #<span class=sf-dump-protected title="Protected property">acceptableContentTypes</span>: <span class=sf-dump-const>null</span>
+                  #<span class=sf-dump-protected title="Protected property">pathInfo</span>: "<span class=sf-dump-str title="9 characters">/usuarios</span>"
+                  #<span class=sf-dump-protected title="Protected property">requestUri</span>: "<span class=sf-dump-str title="9 characters">/usuarios</span>"
+                  #<span class=sf-dump-protected title="Protected property">baseUrl</span>: ""
+                  #<span class=sf-dump-protected title="Protected property">basePath</span>: <span class=sf-dump-const>null</span>
+                  #<span class=sf-dump-protected title="Protected property">method</span>: "<span class=sf-dump-str title="4 characters">POST</span>"
+                  #<span class=sf-dump-protected title="Protected property">format</span>: <span class=sf-dump-const>null</span>
+                  #<span class=sf-dump-protected title="Protected property">session</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\Session\Session
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation\Session</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">Session</span></span> {<a class=sf-dump-ref>#292</a><samp data-depth=10 class=sf-dump-compact>
+                    #<span class=sf-dump-protected title="Protected property">storage</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\Session\Storage\NativeSessionStorage
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation\Session\Storage</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">NativeSessionStorage</span></span> {<a class=sf-dump-ref>#293</a><samp data-depth=11 class=sf-dump-compact>
+                      #<span class=sf-dump-protected title="Protected property">bags</span>: <span class=sf-dump-note>array:2</span> [<samp data-depth=12 class=sf-dump-compact>
+                        "<span class=sf-dump-key>attributes</span>" => <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\Session\SessionBagProxy
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation\Session</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">SessionBagProxy</span></span> {<a class=sf-dump-ref>#296</a><samp data-depth=13 class=sf-dump-compact>
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\SessionBagProxy`">data</span>: <a class=sf-dump-ref href=#sf-dump-1145392950-ref03 title="3 occurrences">&amp;3</a> <span class=sf-dump-note>array:2</span> [<samp data-depth=14 id=sf-dump-1145392950-ref03 class=sf-dump-compact>
+                            "<span class=sf-dump-key>_sf2_attributes</span>" => <a class=sf-dump-ref href=#sf-dump-1145392950-ref04 title="2 occurrences">&amp;4</a> <span class=sf-dump-note>array:1</span> [<samp data-depth=15 id=sf-dump-1145392950-ref04 class=sf-dump-compact>
+                              "<span class=sf-dump-key>_security_main</span>" => "<span class=sf-dump-str title="422 characters">O:74:&quot;Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken&quot;:3:{i:0;N;i:1;s:4:&quot;main&quot;;i:2;a:5:{i:0;O:36:&quot;App\Infrastructure\Security\CoreUser&quot;:3:{s:40:&quot;<span class="sf-dump-default">\x00</span>App\Infrastructure\Security\CoreUser<span class="sf-dump-default">\x00</span>id&quot;;i:1;s:46:&quot;<span class="sf-dump-default">\x00</span>App\Infrastructure\Security\CoreUser<span class="sf-dump-default">\x00</span>username&quot;;s:5:&quot;admin&quot;;s:43:&quot;<span class="sf-dump-default">\x00</span>App\Infrastructure\Security\CoreUser<span class="sf-dump-default">\x00</span>roles&quot;;a:1:{i:0;s:10:&quot;ROLE_ADMIN&quot;;}}i:1;b:1;i:2;N;i:3;a:0:{}i:4;a:1:{i:0;s:10:&quot;ROLE_ADMIN&quot;;}}}</span>"
+                            </samp>]
+                            "<span class=sf-dump-key>_symfony_flashes</span>" => <a class=sf-dump-ref href=#sf-dump-1145392950-ref05 title="2 occurrences">&amp;5</a> []
+                          </samp>]
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\SessionBagProxy`">usageIndex</span>: <a class=sf-dump-ref href=#sf-dump-1145392950-ref06 title="3 occurrences">&amp;6</a> <span class=sf-dump-num>1</span>
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\SessionBagProxy`">usageReporter</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpKernel\EventListener\SessionListener::onSessionUsage(): void
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpKernel\EventListener</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">SessionListener::onSessionUsage(): void</span></span> {<a class=sf-dump-ref href=#sf-dump-1145392950-ref2291 title="3 occurrences">#291</a><samp data-depth=14 id=sf-dump-1145392950-ref2291 class=sf-dump-compact>
+                            <span class=sf-dump-meta>returnType</span>: "<span class=sf-dump-str title="4 characters">void</span>"
+                            <span class=sf-dump-meta>this</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpKernel\EventListener\SessionListener
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpKernel\EventListener</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">SessionListener</span></span> {<a class=sf-dump-ref>#163</a> &#8230;}
+                          </samp>}
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\SessionBagProxy`">bag</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\Session\Attribute\AttributeBag
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation\Session\Attribute</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">AttributeBag</span></span> {<a class=sf-dump-ref>#295</a><samp data-depth=14 class=sf-dump-compact>
+                            #<span class=sf-dump-protected title="Protected property">attributes</span>: <a class=sf-dump-ref href=#sf-dump-1145392950-ref04 title="2 occurrences">&amp;4</a> <span class=sf-dump-note>array:1</span> [<a class=sf-dump-ref href=#sf-dump-1145392950-ref04 title="2 occurrences">&amp;4</a>]
+                            -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Attribute\AttributeBag`">name</span>: "<span class=sf-dump-str title="10 characters">attributes</span>"
+                            -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Attribute\AttributeBag`">storageKey</span>: "<span class=sf-dump-str title="15 characters">_sf2_attributes</span>"
+                          </samp>}
+                        </samp>}
+                        "<span class=sf-dump-key>flashes</span>" => <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\Session\SessionBagProxy
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation\Session</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">SessionBagProxy</span></span> {<a class=sf-dump-ref>#298</a><samp data-depth=13 class=sf-dump-compact>
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\SessionBagProxy`">data</span>: <a class=sf-dump-ref href=#sf-dump-1145392950-ref03 title="3 occurrences">&amp;3</a> <span class=sf-dump-note>array:2</span> [<a class=sf-dump-ref href=#sf-dump-1145392950-ref03 title="3 occurrences">&amp;3</a>]
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\SessionBagProxy`">usageIndex</span>: <a class=sf-dump-ref href=#sf-dump-1145392950-ref06 title="3 occurrences">&amp;6</a> <span class=sf-dump-num>1</span>
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\SessionBagProxy`">usageReporter</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpKernel\EventListener\SessionListener::onSessionUsage(): void
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpKernel\EventListener</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">SessionListener::onSessionUsage(): void</span></span> {<a class=sf-dump-ref href=#sf-dump-1145392950-ref2291 title="3 occurrences">#291</a>}
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\SessionBagProxy`">bag</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\Session\Flash\FlashBag
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation\Session\Flash</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">FlashBag</span></span> {<a class=sf-dump-ref>#297</a><samp data-depth=14 class=sf-dump-compact>
+                            -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Flash\FlashBag`">name</span>: "<span class=sf-dump-str title="7 characters">flashes</span>"
+                            -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Flash\FlashBag`">flashes</span>: <a class=sf-dump-ref href=#sf-dump-1145392950-ref05 title="2 occurrences">&amp;5</a> []
+                            -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Flash\FlashBag`">storageKey</span>: "<span class=sf-dump-str title="16 characters">_symfony_flashes</span>"
+                          </samp>}
+                        </samp>}
+                      </samp>]
+                      #<span class=sf-dump-protected title="Protected property">started</span>: <span class=sf-dump-const>true</span>
+                      #<span class=sf-dump-protected title="Protected property">closed</span>: <span class=sf-dump-const>false</span>
+                      #<span class=sf-dump-protected title="Protected property">saveHandler</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\Session\Storage\Proxy\SessionHandlerProxy
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation\Session\Storage\Proxy</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">SessionHandlerProxy</span></span> {<a class=sf-dump-ref>#294</a><samp data-depth=12 class=sf-dump-compact>
+                        #<span class=sf-dump-protected title="Protected property">wrapper</span>: <span class=sf-dump-const>false</span>
+                        #<span class=sf-dump-protected title="Protected property">saveHandlerName</span>: "<span class=sf-dump-str title="5 characters">files</span>"
+                        #<span class=sf-dump-protected title="Protected property">handler</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\Session\Storage\Handler\StrictSessionHandler
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation\Session\Storage\Handler</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">StrictSessionHandler</span></span> {<a class=sf-dump-ref>#261</a><samp data-depth=13 class=sf-dump-compact>
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Storage\Handler\AbstractSessionHandler`">sessionName</span>: "<span class=sf-dump-str title="10 characters">CORESESSID</span>"
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Storage\Handler\AbstractSessionHandler`">prefetchId</span>: <span class=sf-dump-const title="Uninitialized property">? string</span>
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Storage\Handler\AbstractSessionHandler`">prefetchData</span>: <span class=sf-dump-const title="Uninitialized property">? string</span>
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Storage\Handler\AbstractSessionHandler`">newSessionId</span>: <span class=sf-dump-const>null</span>
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Storage\Handler\AbstractSessionHandler`">igbinaryEmptyData</span>: <span class=sf-dump-const title="Uninitialized property">? string</span>
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Storage\Handler\StrictSessionHandler`">doDestroy</span>: <span class=sf-dump-const title="Uninitialized property">? bool</span>
+                          -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Storage\Handler\StrictSessionHandler`">handler</span>: <span class=sf-dump-note>SessionHandler</span> {<a class=sf-dump-ref>#259</a>}
+                        </samp>}
+                      </samp>}
+                      #<span class=sf-dump-protected title="Protected property">metadataBag</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpFoundation\Session\Storage\MetadataBag
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpFoundation\Session\Storage</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">MetadataBag</span></span> {<a class=sf-dump-ref>#290</a><samp data-depth=12 class=sf-dump-compact>
+                        #<span class=sf-dump-protected title="Protected property">meta</span>: <a class=sf-dump-ref>&amp;</a> <span class=sf-dump-note>array:3</span> [<samp data-depth=13 id=sf-dump-1145392950-ref08 class=sf-dump-compact>
+                          "<span class=sf-dump-key>u</span>" => <span class=sf-dump-num>1768793002</span>
+                          "<span class=sf-dump-key>c</span>" => <span class=sf-dump-num>1768792788</span>
+                          "<span class=sf-dump-key>l</span>" => <span class=sf-dump-num>0</span>
+                        </samp>]
+                        -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Storage\MetadataBag`">name</span>: "<span class=sf-dump-str title="10 characters">__metadata</span>"
+                        -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Storage\MetadataBag`">lastUsed</span>: <span class=sf-dump-num>1768792921</span>
+                        -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Storage\MetadataBag`">storageKey</span>: "<span class=sf-dump-str title="9 characters">_sf2_meta</span>"
+                        -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Storage\MetadataBag`">updateThreshold</span>: <span class=sf-dump-num>0</span>
+                      </samp>}
+                    </samp>}
+                    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Session`">flashName</span>: "<span class=sf-dump-str title="7 characters">flashes</span>"
+                    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Session`">attributeName</span>: "<span class=sf-dump-str title="10 characters">attributes</span>"
+                    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Session`">data</span>: <a class=sf-dump-ref href=#sf-dump-1145392950-ref03 title="3 occurrences">&amp;3</a> <span class=sf-dump-note>array:2</span> [<a class=sf-dump-ref href=#sf-dump-1145392950-ref03 title="3 occurrences">&amp;3</a>]
+                    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Session`">usageIndex</span>: <a class=sf-dump-ref href=#sf-dump-1145392950-ref06 title="3 occurrences">&amp;6</a> <span class=sf-dump-num>1</span>
+                    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Session\Session`">usageReporter</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpKernel\EventListener\SessionListener::onSessionUsage(): void
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpKernel\EventListener</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">SessionListener::onSessionUsage(): void</span></span> {<a class=sf-dump-ref href=#sf-dump-1145392950-ref2291 title="3 occurrences">#291</a>}
+                  </samp>}
+                  #<span class=sf-dump-protected title="Protected property">locale</span>: <span class=sf-dump-const>null</span>
+                  #<span class=sf-dump-protected title="Protected property">defaultLocale</span>: "<span class=sf-dump-str title="2 characters">en</span>"
+                  -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Request`">preferredFormat</span>: <span class=sf-dump-const>null</span>
+                  -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Request`">isHostValid</span>: <span class=sf-dump-const>true</span>
+                  -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Request`">isForwardedValid</span>: <span class=sf-dump-const>true</span>
+                  -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Request`">isSafeContentPreferred</span>: <span class=sf-dump-const title="Uninitialized property">? bool</span>
+                  -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Request`">trustedValuesCache</span>: []
+                  -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpFoundation\Request`">isIisRewrite</span>: <span class=sf-dump-const>false</span>
+                  <span class=sf-dump-meta>basePath</span>: ""
+                  <span class=sf-dump-meta>format</span>: "<span class=sf-dump-str title="4 characters">html</span>"
+                </samp>}
+              </samp>]
+            </samp>}
+          </samp>}
+        </samp>}
+      </samp>]
+      #<span class=sf-dump-protected title="Protected property">microsecondTimestamps</span>: <span class=sf-dump-const>true</span>
+      #<span class=sf-dump-protected title="Protected property">timezone</span>: <span class=sf-dump-note>DateTimeZone</span> {<a class=sf-dump-ref>#323</a><samp data-depth=4 class=sf-dump-compact>
+        <span class=sf-dump-meta>timezone</span>: <span class=sf-dump-const title="??">UTC (+00:00)</span>
+        +"<span class=sf-dump-public title="Runtime added dynamic property">timezone_type</span>": <span class=sf-dump-num>3</span>
+        +"<span class=sf-dump-public title="Runtime added dynamic property">timezone</span>": "<span class=sf-dump-str title="3 characters">UTC</span>"
+      </samp>}
+      #<span class=sf-dump-protected title="Protected property">exceptionHandler</span>: <span class=sf-dump-const>null</span>
+      -<span class=sf-dump-private title="Private property defined in class:&#10;`Monolog\Logger`">logDepth</span>: <span class=sf-dump-num>0</span>
+      -<span class=sf-dump-private title="Private property defined in class:&#10;`Monolog\Logger`">fiberLogDepth</span>: <span class=sf-dump-note>WeakMap</span> {<a class=sf-dump-ref>#324</a><samp data-depth=4 class=sf-dump-compact>
+        <span class=sf-dump-meta>map</span>: []
+      </samp>}
+      -<span class=sf-dump-private title="Private property defined in class:&#10;`Monolog\Logger`">detectCycles</span>: <span class=sf-dump-const>true</span>
+    </samp>}
+    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpClient\CurlHttpClient`">multi</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpClient\Internal\CurlClientState
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpClient\Internal</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">CurlClientState</span></span> {<a class=sf-dump-ref href=#sf-dump-1145392950-ref2309 title="2 occurrences">#309</a> &#8230;}
+  </samp>}
+  -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpClient\Response\TraceableResponse`">response</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpClient\Response\CurlResponse
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpClient\Response</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">CurlResponse</span></span> {<a class=sf-dump-ref>#545</a><samp data-depth=2 class=sf-dump-compact>
+    <span class=sf-dump-meta>response_headers</span>: <span class=sf-dump-note>array:7</span> [<samp data-depth=3 class=sf-dump-compact>
+      <span class=sf-dump-index>0</span> => "<span class=sf-dump-str title="15 characters">HTTP/1.1 200 OK</span>"
+      <span class=sf-dump-index>1</span> => "<span class=sf-dump-str title="32 characters">Cache-Control: no-cache, private</span>"
+      <span class=sf-dump-index>2</span> => "<span class=sf-dump-str title="30 characters">Content-Type: application/json</span>"
+      <span class=sf-dump-index>3</span> => "<span class=sf-dump-str title="35 characters">Date: Mon, 19 Jan 2026 03:23:22 GMT</span>"
+      <span class=sf-dump-index>4</span> => "<span class=sf-dump-str title="24 characters">X-Powered-By: PHP/8.3.29</span>"
+      <span class=sf-dump-index>5</span> => "<span class=sf-dump-str title="21 characters">X-Robots-Tag: noindex</span>"
+      <span class=sf-dump-index>6</span> => "<span class=sf-dump-str title="19 characters">Content-Length: 512</span>"
+    </samp>]
+    <span class=sf-dump-meta>http_code</span>: <span class=sf-dump-num>200</span>
+    <span class=sf-dump-meta>error</span>: <span class=sf-dump-const>null</span>
+    <span class=sf-dump-meta>canceled</span>: <span class=sf-dump-const>false</span>
+    <span class=sf-dump-meta>http_method</span>: "<span class=sf-dump-str title="4 characters">POST</span>"
+    <span class=sf-dump-meta>user_data</span>: <span class=sf-dump-const>null</span>
+    <span class=sf-dump-meta>max_duration</span>: <span class=sf-dump-num>0.0</span>
+    <span class=sf-dump-meta>start_time</span>: <span class=sf-dump-num>1768793002.6186</span>
+    <span class=sf-dump-meta>original_url</span>: "<span class=sf-dump-str title="30 characters">http://auth:8000/service/login</span>"
+    <span class=sf-dump-meta>pause_handler</span>: <span class=sf-dump-note>Closure(float $duration)</span> {<a class=sf-dump-ref>#548</a><samp data-depth=3 class=sf-dump-compact>
+      <span class=sf-dump-meta>class</span>: "<span class="sf-dump-str sf-dump-ellipsization" title="Symfony\Component\HttpClient\Response\CurlResponse
+50 characters"><span class="sf-dump-ellipsis sf-dump-ellipsis-class">Symfony\Component\HttpClient\Response</span><span class="sf-dump-ellipsis sf-dump-ellipsis-class">\</span><span class="sf-dump-ellipsis-tail">CurlResponse</span></span>"
+      <span class=sf-dump-meta>use</span>: {<samp data-depth=4 class=sf-dump-compact>
+        <span class=sf-dump-meta>$ch</span>: <span class=sf-dump-note>CurlHandle</span> {<a class=sf-dump-ref>#544</a> &#8230;}
+        <span class=sf-dump-meta>$multi</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\HttpClient\Internal\CurlClientState
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\HttpClient\Internal</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">CurlClientState</span></span> {<a class=sf-dump-ref href=#sf-dump-1145392950-ref2309 title="2 occurrences">#309</a> &#8230;}
+        <span class=sf-dump-meta>$execCounter</span>: <span class=sf-dump-num>-9223372036854775808</span>
+      </samp>}
+    </samp>}
+    <span class=sf-dump-meta>url</span>: "<span class=sf-dump-str title="30 characters">http://auth:8000/service/login</span>"
+    <span class=sf-dump-meta>content_type</span>: "<span class=sf-dump-str title="16 characters">application/json</span>"
+    <span class=sf-dump-meta>header_size</span>: <span class=sf-dump-num>192</span>
+    <span class=sf-dump-meta>request_size</span>: <span class=sf-dump-num>227</span>
+    <span class=sf-dump-meta>filetime</span>: <span class=sf-dump-num>-1</span>
+    <span class=sf-dump-meta>ssl_verify_result</span>: <span class=sf-dump-num>0</span>
+    <span class=sf-dump-meta>redirect_count</span>: <span class=sf-dump-num>0</span>
+    <span class=sf-dump-meta>total_time</span>: <span class=sf-dump-num>0.00806</span>
+    <span class=sf-dump-meta>namelookup_time</span>: <span class=sf-dump-num>0.000393</span>
+    <span class=sf-dump-meta>connect_time</span>: <span class=sf-dump-num>0.000502</span>
+    <span class=sf-dump-meta>pretransfer_time</span>: <span class=sf-dump-num>0.000574</span>
+    <span class=sf-dump-meta>size_upload</span>: <span class=sf-dump-num>51.0</span>
+    <span class=sf-dump-meta>size_download</span>: <span class=sf-dump-num>512.0</span>
+    <span class=sf-dump-meta>speed_download</span>: <span class=sf-dump-num>63523.0</span>
+    <span class=sf-dump-meta>speed_upload</span>: <span class=sf-dump-num>6327.0</span>
+    <span class=sf-dump-meta>download_content_length</span>: <span class=sf-dump-num>512.0</span>
+    <span class=sf-dump-meta>upload_content_length</span>: <span class=sf-dump-num>51.0</span>
+    <span class=sf-dump-meta>starttransfer_time</span>: <span class=sf-dump-num>0.007902</span>
+    <span class=sf-dump-meta>redirect_time</span>: <span class=sf-dump-num>0.0</span>
+    <span class=sf-dump-meta>redirect_url</span>: <span class=sf-dump-const>null</span>
+    <span class=sf-dump-meta>primary_ip</span>: "<span class=sf-dump-str title="10 characters">172.22.0.4</span>"
+    <span class=sf-dump-meta>certinfo</span>: []
+    <span class=sf-dump-meta>primary_port</span>: <span class=sf-dump-num>8000</span>
+    <span class=sf-dump-meta>local_ip</span>: "<span class=sf-dump-str title="10 characters">172.22.0.5</span>"
+    <span class=sf-dump-meta>local_port</span>: <span class=sf-dump-num>36860</span>
+    <span class=sf-dump-meta>http_version</span>: <span class=sf-dump-num>2</span>
+    <span class=sf-dump-meta>protocol</span>: <span class=sf-dump-num>1</span>
+    <span class=sf-dump-meta>ssl_verifyresult</span>: <span class=sf-dump-num>0</span>
+    <span class=sf-dump-meta>scheme</span>: "<span class=sf-dump-str title="4 characters">http</span>"
+    <span class=sf-dump-meta>appconnect_time_us</span>: <span class=sf-dump-num>0</span>
+    <span class=sf-dump-meta>connect_time_us</span>: <span class=sf-dump-num>502</span>
+    <span class=sf-dump-meta>namelookup_time_us</span>: <span class=sf-dump-num>393</span>
+    <span class=sf-dump-meta>pretransfer_time_us</span>: <span class=sf-dump-num>574</span>
+    <span class=sf-dump-meta>redirect_time_us</span>: <span class=sf-dump-num>0</span>
+    <span class=sf-dump-meta>starttransfer_time_us</span>: <span class=sf-dump-num>7902</span>
+    <span class=sf-dump-meta>total_time_us</span>: <span class=sf-dump-num>8060</span>
+    <span class=sf-dump-meta>effective_method</span>: "<span class=sf-dump-str title="4 characters">POST</span>"
+    <span class=sf-dump-meta>capath</span>: "<span class=sf-dump-str title="14 characters">/etc/ssl/certs</span>"
+    <span class=sf-dump-meta>cainfo</span>: "<span class=sf-dump-str title="34 characters">/etc/ssl/certs/ca-certificates.crt</span>"
+    <span class=sf-dump-meta>debug</span>: """
+      <span class=sf-dump-str title="667 characters">* Host auth:8000 was resolved.<span class="sf-dump-default sf-dump-ns">\n</span></span>
+      <span class=sf-dump-str title="667 characters">* IPv6: (none)<span class="sf-dump-default sf-dump-ns">\n</span></span>
+      <span class=sf-dump-str title="667 characters">* IPv4: 172.22.0.4<span class="sf-dump-default sf-dump-ns">\n</span></span>
+      <span class=sf-dump-str title="667 characters">*   Trying 172.22.0.4:8000...<span class="sf-dump-default sf-dump-ns">\n</span></span>
+      <span class=sf-dump-str title="667 characters">* Established connection to auth (172.22.0.4 port 8000) from 172.22.0.5 port 36860 <span class="sf-dump-default sf-dump-ns">\n</span></span>
+      <span class=sf-dump-str title="667 characters">* using HTTP/1.x<span class="sf-dump-default sf-dump-ns">\n</span></span>
+      <span class=sf-dump-str title="667 characters">&gt; POST /service/login HTTP/1.1<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">Host: auth:8000<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">Content-Type: application/json<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">Accept: */*<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">User-Agent: Symfony HttpClient (Curl)<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">Accept-Encoding: gzip<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">Content-Length: 51<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters"><span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">* upload completely sent off: 51 bytes<span class="sf-dump-default sf-dump-ns">\n</span></span>
+      <span class=sf-dump-str title="667 characters">&lt; HTTP/1.1 200 OK<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">&lt; Cache-Control: no-cache, private<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">&lt; Content-Type: application/json<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">&lt; Date: Mon, 19 Jan 2026 03:23:22 GMT<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">&lt; X-Powered-By: PHP/8.3.29<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">&lt; X-Robots-Tag: noindex<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">&lt; Content-Length: 512<span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">&lt; <span class="sf-dump-default sf-dump-ns">\r\n</span></span>
+      <span class=sf-dump-str title="667 characters">* Connection #0 to host auth:8000 left intact<span class="sf-dump-default sf-dump-ns">\n</span></span>
+      """
+     &#8230;16
+  </samp>}
+  -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpClient\Response\TraceableResponse`">content</span>: <a class=sf-dump-ref>&amp;</a> <span class=sf-dump-note>array:1</span> [<samp data-depth=2 id=sf-dump-1145392950-ref010 class=sf-dump-compact>
+    "<span class=sf-dump-key>token</span>" => "<span class=sf-dump-str title="500 characters">eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjb3JlIiwidHlwZSI6InNlcnZpY2UiLCJyb2xlcyI6WyJST0xFX1NFUlZJQ0UiXSwiaWF0IjoxNzY4NzkzMDAyLCJleHAiOjE3Njg3OTY2MDJ9.W38oq0RiTN2NgK95MmND2YCqk74JkyOF_9O4yrRpqBopH83c64aTCLvrjH4iFsU4N8RRa28RSUHSKxXMK15LoQW4qqbT80IKfOxhgxoaU62oa0Urv0LZxbMiOoLWZvQXOSFS18gFSr2cd-KKTEiXsCE7ZBjyv01Oc35YnJ6vgNzsyrgw7yCh3A1GtXT-WP3kkla8D7a40CTj7Ppd75ZKQYJ1RKqTcqFCh-bljEwCCmAgzAQIhmvEI6iGsXa9O5HUP_wavYZZ6TX_Yf_4lBYDWvP28UuNAETm8PKC87EJ1FkOKYbAwb38tuZA2kGnkbSGHyAtSnmixN4F9aUwQQ9dmw</span>"
+  </samp>]
+  -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\HttpClient\Response\TraceableResponse`">event</span>: <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\Stopwatch\StopwatchEvent
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\Stopwatch</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">StopwatchEvent</span></span> {<a class=sf-dump-ref>#557</a><samp data-depth=2 class=sf-dump-compact>
+    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\Stopwatch\StopwatchEvent`">periods</span>: <span class=sf-dump-note>array:2</span> [<samp data-depth=3 class=sf-dump-compact>
+      <span class=sf-dump-index>0</span> => <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\Stopwatch\StopwatchPeriod
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\Stopwatch</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">StopwatchPeriod</span></span> {<a class=sf-dump-ref>#560</a><samp data-depth=4 class=sf-dump-compact>
+        -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\Stopwatch\StopwatchPeriod`">start</span>: <span class=sf-dump-num>4.0</span>
+        -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\Stopwatch\StopwatchPeriod`">end</span>: <span class=sf-dump-num>12.2</span>
+        -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\Stopwatch\StopwatchPeriod`">memory</span>: <span class=sf-dump-num>2097152</span>
+      </samp>}
+      <span class=sf-dump-index>1</span> => <span class="sf-dump-note sf-dump-ellipsization" title="Symfony\Component\Stopwatch\StopwatchPeriod
+"><span class="sf-dump-ellipsis sf-dump-ellipsis-note">Symfony\Component\Stopwatch</span><span class="sf-dump-ellipsis sf-dump-ellipsis-note">\</span><span class="sf-dump-ellipsis-tail">StopwatchPeriod</span></span> {<a class=sf-dump-ref>#556</a><samp data-depth=4 class=sf-dump-compact>
+        -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\Stopwatch\StopwatchPeriod`">start</span>: <span class=sf-dump-num>12.2</span>
+        -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\Stopwatch\StopwatchPeriod`">end</span>: <span class=sf-dump-num>12.3</span>
+        -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\Stopwatch\StopwatchPeriod`">memory</span>: <span class=sf-dump-num>2097152</span>
+      </samp>}
+    </samp>]
+    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\Stopwatch\StopwatchEvent`">origin</span>: <span class=sf-dump-num>1768793002614.7</span>
+    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\Stopwatch\StopwatchEvent`">category</span>: "<span class=sf-dump-str title="11 characters">http_client</span>"
+    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\Stopwatch\StopwatchEvent`">started</span>: []
+    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\Stopwatch\StopwatchEvent`">name</span>: "<span class=sf-dump-str title="35 characters">POST http://auth:8000/service/login</span>"
+    -<span class=sf-dump-private title="Private property defined in class:&#10;`Symfony\Component\Stopwatch\StopwatchEvent`">morePrecision</span>: <span class=sf-dump-const>true</span>
+  </samp>}
+</samp>}
+</pre><script>Sfdump("sf-dump-1145392950")</script>

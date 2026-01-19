@@ -58,3 +58,12 @@ Content-Type: application/json
 DELETE http://localhost:8000/productos/1
 Accept: application/json
 
+
+#### loguin service
+POST http://localhost:8001/service/login
+Content-Type: application/json
+
+{
+  "service": "core",
+  "secret": "super-secret-core-key"
+}

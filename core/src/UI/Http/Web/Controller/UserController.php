@@ -2,42 +2,89 @@
 
 namespace App\UI\Http\Web\Controller;
 
+use App\Infrastructure\Security\AuthServiceTokenProvider;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
+#[Route('/usuarios')]
 class UserController
 {
-    #[Route('/usuarios', methods: ['POST'])]
+    public function __construct(
+        private HttpClientInterface $httpClient,
+        private AuthServiceTokenProvider $tokenProvider,
+        private string $authBaseUrl,
+    ) {}
+
+    /**
+     * Crear usuario
+     */
+    #[Route('', methods: ['POST'])]
     public function create(Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
 
-        // 🚧 Lógica vendrá después
-        return new JsonResponse([
-            'message' => 'Crear usuario (pendiente)',
-            'data' => $data
-        ], 201);
+        if (!$data) {
+            return new JsonResponse(['error' => 'JSON inválido'], 400);
+        }
+
+        $token = $this->tokenProvider->getToken();
+
+        $response = $this->httpClient->request('POST', $this->authBaseUrl . '/service/users', [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $token,
+            ],
+            'json' => $data,
+        ]);
+
+        return new JsonResponse(['PUT' => $token]);
     }
 
-    #[Route('/usuarios/{id}', methods: ['PUT'])]
+    /**
+     * Actualizar usuario
+     */
+    #[Route('/{id}', methods: ['PUT'])]
     public function update(int $id, Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
-        return new JsonResponse([
-            'message' => 'Actualizar usuario (pendiente)',
-            'id' => $id,
-            'data' => $data
+
+        if (!$data) {
+            return new JsonResponse(['error' => 'JSON inválido'], 400);
+        }
+
+        $token = $this->tokenProvider->getToken();
+
+        $response = $this->httpClient->request('PUT', "/service/users/{$id}", [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $token,
+            ],
+            'json' => $data,
         ]);
+
+        return new JsonResponse(
+            $response->toArray(false),
+            $response->getStatusCode()
+        );
     }
 
-    #[Route('/usuarios/{id}', methods: ['DELETE'])]
-    public function delete(int $id, Request $request): JsonResponse
+    /**
+     * Eliminar usuario
+     */
+    #[Route('/{id}', methods: ['DELETE'])]
+    public function delete(int $id): JsonResponse
     {
-        return new JsonResponse([
-            'message' => 'Eliminar usuario (pendiente)',
-            'id' => $id
-        ], 204);
+        $token = $this->tokenProvider->getToken();
+
+        $response = $this->httpClient->request('DELETE', "/service/users/{$id}", [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $token,
+            ],
+        ]);
+
+        return new JsonResponse(
+            null,
+            $response->getStatusCode()
+        );
     }
 }

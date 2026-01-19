@@ -32,6 +32,11 @@ class UserRepository extends ServiceEntityRepository implements UserRepositoryIn
         return $this->find($id);
     }
 
+     public function buscarTodos(): array
+    {
+        return $this->findAll();
+    }
+
     public function buscarPorUsername(string $username): ?User
     {
         return $this->createQueryBuilder('u')
