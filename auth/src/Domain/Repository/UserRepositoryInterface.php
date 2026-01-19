@@ -11,4 +11,5 @@ interface UserRepositoryInterface
     public function buscarPorUsername(string $username): ?User;
     public function existeConUsername(string $username): bool;
     public function buscarTodos() : array;
+    public function eliminar(User $user): void;
 }

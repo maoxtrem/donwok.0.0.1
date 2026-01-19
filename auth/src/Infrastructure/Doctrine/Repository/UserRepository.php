@@ -26,13 +26,18 @@ class UserRepository extends ServiceEntityRepository implements UserRepositoryIn
         $em->persist($user);
         $em->flush();
     }
-
+    public function eliminar(User $user): void
+    {
+        $em = $this->getEntityManager();
+        $em->persist($user);
+        $em->flush();
+    }
     public function buscarPorId(int $id): ?User
     {
         return $this->find($id);
     }
 
-     public function buscarTodos(): array
+    public function buscarTodos(): array
     {
         return $this->findAll();
     }

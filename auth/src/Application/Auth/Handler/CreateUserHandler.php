@@ -20,7 +20,8 @@ class CreateUserHandler
             throw new \DomainException('Usuario ya existe');
         }
 
-        $user = new User($dto->username);
+        $user = new User();
+        $user->setUsername($dto->username);
         $user->setRoles($dto->roles ?: ['ROLE_USER']);
 
         $hash = $this->passwordHasher->hashPassword($user, $dto->password);

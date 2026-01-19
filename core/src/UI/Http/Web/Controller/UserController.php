@@ -28,17 +28,21 @@ class UserController
         if (!$data) {
             return new JsonResponse(['error' => 'JSON inválido'], 400);
         }
-
+    return new JsonResponse(
+       $data
+        );
         $token = $this->tokenProvider->getToken();
-
+        
         $response = $this->httpClient->request('POST', $this->authBaseUrl . '/service/users', [
             'headers' => [
                 'Authorization' => 'Bearer ' . $token,
             ],
             'json' => $data,
         ]);
-
-        return new JsonResponse(['PUT' => $token]);
+        return new JsonResponse(
+        [],
+            $response->getStatusCode()
+        );
     }
 
     /**
