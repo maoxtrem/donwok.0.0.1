@@ -8,12 +8,16 @@ Content-Type: application/json
 
 ####
 POST http://localhost:8000/login-by-token
-Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjEsInVzZXJuYW1lIjoiYWRtaW4iLCJyb2xlcyI6WyJST0xFX0FETUlOIl0sImV4cCI6MTc2ODY3ODU0NX0.uNwTkJPTYG6K2ZfhXwUXp1G5IFNld1QIJ2NcxA-If6TM7t0WF-5k6pq4zJUX0DoR-FYE_EMa8Zr0xux4UrMGBgnTM9sMf7X0svCIz3UA9Fhu2hzyjEcM5p6tazjaF3RCYAG_ZF5kUZ-rj_uejY6r-5LTUshDqhoGu0UczWX5yTxR1-N2y9PprxMPl2ajCJKQesfnrzAMScwGFhQ9DIp1VoxvQPXO1JhJDSUzv8f0hscgM-mk8L6Mkq1IPuCu4g44ItVvlp3yCBnG0W9XpI553pPZszmP1t0rzPnFDykzOWl3SaTlnoynDc14JRkic7sUkes9VReo0OAKzfP-Oy0axw
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjEsInVzZXJuYW1lIjoiYWRtaW4iLCJyb2xlcyI6WyJST0xFX0FETUlOIl0sImV4cCI6MTc2ODc4MTM1N30.T3lSXO4UOYTm0aPYb2_uyRFL_e3ulyOGmOw8bjU3fkOqyv2B1mj7vaSLhkiXD4YNxoj0c8BthW8gGUr4LLiXmVLJt5twaf_hy-lGBGkNDev4I2BsfN6YWzfjDa1N-z_ZyKUMaYs_Q-ipLEvGtjTtJBC4AQ6of9HMcBD0Z_MTaZz54QZEWkRUcthPovLsih82fOp-Lq87Z9vRYqHZJtp0BqvlLU5lPfTf7A2jjE76Ah_PGMkZ7Gc1HwXdIZ-GKhS0oH_ihBuBcrgypeQ7BwHcWg0SXa0PsjEztQtCIioxoondwwQSaet-sh81GtD1Ch3Xg_pstno9pbBFrI7Lu7JGRg
+
+#### crear usuario
+POST http://localhost:8000/usuarios
 Content-Type: application/json
 
-
-#### me
-GET http://localhost:8000/me
+{
+  "username": "admin2",
+  "password": "admin"
+}
 
 #### logout
 GET http://localhost:8000/logout

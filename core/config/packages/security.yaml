@@ -1,4 +1,7 @@
 security:
+    providers:
+        core_user_provider:
+            id: App\Infrastructure\Security\CoreUserProvider
     firewalls:
         dev:
             pattern: ^/(_profiler|_wdt|assets|build)/
@@ -9,6 +12,7 @@ security:
             lazy: true
             stateless: false   # permite manejar sesión Symfony
             entry_point: null
+            provider: core_user_provider
             logout:
                 path: /logout
                 invalidate_session: true
@@ -23,3 +27,4 @@ security:
     access_control:
         - { path: ^/productos, methods: [POST, PUT, DELETE], roles: ROLE_ADMIN }
         - { path: ^/productos, roles: PUBLIC_ACCESS }
+        - { path: ^/usuarios, methods: [POST, PUT, DELETE], roles: ROLE_ADMIN }

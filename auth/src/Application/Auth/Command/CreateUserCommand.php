@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Command;
+namespace App\Application\Auth\Command;
 
 use Symfony\Component\Console\Attribute\AsCommand;
 use App\Domain\Entity\User;
@@ -40,7 +40,7 @@ class CreateUserCommand extends Command
 
         $hashedPassword = $this->passwordHasher->hashPassword(
             $user,
-            'admin123'
+            'admin'
         );
 
         $user->setPassword($hashedPassword);

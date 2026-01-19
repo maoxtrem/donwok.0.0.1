@@ -3,65 +3,88 @@
 namespace App\UI\Http\Web\Controller;
 
 use App\Infrastructure\Security\TokenVerifierService;
+use App\Infrastructure\Security\CoreUser;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 class AuthController
 {
-    public function __construct(private TokenVerifierService $tokenVerifier) {}
+    public function __construct(
+        private TokenVerifierService $tokenVerifier,
+        private TokenStorageInterface $tokenStorage
+    ) {}
 
     #[Route('/login-by-token', methods: ['POST'])]
     public function loginByToken(Request $request): JsonResponse
     {
         $authHeader = $request->headers->get('Authorization');
+
         if (!$authHeader || !str_starts_with($authHeader, 'Bearer ')) {
             return new JsonResponse(['error' => 'No token provided'], 401);
         }
 
-        $token = substr($authHeader, 7);
+        $jwt = substr($authHeader, 7);
 
-        $payload = $this->tokenVerifier->verify($token);
+        $payload = $this->tokenVerifier->verify($jwt);
         if (!$payload) {
-            return new JsonResponse(['error' => 'Token invalido'], 401);
+            return new JsonResponse(['error' => 'Token inválido'], 401);
         }
 
-        // Crear sesión Symfony
-        $session = $request->getSession();
-        $session->set('user_id', $payload['uid'] ?? null);
-        $session->set('username', $payload['username'] ?? null);
-        $session->set('roles', $payload['roles'] ?? ['ROLE_USER']);
+        // 👤 Usuario de seguridad (NO entidad)
+        $user = new CoreUser(
+            $payload['uid'],
+            $payload['username'],
+            $payload['roles'] ?? ['ROLE_USER']
+        );
+
+        // 🔐 Token de Symfony
+        $token = new UsernamePasswordToken(
+            $user,
+            'main', // firewall
+            $user->getRoles()
+        );
+
+        // ✅ Autenticar al usuario
+        $this->tokenStorage->setToken($token);
 
         return new JsonResponse([
             'message' => 'Sesión creada correctamente',
-            'session_id' => $session->getId(),
-            'user' => $payload
-        ]);
-    }
-
-    // Ejemplo de ruta protegida por sesión
-    #[Route('/me', methods: ['GET'])]
-    public function me(Request $request): JsonResponse
-    {
-        $session = $request->getSession();
-        if (!$session->has('user_id')) {
-            return new JsonResponse(['error' => 'No session'], 401);
-        }
-
-        return new JsonResponse([
             'user' => [
-                'id' => $session->get('user_id'),
-                'email' => $session->get('username'),
-                'roles' => $session->get('roles'),
+                'id' => $payload['uid'],
+                'username' => $payload['username'],
+                'roles' => $payload['roles'],
             ]
         ]);
     }
 
-    // Logout de sesión
-    #[Route('/logout', methods: ['GET'])]
+    #[Route('/me', methods: ['GET'])]
+    public function me(): JsonResponse
+    {
+        $token = $this->tokenStorage->getToken();
+
+        if (!$token || !$token->getUser()) {
+            return new JsonResponse(['error' => 'No autenticado'], 401);
+        }
+
+        $user = $token->getUser();
+
+        return new JsonResponse([
+            'user' => [
+                'username' => $user->getUserIdentifier(),
+                'roles' => $user->getRoles(),
+            ]
+        ]);
+    }
+
+    #[Route('/logout', methods: ['POST'])]
     public function logout(Request $request): JsonResponse
     {
+        $this->tokenStorage->setToken(null);
         $request->getSession()->invalidate();
-        return new JsonResponse(['message' => 'Sesión cerrada correctamente']);
+
+        return new JsonResponse(['message' => 'Sesión cerrada']);
     }
 }

@@ -1,25 +1,19 @@
 <?php
 
-
 namespace App\UI\Http\Controller;
 
-
-use App\Infrastructure\Security\TokenService;
+use App\Application\Auth\DTO\LoginRequestDTO;
+use App\Application\Auth\Handler\LoginHandler;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use App\Domain\Repository\UserRepositoryInterface;
 
 class AuthController
 {
-
     #[Route('/login', methods: ['POST'])]
     public function login(
         Request $request,
-        UserRepositoryInterface $userRepository,
-        UserPasswordHasherInterface $passwordHasher,
-        TokenService $tokenService
+        LoginHandler $handler
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
 
@@ -27,25 +21,13 @@ class AuthController
             return new JsonResponse(['error' => 'JSON inválido'], 400);
         }
 
-        // 1️⃣ Buscar usuario
-        $user = $userRepository->findOneBy(['username' => $data['username']]);
-        if (!$user) {
-            return new JsonResponse(['error' => 'Credenciales inválidas'], 401);
+        try {
+            $dto = new LoginRequestDTO($data['username'], $data['password']);
+            $response = $handler->handle($dto);
+
+            return new JsonResponse($response->toArray());
+        } catch (\DomainException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], 401);
         }
-
-        // 2️⃣ Validar password
-        if (!$passwordHasher->isPasswordValid($user, $data['password'])) {
-            return new JsonResponse(['error' => 'Credenciales inválidas'], 401);
-        }
-
-        // 3️⃣ Generar token
-        $token = $tokenService->sign([
-            'uid' => $user->getId(),
-            'username' => $user->getUserIdentifier(),
-            'roles' => $user->getRoles()?$user->getRoles():['ROLE_USER'],
-        ]);
-
-        // 4️⃣ Devolver JSON
-        return new JsonResponse(['token' => $token]);
     }
 }
