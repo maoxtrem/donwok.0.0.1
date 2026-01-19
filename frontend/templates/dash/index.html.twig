@@ -20,15 +20,8 @@
         <button id="logout">logout</button>
 
 <script type="module">
-import { logout,requireAuth } from '/js/auth.js';
-
-
-
-    const uxlogout = document.getElementById('logout');
-    uxlogout.addEventListener("click",async function(e) {
-        await logout();
-        await requireAuth()
-    })
+    import CoreAPI from './js/core.js';
+    const api = new CoreAPI();
 </script>
 
 {% endblock %}

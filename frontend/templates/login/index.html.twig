@@ -10,18 +10,20 @@
 </form>
 
 <script type="module">
-    import { login } from '/js/auth.js';
-
+    // login.js
+    import CoreAPI from './js/core.js';
+    const api = new CoreAPI();
     document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
 
         try {
-            await login(
-                document.getElementById('username').value,
-                document.getElementById('password').value
+        await api.loginAuth(
+            document.getElementById('username').value,
+           document.getElementById('password').value
             );
+        await api.loginCoreWithToken();
+        window.location.href = '/dash'; // redirige a otro template
 
-            window.location.href = '/dash';
         } catch (err) {
             console.log(err.message);
         }
