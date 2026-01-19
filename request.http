@@ -16,7 +16,7 @@ POST http://localhost:8000/usuarios
 Content-Type: application/json
 
 {
-  "username": "admin5",
+  "username": "admin8",
   "password": "admin"
 }
 #### crear usuario directo

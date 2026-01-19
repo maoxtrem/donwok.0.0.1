@@ -19,7 +19,6 @@ class UserController
     public function create(Request $request, CreateUserHandler $handler): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
-            return new JsonResponse($data, 201);
         $handler->handle(
             new UserRequestDTO(
                 $data['username'],
