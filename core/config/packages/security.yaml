@@ -27,4 +27,4 @@ security:
     access_control:
         - { path: ^/productos, methods: [POST, PUT, DELETE], roles: ROLE_ADMIN }
         - { path: ^/productos, roles: PUBLIC_ACCESS }
-        #- { path: ^/usuarios, methods: [POST, PUT, DELETE], roles: ROLE_ADMIN }
+        - { path: ^/usuarios, methods: [POST, PUT, DELETE], roles: ROLE_ADMIN }

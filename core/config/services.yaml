@@ -27,3 +27,7 @@ services:
     App\UI\Http\Web\Controller\UserController:
         arguments:
             $authBaseUrl: '%auth_base_url%'
+
+    App\UI\Http\EventSubscriber\:
+        resource: '../src/UI/Http/EventSubscriber'
+        tags: ['kernel.event_subscriber']
