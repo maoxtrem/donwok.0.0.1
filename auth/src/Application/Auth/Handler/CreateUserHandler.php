@@ -6,7 +6,7 @@ use App\Application\Auth\DTO\UserRequestDTO;
 use App\Domain\Entity\User;
 use App\Domain\Repository\UserRepositoryInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 class CreateUserHandler
 {
     public function __construct(
@@ -17,7 +17,7 @@ class CreateUserHandler
     public function handle(UserRequestDTO $dto): void
     {
         if ($this->repo->existeConUsername($dto->username)) {
-            throw new \DomainException('Usuario ya existe');
+           throw new ConflictHttpException('Usuario ya existe');
         }
 
         $user = new User();

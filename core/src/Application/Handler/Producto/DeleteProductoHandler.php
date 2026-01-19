@@ -3,7 +3,7 @@
 namespace App\Application\Handler\Producto;
 
 use App\Domain\Repository\ProductoRepositoryInterface;
-
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class DeleteProductoHandler
 {
     public function __construct(private ProductoRepositoryInterface $repo) {}
@@ -13,7 +13,7 @@ class DeleteProductoHandler
         $producto = $this->repo->buscarPorId($id);
 
         if (!$producto) {
-            throw new \RuntimeException("Producto no encontrado.");
+            throw new NotFoundHttpException("Producto no encontrado.");
         }
         $producto->eliminarLogicamente();
         $this->repo->guardar($producto); // asumimos método eliminar en repo

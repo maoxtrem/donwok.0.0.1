@@ -20,7 +20,11 @@ services:
     App\Infrastructure\Security\TokenService:
         arguments:
             $privateKeyPath: '%jwt_private_key%'
-    
+
+    App\Infrastructure\Security\TokenVerifierService:
+        arguments:
+            $publicKeyPath: '%jwt_public_key%'  
+             
     App\UI\Http\EventSubscriber\:
         resource: '../src/UI/Http/EventSubscriber'
         tags: ['kernel.event_subscriber']

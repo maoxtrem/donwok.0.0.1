@@ -5,6 +5,7 @@ namespace App\Application\Handler\Producto;
 use App\Application\DTO\Request\ProductoRequestDTO;
 use App\Application\DTO\Response\ProductoResponseDTO;
 use App\Domain\Repository\ProductoRepositoryInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class UpdateProductoHandler
 {
@@ -15,7 +16,7 @@ class UpdateProductoHandler
         $producto = $this->repo->buscarPorId($id);
 
         if (!$producto) {
-            throw new \RuntimeException("Producto no encontrado.");
+            throw new NotFoundHttpException("Producto no encontrado.");
         }
 
         // Usamos métodos de negocio de la entidad
