@@ -48,13 +48,34 @@
         const btn = document.getElementById(`btn-action-${id}`);
         if (!btn) return;
         btn.disabled = true;
+        const originalText = btn.innerText;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        
         try {
             const res = await api.post(`/pedidos/${id}/terminar`);
+            
+            // 🟢 Notificación de Éxito
+            Swal.fire({
+                icon: 'success',
+                title: '¡Pedido Terminado!',
+                text: `El pedido #${id} está listo para entregar.`,
+                timer: 1500,
+                showConfirmButton: false,
+                toast: true,
+                position: 'top-end'
+            });
+
             if (res.pedido) updateOrderRow(res.pedido);
         } catch (err) { 
             btn.disabled = false;
-            btn.innerText = 'TERMINAR';
+            btn.innerText = originalText;
+            
+            // 🔴 Notificación de Error
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: err.message || 'No se pudo terminar el pedido.'
+            });
         }
     };
 
@@ -62,13 +83,34 @@
         const btn = document.getElementById(`btn-action-${id}`);
         if (!btn) return;
         btn.disabled = true;
+        const originalText = btn.innerText;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        
         try {
-            await api.post(`/pedidos/${id}/facturar`);
+            const res = await api.post(`/pedidos/${id}/facturar`);
+            
+            // 🟢 Notificación de Éxito
+            Swal.fire({
+                icon: 'success',
+                title: '¡Facturado!',
+                text: `Factura ${res.pedido?.numeroFactura || ''} generada correctamente.`,
+                timer: 2000,
+                showConfirmButton: false,
+                toast: true,
+                position: 'top-end'
+            });
+
             removeOrderRow(id);
         } catch (err) { 
             btn.disabled = false;
-            btn.innerText = 'FACTURAR';
+            btn.innerText = originalText;
+            
+            // 🔴 Notificación de Error
+            Swal.fire({
+                icon: 'error',
+                title: 'Error al facturar',
+                text: err.message || 'Hubo un problema al procesar la factura.'
+            });
         }
     };
 
@@ -76,7 +118,14 @@
         try {
             const pedidos = await api.get('/pedidos/pendientes');
             renderQueue(pedidos);
-        } catch (err) { console.error("Error inicial:", err); }
+        } catch (err) { 
+            console.error("Error inicial:", err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error de conexión',
+                text: 'No se pudieron cargar los pedidos iniciales.'
+            });
+        }
 
         // Mercure SSE
         const url = new URL('/.well-known/mercure', window.location.origin);
@@ -93,7 +142,12 @@
             const data = JSON.parse(event.data);
             console.log("[SSE] Evento:", data);
             
-            if (data.type === 'NEW_ORDER') prependToQueue(data.pedido);
+            if (data.type === 'NEW_ORDER') {
+                prependToQueue(data.pedido);
+                // Notificación discreta de nuevo pedido
+                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                audio.play().catch(() => {});
+            }
             else if (data.type === 'ORDER_READY') updateOrderRow(data.pedido);
             else if (data.type === 'ORDER_INVOICED') removeOrderRow(data.pedido.id);
         };
@@ -131,7 +185,7 @@
             row.style.transform = 'translateX(20px)';
             row.style.transition = 'all 0.4s ease';
             setTimeout(() => {
-                if (row.parentNode) row.remove(); // Safety check
+                if (row.parentNode) row.remove();
                 const body = document.getElementById('production-queue');
                 if (body && body.children.length === 0) {
                     renderQueue([]);

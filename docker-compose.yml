@@ -117,6 +117,8 @@ services:
       MARIADB_ROOT_PASSWORD: root
       MARIADB_USER: symfony
       MARIADB_PASSWORD: symfony
+    ports:
+      - "3306:3306" # Acceso directo a BD
     volumes:
       - ./db_data:/var/lib/mysql:rw
     networks:

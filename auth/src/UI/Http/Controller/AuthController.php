@@ -10,7 +10,7 @@ use Symfony\Component\Routing\Attribute\Route;
 
 class AuthController
 {
-    #[Route('/login', methods: ['POST'])]
+    #[Route('/auth/login', methods: ['POST'])]
     public function login(
         Request $request,
         LoginHandler $handler
