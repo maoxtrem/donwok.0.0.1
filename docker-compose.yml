@@ -88,5 +88,23 @@ services:
       APP_ENV: dev
       CORE_BASE_URL: http://core:8000
       AUTH_BASE_URL: http://auth:8000
+      MERCURE_PUBLIC_URL: http://localhost:3000/.well-known/mercure
+    networks:
+      - internal_net
+
+  # =====================
+  # MERCURE HUB (Tiempo Real)
+  # =====================
+  mercure:
+    container_name: mercure
+    image: dunglas/mercure
+    restart: unless-stopped
+    environment:
+      SERVER_NAME: ":80"
+      MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisMercureHubFreeApp2022!"
+      MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisMercureHubFreeApp2022!"
+      MERCURE_EXTRA_DIRECTIVES: "cors_origins *"
+    ports:
+      - "3001:80"
     networks:
       - internal_net

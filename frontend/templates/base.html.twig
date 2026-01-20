@@ -67,6 +67,13 @@
                 margin-left: var(--sidebar-width);
                 padding: 2rem;
                 min-height: 100vh;
+                transition: margin-left 0.3s ease;
+            }
+
+            /* Pantallas completas (Monitor y Login) */
+            .login-page .main-content, .monitor-page .main-content { 
+                margin-left: 0 !important; 
+                padding: 0 !important; 
             }
 
             .glass-card {
@@ -79,6 +86,8 @@
     </head>
     <body class="{% block body_class %}{% endblock %}">
         
+        {# Sidebar: Solo si NO es monitor y NO es login #}
+        {% if app.request.get('_route') != 'app_pedidos_monitor' and block('body_class') != 'login-page' %}
         <nav class="sidebar">
             <div class="sidebar-header">
                 <h4 class="mb-0 fw-bold">🍱 DonWok</h4>
@@ -95,6 +104,13 @@
                 <a href="/ventas" class="nav-link">
                     <i class="bi bi-cart3"></i> Ventas (POS)
                 </a>
+                <div class="mt-3 px-3 small text-uppercase opacity-50 fw-bold" style="font-size: 0.7rem; color:white;">Pedidos</div>
+                <a href="/pedidos/gestion" class="nav-link">
+                    <i class="bi bi-clipboard-check"></i> Gestión de Cola
+                </a>
+                <a href="/pedidos/monitor" class="nav-link" target="_blank">
+                    <i class="bi bi-display"></i> Monitor Público
+                </a>
             </div>
 
             <div class="mt-auto p-3 border-top border-secondary">
@@ -103,6 +119,7 @@
                 </a>
             </div>
         </nav>
+        {% endif %}
 
         <main class="main-content">
             {% block body %}{% endblock %}

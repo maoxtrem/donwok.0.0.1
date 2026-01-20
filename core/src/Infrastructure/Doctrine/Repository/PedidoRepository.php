@@ -3,13 +3,14 @@
 namespace App\Infrastructure\Doctrine\Repository;
 
 use App\Domain\Entity\Pedido;
+use App\Domain\Repository\PedidoRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
  * @extends ServiceEntityRepository<Pedido>
  */
-class PedidoRepository extends ServiceEntityRepository
+class PedidoRepository extends ServiceEntityRepository implements PedidoRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {
@@ -20,6 +21,21 @@ class PedidoRepository extends ServiceEntityRepository
     {
         $this->getEntityManager()->persist($pedido);
         $this->getEntityManager()->flush();
+    }
+
+    public function buscarPorId(int $id): ?Pedido
+    {
+        return $this->find($id);
+    }
+
+    public function findPendientes(): array
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.estado = :val')
+            ->setParameter('val', Pedido::ESTADO_PENDIENTE)
+            ->orderBy('p.id', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 
     //    /**
