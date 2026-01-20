@@ -1,0 +1,115 @@
+/* Fondo general con degradado azul profesional */
+.login-container {
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(135deg, #001f3f 0%, #003366 50%, #0056b3 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Tarjeta de Login */
+.login-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 15px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 420px;
+  padding: 2.5rem;
+  transition: transform 0.3s ease;
+}
+
+.login-card:hover {
+  transform: translateY(-5px);
+}
+
+/* Título */
+.login-title {
+  color: #003366;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 1.8rem;
+}
+
+/* Inputs personalizados */
+.custom-input {
+  border: 2px solid #e1e5ea;
+  border-radius: 8px;
+  padding: 12px 15px;
+  transition: all 0.3s ease;
+  background-color: #f8f9fa;
+  font-size: 0.95rem;
+}
+
+.custom-input:focus {
+  border-color: #0056b3;
+  box-shadow: 0 0 0 4px rgba(0, 86, 179, 0.1);
+  background-color: #fff;
+  outline: none;
+}
+
+.input-label {
+  color: #4a5568;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+/* Botón con degradado */
+.btn-login {
+  background: linear-gradient(90deg, #003366 0%, #0056b3 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  padding: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 51, 102, 0.3);
+}
+
+.btn-login:hover:not(:disabled) {
+  background: linear-gradient(90deg, #002244 0%, #004494 100%);
+  box-shadow: 0 6px 20px rgba(0, 51, 102, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-login:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Decoración sutil (círculos difuminados de fondo) - Opcional para dar profundidad */
+.login-bg-decoration {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.circle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.circle-1 {
+  width: 300px;
+  height: 300px;
+  top: -50px;
+  left: -50px;
+}
+
+.circle-2 {
+  width: 200px;
+  height: 200px;
+  bottom: 50px;
+  right: -50px;
+}
