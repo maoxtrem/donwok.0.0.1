@@ -42,7 +42,8 @@
         } catch (err) { console.error(err); }
 
         // Escuchar tiempo real
-        const url = new URL(`http://${window.location.hostname}:3001/.well-known/mercure`);
+        // Escuchar tiempo real vía Gateway
+        const url = new URL('/.well-known/mercure', window.location.origin);
         url.searchParams.append('topic', 'donwok/pedidos');
         const eventSource = new EventSource(url);
         

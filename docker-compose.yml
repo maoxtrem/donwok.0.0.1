@@ -14,8 +14,7 @@ services:
     volumes:
       - ./core:/app
       - ./auth/config/jwt/public.pem:/app/config/jwt/public.pem:ro
-    ports:
-      - "8000:8000"
+    # 🟢 NO expone puertos al host (Seguridad + Desacoplamiento)
     depends_on:
       - db
     environment:
@@ -39,8 +38,7 @@ services:
     volumes:
       - ./auth:/app
       - ./auth/config/jwt:/app/config/jwt:rw
-    ports:
-      - "8001:8000"
+    # 🟢 NO expone puertos al host
     environment:
       APP_ENV: dev
       JWT_PRIVATE_KEY: /app/config/jwt/private.pem
@@ -53,6 +51,59 @@ services:
       CORE_SERVICE_SECRET: super-secret-core-key
     networks:
       - internal_net
+
+  # =====================
+  # FRONTEND (SYMFONY)
+  # =====================
+  frontend:
+    container_name: frontend-symfony
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    volumes:
+      - ./frontend:/app
+    # 🟢 NO expone puertos al host
+    environment:
+      APP_ENV: dev
+    networks:
+      - internal_net
+
+  # =====================
+  # MERCURE HUB (Motor real)
+  # =====================
+  mercure-hub:
+    container_name: mercure-hub
+    image: dunglas/mercure
+    restart: unless-stopped
+    environment:
+      SERVER_NAME: ":80"
+      MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisMercureHubFreeApp2022!"
+      MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisMercureHubFreeApp2022!"
+      MERCURE_EXTRA_DIRECTIVES: |
+        cors_origins *
+        anonymous
+    networks:
+      - internal_net
+
+  # =====================
+  # GATEWAY (El único punto de entrada)
+  # =====================
+  gateway:
+    image: nginx:alpine
+    container_name: gateway-pos
+    volumes:
+      - ./nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - core
+      - auth
+      - mercure-hub
+    networks:
+      internal_net:
+        aliases:
+          - mercure # 🟢 Ahora el Core encontrará "mercure" aquí
 
   # =====================
   # DATABASE
@@ -69,60 +120,5 @@ services:
       - ./db_data:/var/lib/mysql:rw
     ports:
       - "3306:3306"
-    networks:
-      - internal_net
-
-  # =====================
-  # FRONTEND (SYMFONY) - Totalmente Desacoplado
-  # =====================
-  frontend:
-    container_name: frontend-symfony
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    volumes:
-      - ./frontend:/app
-    ports:
-      - "80:8000"
-    environment:
-      APP_ENV: dev
-      # No hay DATABASE_URL ni CORE_BASE_URL internos
-      # El navegador usa el puerto expuesto del host
-    networks:
-      - internal_net
-
-  # =====================
-  # MERCURE HUB (Motor real de tiempo real)
-  # =====================
-  mercure-hub:
-    image: dunglas/mercure
-    restart: unless-stopped
-    environment:
-      SERVER_NAME: ":80"
-      MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisMercureHubFreeApp2022!"
-      MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisMercureHubFreeApp2022!"
-      MERCURE_EXTRA_DIRECTIVES: |
-        cors_origins *
-        anonymous
-    networks:
-      - internal_net
-
-  # =====================
-  # MERCURE RELAY (Puente que firma las peticiones del Core)
-  # =====================
-  mercure:
-    image: nginx:alpine
-    container_name: mercure-relay
-    command: >
-      /bin/sh -c "echo 'server { 
-        listen 80; 
-        location / { 
-          # Inyectamos el Token JWT firmado que validamos previamente
-          proxy_set_header Authorization \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXJjdXJlIjp7InB1Ymxpc2giOlsiKiJdfX0.aG9i0Irajat6mGgko_Xi5pDjNBtLLQLfElq2qbF-Eqg\"; 
-          proxy_pass http://mercure-hub; 
-        } 
-      }' > /etc/nginx/conf.d/default.conf && nginx -g \"daemon off;\""
-    ports:
-      - "3001:80"
     networks:
       - internal_net
