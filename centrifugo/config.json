@@ -3,12 +3,13 @@
   "api_key": "api-key",
   "allowed_origins": ["*"],
   "allow_anonymous_connect_without_token": true,
+  "allow_subscribe_for_client": true,
+  "allow_publish_for_client": true,
   "namespaces": [
     {
       "name": "public",
       "allow_subscribe_for_client": true,
       "allow_publish_for_client": true
     }
-  ],
-  "allow_subscribe_for_client": true
+  ]
 }

@@ -11,13 +11,16 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Mercure\HubInterface;
+use Symfony\Component\Mercure\Update;
 
 #[Route('/pedidos')]
 class PedidoController extends AbstractController
 {
     public function __construct(
         private CreatePedidoHandler $createHandler,
-        private EntityManagerInterface $em
+        private EntityManagerInterface $em,
+        private HubInterface $hub
     ) {}
 
     #[Route('/pendientes', name: 'app_pedidos_pendientes', methods: ['GET'])]
@@ -39,9 +42,12 @@ class PedidoController extends AbstractController
         try {
             $pedido->marcarComoTerminado();
             $this->em->flush();
-            $this->notifyCentrifugo($pedido, 'ORDER_READY');
+            $this->publishUpdate($pedido, 'ORDER_READY');
             return new JsonResponse(['message' => 'Pedido terminado', 'pedido' => $pedido->toArray()]);
-        } catch (\Exception $e) { return new JsonResponse(['message' => $e->getMessage()], 400); }
+        } catch (\Exception $e) { 
+            error_log('Error terminando pedido: ' . $e->getMessage());
+            return new JsonResponse(['message' => $e->getMessage()], 400); 
+        }
     }
 
     #[Route('/{id}/facturar', name: 'app_pedidos_facturar', methods: ['POST'])]
@@ -50,7 +56,6 @@ class PedidoController extends AbstractController
         $pedido = $repo->find($id);
         if (!$pedido) return new JsonResponse(['message' => 'No encontrado'], 404);
         
-        // Si ya está facturado, no hacemos nada más
         if ($pedido->getEstado() === Factura::ESTADO_FACTURADO) {
             return new JsonResponse(['message' => 'Este pedido ya fue facturado anteriormente']);
         }
@@ -60,14 +65,13 @@ class PedidoController extends AbstractController
             $pedido->facturar($proximoNumero);
             $this->em->flush();
             
-            $this->notifyCentrifugo($pedido, 'ORDER_INVOICED');
+            $this->publishUpdate($pedido, 'ORDER_INVOICED');
             return new JsonResponse(['message' => 'Facturado con éxito: ' . $proximoNumero, 'pedido' => $pedido->toArray()]);
         } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException $e) {
-            // 🟢 Si hubo colisión de número, intentamos con el siguiente una vez más
             $proximoNumero = $repo->getNextInvoiceNumber();
             $pedido->facturar($proximoNumero);
             $this->em->flush();
-            $this->notifyCentrifugo($pedido, 'ORDER_INVOICED');
+            $this->publishUpdate($pedido, 'ORDER_INVOICED');
             return new JsonResponse(['message' => 'Facturado tras colisión: ' . $proximoNumero, 'pedido' => $pedido->toArray()]);
         } catch (\Exception $e) { 
             return new JsonResponse(['message' => $e->getMessage()], 400); 
@@ -81,37 +85,19 @@ class PedidoController extends AbstractController
         $dto = new PedidoRequestDTO($data['items'] ?? []);
         try {
             $factura = $this->createHandler->handle($dto);
-            $this->notifyCentrifugo($factura, 'NEW_ORDER');
+            $this->publishUpdate($factura, 'NEW_ORDER');
             return new JsonResponse(['message' => 'Pedido en cola', 'pedido' => $factura->toArray()], 201);
         } catch (\Exception $e) { return new JsonResponse(['message' => $e->getMessage()], 400); }
     }
 
-    private function notifyCentrifugo(Factura $factura, string $type): void
+    private function publishUpdate(Factura $factura, string $type): void
     {
-        $url = "http://centrifugo:8000/api";
-        $data = [
-            'method' => 'publish',
-            'params' => [
-                'channel' => 'public:pedidos', 
-                'data' => ['type' => $type, 'pedido' => $factura->toArray()]
-            ]
-        ];
+        // Mercure HubInterface se encarga de firmar el JWT automáticamente
+        $update = new Update(
+            'donwok/pedidos',
+            json_encode(['type' => $type, 'pedido' => $factura->toArray()])
+        );
 
-        $payload = json_encode($data);
-        $opts = ['http' => [
-            'method'  => 'POST',
-            'header'  => "Content-type: application/json\r\nAuthorization: apikey api-key\r\n",
-            'content' => $payload,
-            'timeout' => 5
-        ]];
-        
-        $context = stream_context_create($opts);
-        $result = @file_get_contents($url, false, $context);
-        
-        if ($result === false) {
-            error_log("Centrifugo Error: No se pudo conectar al Hub.");
-        } else {
-            error_log("Centrifugo Success: Mensaje enviado -> " . $payload);
-        }
+        $this->hub->publish($update);
     }
 }

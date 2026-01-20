@@ -9,8 +9,8 @@
             <h2 class="fw-bold m-0">Cola de Producción</h2>
             <p class="text-muted">Gestión de estados en tiempo real</p>
         </div>
-        <div id="ws-status-badge">
-            <span class="badge bg-secondary">Iniciando WebSocket...</span>
+        <div id="sse-status-badge">
+            <span class="badge bg-secondary">Iniciando SSE...</span>
         </div>
     </div>
 
@@ -38,10 +38,9 @@
     import CoreAPI from '/js/core.js';
     const api = new CoreAPI();
 
-    // UI Status Helper
     function updateWSStatus(text, colorClass) {
-        const container = document.getElementById('ws-status-badge');
-        container.innerHTML = `<span class="badge ${colorClass} animate-pulse">${text}</span>`;
+        const container = document.getElementById('sse-status-badge');
+        if (container) container.innerHTML = `<span class="badge ${colorClass} animate-pulse">${text}</span>`;
     }
 
     // Funciones globales
@@ -74,50 +73,34 @@
     };
 
     async function init() {
-        console.log("%c[Gestión] Iniciando...", "color: blue; font-weight: bold;");
-        
         try {
             const pedidos = await api.get('/pedidos/pendientes');
             renderQueue(pedidos);
         } catch (err) { console.error("Error inicial:", err); }
 
-        if (typeof Centrifuge !== 'undefined') {
-            const wsUrl = `ws://${window.location.host}/connection/websocket`;
-            console.log(`%c[WebSocket] Conectando a ${wsUrl}`, "color: orange;");
+        // Mercure SSE
+        const url = new URL('/.well-known/mercure', window.location.origin);
+        url.searchParams.append('topic', 'donwok/pedidos');
+
+        const eventSource = new EventSource(url);
+
+        eventSource.onopen = () => {
+            console.log("[SSE] Conectado ✅");
+            updateWSStatus('Tiempo Real: Activo ✅', 'bg-success');
+        };
+
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log("[SSE] Evento:", data);
             
-            const centrifuge = new Centrifuge(wsUrl);
-            const sub = centrifuge.newSubscription('public:pedidos');
+            if (data.type === 'NEW_ORDER') prependToQueue(data.pedido);
+            else if (data.type === 'ORDER_READY') updateOrderRow(data.pedido);
+            else if (data.type === 'ORDER_INVOICED') removeOrderRow(data.pedido.id);
+        };
 
-            // Logs de Eventos
-            sub.on('publication', (ctx) => {
-                console.log("%c[WebSocket] Mensaje Recibido:", "color: green; font-weight: bold;", ctx.data);
-                const data = ctx.data;
-                if (data.type === 'NEW_ORDER') prependToQueue(data.pedido);
-                else if (data.type === 'ORDER_READY') updateOrderRow(data.pedido);
-                else if (data.type === 'ORDER_INVOICED') removeOrderRow(data.pedido.id);
-            });
-
-            sub.on('subscribed', () => {
-                console.log("%c[WebSocket] Suscrito al canal 'public:pedidos' ✅", "color: green;");
-                updateWSStatus('Tiempo Real: Activo ✅', 'bg-success');
-            });
-
-            sub.on('error', (err) => {
-                console.error("[WebSocket] Error en suscripción:", err);
-                updateWSStatus('Error de Suscripción ❌', 'bg-danger');
-            });
-
-            centrifuge.on('connected', () => console.log("%c[WebSocket] Conectado al Hub ✅", "color: green;"));
-            centrifuge.on('disconnected', () => {
-                console.warn("[WebSocket] Desconectado ⚠️");
-                updateWSStatus('Reconectando...', 'bg-warning text-dark');
-            });
-
-            sub.subscribe();
-            centrifuge.connect();
-        } else {
-            console.error("[Gestión] Error: Centrifuge no cargado.");
-        }
+        eventSource.onerror = () => {
+            updateWSStatus('Reconectando...', 'bg-warning text-dark');
+        };
     }
 
     function renderQueue(pedidos) {
@@ -147,7 +130,13 @@
             row.style.opacity = '0';
             row.style.transform = 'translateX(20px)';
             row.style.transition = 'all 0.4s ease';
-            setTimeout(() => row.remove(), 400);
+            setTimeout(() => {
+                if (row.parentNode) row.remove(); // Safety check
+                const body = document.getElementById('production-queue');
+                if (body && body.children.length === 0) {
+                    renderQueue([]);
+                }
+            }, 400);
         }
     }
 

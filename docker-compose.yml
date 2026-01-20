@@ -3,9 +3,7 @@ networks:
     driver: bridge
 
 services:
-  # =====================
-  # BACKEND / CORE - DEV
-  # =====================
+  # ... (resto igual)
   core:
     container_name: core-dev
     build:
@@ -20,77 +18,28 @@ services:
     environment:
       APP_ENV: dev
       DATABASE_URL: "mysql://root:root@db:3306/donwok?serverVersion=8.0"
-      JWT_PUBLIC_KEY: /app/config/jwt/public.pem
-      CORE_SERVICE_NAME: core
-      CORE_SERVICE_SECRET: super-secret-core-key
-      AUTH_BASE_URL: http://auth
+      MERCURE_URL: http://gateway/.well-known/mercure
+      MERCURE_PUBLIC_URL: http://localhost/.well-known/mercure
+      # Token JWT prefirmado con la clave '!ChangeMe!' para publicar en cualquier tópico
+      #MERCURE_JWT_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXJjdXJlIjp7InB1Ymxpc2giOlsiKiJdfX0.yL_7v_QC_ZAnZisrv9shAtv_9lsIDZ6Be_id_id_id_i"
+      MERCURE_JWT_SECRET: "secret-key-must-be-at-least-32-chars-long-1234"
     networks:
       - internal_net
 
-  # =====================
-  # AUTH - DEV
-  # =====================
-  auth:
-    container_name: auth-dev
-    build:
-      context: .
-      target: dev
-    volumes:
-      - ./auth:/app
-      - ./auth/config/jwt:/app/config/jwt:rw
-    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
-    environment:
-      APP_ENV: dev
-      JWT_PRIVATE_KEY: /app/config/jwt/private.pem
-      JWT_PUBLIC_KEY: /app/config/jwt/public.pem
-      JWT_ISSUER: auth-service
-      JWT_AUDIENCE: core-service
-      JWT_TTL: 600
-      DATABASE_URL: "mysql://root:root@db:3306/donwok_auth?serverVersion=8.0"
-      CORE_SERVICE_NAME: core
-      CORE_SERVICE_SECRET: super-secret-core-key
-    networks:
-      - internal_net
-
-  # =====================
-  # FRONTEND (SYMFONY)
-  # =====================
-  frontend:
-    container_name: frontend-symfony
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    volumes:
-      - ./frontend:/app
-    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
-    environment:
-      APP_ENV: dev
-    networks:
-      - internal_net
-
-  # =====================
-  # CENTRIFUGO (Tiempo Real)
-  # =====================
-  centrifugo:
-    image: centrifugo/centrifugo:v5
-    container_name: centrifugo
+  mercure:
+    image: dunglas/mercure
+    container_name: mercure-hub
     restart: unless-stopped
-    command: centrifugo --config=config.json
     environment:
-      CENTRIFUGO_TOKEN_HMAC_SECRET_KEY: "super-secret-key"
-      CENTRIFUGO_API_KEY: "api-key"
-      # Permitimos conexiones sin token para desarrollo
-      CENTRIFUGO_ALLOW_ANONYMOUS_CONNECT_WITHOUT_TOKEN: "true"
-    volumes:
-      - ./centrifugo/config.json:/centrifugo/config.json:ro
-    ports:
-      - "8008:8000" # Puerto para dashboard y WS
+      SERVER_NAME: ":80"
+      MERCURE_PUBLISHER_JWT_KEY: "secret-key-must-be-at-least-32-chars-long-1234"
+      MERCURE_SUBSCRIBER_JWT_KEY: "secret-key-must-be-at-least-32-chars-long-1234"
+      MERCURE_EXTRA_DIRECTIVES: |
+        anonymous
+        cors_origins *
     networks:
       - internal_net
 
-  # =====================
-  # GATEWAY
-  # =====================
   gateway:
     image: nginx:alpine
     container_name: gateway-pos
@@ -102,13 +51,36 @@ services:
       - frontend
       - core
       - auth
-      - centrifugo
+      - mercure
     networks:
       - internal_net
 
-  # =====================
-  # DATABASE
-  # =====================
+  auth:
+    container_name: auth-dev
+    build:
+      context: .
+      target: dev
+    volumes:
+      - ./auth:/app
+      - ./auth/config/jwt:/app/config/jwt:rw
+    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: "mysql://root:root@db:3306/donwok_auth?serverVersion=8.0"
+    networks:
+      - internal_net
+
+  frontend:
+    container_name: frontend-symfony
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    volumes:
+      - ./frontend:/app
+    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
+    networks:
+      - internal_net
+
   db:
     image: mariadb:10.11
     container_name: mariadb
@@ -119,7 +91,5 @@ services:
       MARIADB_PASSWORD: symfony
     volumes:
       - ./db_data:/var/lib/mysql:rw
-    ports:
-      - "3306:3306"
     networks:
       - internal_net

@@ -29,7 +29,7 @@
     .card-ready { background: var(--card-ready); border: 2px solid rgba(16, 185, 129, 0.2); }
     .order-number { font-size: 5rem; font-weight: 900; color: white; }
     
-    #ws-status-monitor { position: fixed; top: 1rem; right: 1rem; z-index: 3000; opacity: 0.8; }
+    #sse-status { position: fixed; top: 1rem; right: 1rem; z-index: 3000; opacity: 0.8; }
     .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 
@@ -38,7 +38,7 @@
 {% endblock %}
 
 {% block body %}
-<div id="ws-status-monitor">
+<div id="sse-status">
     <span class="badge bg-warning text-dark animate-pulse">Conectando...</span>
 </div>
 
@@ -61,39 +61,33 @@
     const api = new CoreAPI();
 
     function updateStatus(text, colorClass) {
-        const el = document.getElementById('ws-status-monitor');
+        const el = document.getElementById('sse-status');
         if (el) el.innerHTML = `<span class="badge ${colorClass} animate-pulse">${text}</span>`;
     }
 
-    // 🟢 Inicializar WebSocket de inmediato
-    function startWebSocket() {
-        if (typeof Centrifuge === 'undefined') {
-            updateStatus('Error: JS no cargado', 'bg-danger');
-            return;
-        }
+    // 🟢 Inicializar Mercure (EventSource)
+    function startMercure() {
+        const url = new URL('/.well-known/mercure', window.location.origin);
+        url.searchParams.append('topic', 'donwok/pedidos');
 
-        const centrifuge = new Centrifuge(`ws://${window.location.host}/connection/websocket`);
-        const sub = centrifuge.newSubscription('public:pedidos');
+        console.log("[SSE] Conectando a:", url.toString());
+        const eventSource = new EventSource(url);
 
-        sub.on('publication', (ctx) => {
-            console.log("[WS] Evento:", ctx.data);
-            handleIncomingEvent(ctx.data);
-        });
-
-        sub.on('subscribed', () => {
+        eventSource.onopen = () => {
             updateStatus('Online ✅', 'bg-success');
-            console.log("[WS] Suscrito correctamente.");
-        });
+            console.log("[SSE] Conectado.");
+        };
 
-        sub.on('error', (err) => {
-            updateStatus('Error de Canal ❌', 'bg-danger');
-            console.error("[WS] Error sub:", err);
-        });
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log("[SSE] Evento:", data);
+            handleIncomingEvent(data);
+        };
 
-        centrifuge.on('disconnected', () => updateStatus('Offline ⚠️', 'bg-warning text-dark'));
-        
-        sub.subscribe();
-        centrifuge.connect();
+        eventSource.onerror = (err) => {
+            console.error("[SSE] Error:", err);
+            updateStatus('Reconectando... ⚠️', 'bg-warning text-dark');
+        };
     }
 
     // 🔵 Cargar datos iniciales
@@ -135,8 +129,8 @@
         new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play().catch(() => {});
     }
 
-    // Arrancar todo
-    startWebSocket();
+    // Arrancar
+    startMercure();
     loadInitialData();
 </script>
 {% endblock %}
