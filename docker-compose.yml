@@ -92,21 +92,36 @@ services:
       - internal_net
 
   # =====================
-  # MERCURE HUB (Tiempo Real)
+  # MERCURE HUB (Motor real de tiempo real)
   # =====================
-  mercure:
-    container_name: mercure
+  mercure-hub:
     image: dunglas/mercure
     restart: unless-stopped
     environment:
       SERVER_NAME: ":80"
       MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisMercureHubFreeApp2022!"
       MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisMercureHubFreeApp2022!"
-      # 🟢 Configuración ultra-abierta para desarrollo
       MERCURE_EXTRA_DIRECTIVES: |
         cors_origins *
         anonymous
-        publish_origins *
+    networks:
+      - internal_net
+
+  # =====================
+  # MERCURE RELAY (Puente que firma las peticiones del Core)
+  # =====================
+  mercure:
+    image: nginx:alpine
+    container_name: mercure-relay
+    command: >
+      /bin/sh -c "echo 'server { 
+        listen 80; 
+        location / { 
+          # Inyectamos el Token JWT firmado que validamos previamente
+          proxy_set_header Authorization \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXJjdXJlIjp7InB1Ymxpc2giOlsiKiJdfX0.aG9i0Irajat6mGgko_Xi5pDjNBtLLQLfElq2qbF-Eqg\"; 
+          proxy_pass http://mercure-hub; 
+        } 
+      }' > /etc/nginx/conf.d/default.conf && nginx -g \"daemon off;\""
     ports:
       - "3001:80"
     networks:
