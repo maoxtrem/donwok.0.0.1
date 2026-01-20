@@ -440,21 +440,29 @@
     window.processOrder = async () => {
         if (cart.length === 0) return;
         const btn = document.getElementById('btn-process');
+        const originalText = btn.innerText;
         btn.disabled = true;
         btn.innerText = 'PROCESANDO...';
 
         try {
-            // Simulación de guardado
-            setTimeout(() => {
-                api.notify('Éxito', '¡Venta realizada con éxito!', 'success');
-                cart = [];
-                renderInvoice();
-                btn.innerText = 'PROCESAR PEDIDO';
-            }, 800);
+            const payload = {
+                items: cart.map(item => ({
+                    id: item.id,
+                    qty: item.qty
+                }))
+            };
+
+            const response = await api.post('/pedidos', payload);
+            
+            // api.notify ya maneja la notificación de éxito basada en el message del core
+            cart = [];
+            renderInvoice();
         } catch (err) {
-            api.notify('Error', err.message, 'error');
+            // api.notify ya maneja la notificación de error
+            console.error(err);
+        } finally {
             btn.disabled = false;
-            btn.innerText = 'PROCESAR PEDIDO';
+            btn.innerText = originalText;
         }
     };
 

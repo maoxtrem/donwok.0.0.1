@@ -16,6 +16,12 @@ class PedidoRepository extends ServiceEntityRepository
         parent::__construct($registry, Pedido::class);
     }
 
+    public function guardar(Pedido $pedido): void
+    {
+        $this->getEntityManager()->persist($pedido);
+        $this->getEntityManager()->flush();
+    }
+
     //    /**
     //     * @return Pedido[] Returns an array of Pedido objects
     //     */
