@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Acceso - DonWok{% endblock %}
+
+{% block stylesheets %}
+<style>
+    .login-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+    }
+    .btn-login {
+        background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+        border: none;
+        border-radius: 12px;
+        color: white;
+        padding: 12px;
+        font-weight: 700;
+        transition: all 0.3s;
+    }
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px rgba(66, 153, 225, 0.3);
+    }
+    .form-control {
+        border-radius: 10px;
+        padding: 12px;
+        border: 1px solid #e2e8f0;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="login-container">
+    <div class="glass-card p-5 shadow-lg" style="width: 100%; max-width: 400px;">
+        <div class="text-center mb-4">
+            <h2 class="fw-bold" style="color: #2d3748;">DonWok Access</h2>
+            <p class="text-muted">Ingresa tus credenciales</p>
+        </div>
+
+        <form method="post" action="/login">
+            <div class="mb-3">
+                <label class="form-label fw-bold">Usuario</label>
+                <input type="text" name="_username" class="form-control" placeholder="admin" required autofocus>
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-bold">Contraseña</label>
+                <input type="password" name="_password" class="form-control" placeholder="••••••••" required>
+            </div>
+
+            {% if error is defined and error %}
+                <div class="alert alert-danger py-2 small text-center">{{ error }}</div>
+            {% endif %}
+
+            <button type="submit" class="btn-login w-100">Iniciar Sesión</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

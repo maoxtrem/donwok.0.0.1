@@ -1,0 +1,179 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Dashboard - DonWok{% endblock %}
+
+{% block stylesheets %}
+<style>
+    .pos-container {
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+    }
+    .menu-section {
+        flex: 1;
+        padding: 2rem;
+        overflow-y: auto;
+    }
+    .invoice-section {
+        width: 400px;
+        background: white;
+        border-left: 1px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+    }
+    .product-card {
+        background: white;
+        border-radius: 15px;
+        padding: 1.5rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    }
+    .product-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--primary-blue);
+        box-shadow: 0 10px 15px rgba(66, 153, 225, 0.1);
+    }
+    .invoice-header {
+        background: var(--dark-blue);
+        color: white;
+        padding: 1.5rem;
+    }
+    .btn-qty {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: none;
+        background: #edf2f7;
+        font-weight: bold;
+    }
+    .btn-process {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 1rem;
+        width: 100%;
+        border-radius: 10px;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="pos-container">
+    {# Menú #}
+    <div class="menu-section">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold">Menú de Productos</h2>
+            <a href="/logout" class="btn btn-outline-danger btn-sm">Salir</a>
+        </div>
+        
+        <div class="row g-3">
+            {# Aquí se cargarán los productos mediante un bucle Twig o JS #}
+            {% for producto in productos %}
+            <div class="col-md-4 col-lg-3">
+                <div class="product-card" onclick="addToCart({{ producto|json_encode }})">
+                    <h5 class="mb-1">{{ producto.nombre }}</h5>
+                    <p class="text-primary fw-bold mb-0">${{ producto.precioActual|number_format(2) }}</p>
+                </div>
+            </div>
+            {% else %}
+                <div class="text-center p-5 text-muted">No hay productos disponibles.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# Factura #}
+    <div class="invoice-section shadow-lg">
+        <div class="invoice-header">
+            <h4 class="mb-0">Pedido Actual</h4>
+            <small>Terminal POS #01</small>
+        </div>
+        
+        <div class="p-3 flex-grow-1 overflow-auto" id="cart-items">
+            <p class="text-center text-muted mt-5">Selecciona productos para comenzar</p>
+        </div>
+
+        <div class="p-4 border-top bg-light">
+            <div class="d-flex justify-content-between mb-3">
+                <span class="h5">Total</span>
+                <span class="h3 fw-bold" id="cart-total">$0.00</span>
+            </div>
+            <button class="btn-process" onclick="processOrder()">Crear Pedido</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+    let cart = [];
+
+    function addToCart(product) {
+        const existing = cart.find(i => i.id === product.id);
+        if (existing) {
+            existing.qty++;
+        } else {
+            cart.push({...product, qty: 1});
+        }
+        renderCart();
+    }
+
+    function removeFromCart(id) {
+        const index = cart.findIndex(i => i.id === id);
+        if (cart[index].qty > 1) {
+            cart[index].qty--;
+        } else {
+            cart.splice(index, 1);
+        }
+        renderCart();
+    }
+
+    function renderCart() {
+        const container = document.getElementById('cart-items');
+        const totalEl = document.getElementById('cart-total');
+        
+        if (cart.length === 0) {
+            container.innerHTML = '<p class="text-center text-muted mt-5">Selecciona productos para comenzar</p>';
+            totalEl.innerText = '$0.00';
+            return;
+        }
+
+        let html = '<table class="table table-borderless">';
+        let total = 0;
+        
+        cart.forEach(item => {
+            const subtotal = item.precioActual * item.qty;
+            total += subtotal;
+            html += `
+                <tr class="border-bottom">
+                    <td>
+                        <div class="fw-bold">${item.nombre}</div>
+                        <small class="text-muted">$${parseFloat(item.precioActual).toFixed(2)}</small>
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn-qty" onclick="removeFromCart(${item.id})">-</button>
+                            <span>${item.qty}</span>
+                            <button class="btn-qty" onclick="addToCart({id:${item.id}, nombre:'${item.nombre}', precioActual:${item.precioActual}})">+</button>
+                        </div>
+                    </td>
+                    <td class="text-end fw-bold">$${subtotal.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+        
+        html += '</table>';
+        container.innerHTML = html;
+        totalEl.innerText = `$${total.toFixed(2)}`;
+    }
+
+    function processOrder() {
+        alert('Pedido procesado con éxito!');
+        cart = [];
+        renderCart();
+    }
+</script>
+{% endblock %}
