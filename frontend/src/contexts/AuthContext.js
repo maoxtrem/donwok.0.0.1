@@ -5,17 +5,18 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
-    const token = localStorage.getItem('authToken');
-    return token ? { token } : null;
+    // Verificamos si hay una sesión activa persistida en local
+    const isLoggedIn = localStorage.getItem('isLoggedIn');
+    return isLoggedIn ? { loggedIn: true } : null;
   });
 
   const login = async (username, password) => {
-    const { token } = await AuthService.login(username, password);
-    setUser({ token });
+    await AuthService.login(username, password);
+    setUser({ loggedIn: true, username });
   };
 
-  const logout = () => {
-    AuthService.logout();
+  const logout = async () => {
+    await AuthService.logout();
     setUser(null);
   };
 

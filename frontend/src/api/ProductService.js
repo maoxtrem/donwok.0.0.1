@@ -1,11 +1,9 @@
 const API_URL = 'http://localhost:8000';
 
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('authToken');
+const getBaseHeaders = () => {
   return {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'Authorization': `Bearer ${token}`
   };
 };
 
@@ -13,7 +11,8 @@ const getAllProducts = async () => {
   try {
     const response = await fetch(`${API_URL}/productos`, {
       method: 'GET',
-      headers: getAuthHeaders(),
+      headers: getBaseHeaders(),
+      credentials: 'include', // Clave para que el navegador envíe la cookie de sesión automáticamente
     });
 
     if (!response.ok) {
@@ -24,9 +23,6 @@ const getAllProducts = async () => {
     }
 
     const data = await response.json();
-    
-    // Si la API de Symfony/API Platform devuelve un array directo o un objeto con miembros
-    // Nos aseguramos de devolver siempre un array.
     return Array.isArray(data) ? data : (data['hydra:member'] || data.items || []);
   } catch (error) {
     console.error("Error en ProductService.getAllProducts:", error);
