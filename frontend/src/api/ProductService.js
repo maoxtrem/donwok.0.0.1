@@ -1,37 +1,63 @@
 const API_URL = 'http://localhost:8000';
 
-const getBaseHeaders = () => {
-  return {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
-};
+const getBaseHeaders = () => ({
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+});
 
 const getAllProducts = async () => {
-  try {
-    const response = await fetch(`${API_URL}/productos`, {
-      method: 'GET',
-      headers: getBaseHeaders(),
-      credentials: 'include', // Clave para que el navegador envíe la cookie de sesión automáticamente
-    });
+  const response = await fetch(`${API_URL}/productos`, {
+    method: 'GET',
+    headers: getBaseHeaders(),
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error('Error al obtener productos');
+  return await response.json();
+};
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('Sesión expirada');
-      }
-      throw new Error(`Error del servidor: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return Array.isArray(data) ? data : (data['hydra:member'] || data.items || []);
-  } catch (error) {
-    console.error("Error en ProductService.getAllProducts:", error);
-    throw error;
+const createProduct = async (productData) => {
+  const response = await fetch(`${API_URL}/productos`, {
+    method: 'POST',
+    headers: getBaseHeaders(),
+    credentials: 'include',
+    body: JSON.stringify(productData),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Error al crear producto');
   }
+  return await response.json();
+};
+
+const updateProduct = async (id, productData) => {
+  const response = await fetch(`${API_URL}/productos/${id}`, {
+    method: 'PUT',
+    headers: getBaseHeaders(),
+    credentials: 'include',
+    body: JSON.stringify(productData),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Error al actualizar producto');
+  }
+  return await response.json();
+};
+
+const deleteProduct = async (id) => {
+  const response = await fetch(`${API_URL}/productos/${id}`, {
+    method: 'DELETE',
+    headers: getBaseHeaders(),
+    credentials: 'include',
+  });
+  if (!response.ok) throw new Error('Error al eliminar producto');
+  return true;
 };
 
 const ProductService = {
   getAllProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
 };
 
 export default ProductService;
