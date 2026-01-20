@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8000';
+const API_URL = '/api/core';
 
 const getBaseHeaders = () => ({
   'Content-Type': 'application/json',
@@ -11,7 +11,7 @@ const getAllProducts = async () => {
     headers: getBaseHeaders(),
     credentials: 'include',
   });
-  if (!response.ok) throw new Error('Error al obtener productos');
+  if (!response.ok) throw new Error('Sesión expirada o error de red');
   return await response.json();
 };
 
@@ -22,10 +22,7 @@ const createProduct = async (productData) => {
     credentials: 'include',
     body: JSON.stringify(productData),
   });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al crear producto');
-  }
+  if (!response.ok) throw new Error('Error al crear producto');
   return await response.json();
 };
 
@@ -36,10 +33,7 @@ const updateProduct = async (id, productData) => {
     credentials: 'include',
     body: JSON.stringify(productData),
   });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Error al actualizar producto');
-  }
+  if (!response.ok) throw new Error('Error al actualizar producto');
   return await response.json();
 };
 
@@ -53,11 +47,5 @@ const deleteProduct = async (id) => {
   return true;
 };
 
-const ProductService = {
-  getAllProducts,
-  createProduct,
-  updateProduct,
-  deleteProduct,
-};
-
+const ProductService = { getAllProducts, createProduct, updateProduct, deleteProduct };
 export default ProductService;

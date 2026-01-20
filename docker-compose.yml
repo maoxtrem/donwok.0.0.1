@@ -125,9 +125,25 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    ports:
-      - "80:3000"
+    # Puerto 80 removido de aquí, ahora el proxy lo gestiona
     environment:
       - NODE_ENV=development
+    networks:
+      - internal_net
+
+  # =====================
+  # REVERSE PROXY (Nginx)
+  # =====================
+  proxy:
+    image: nginx:alpine
+    container_name: proxy-reverse
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - core
+      - auth
     networks:
       - internal_net
