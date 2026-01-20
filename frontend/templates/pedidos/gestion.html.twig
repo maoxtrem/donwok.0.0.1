@@ -110,10 +110,11 @@
         const btnText = isPending ? 'TERMINAR' : 'FACTURAR';
         const btnAction = isPending ? `window.terminarPedido(${p.id})` : `window.facturarPedido(${p.id})`;
         const btnClass = isPending ? 'btn-primary' : 'btn-success';
+        const labelNro = p.numeroFactura ? p.numeroFactura : `#${p.id}`;
 
         return `
             <tr id="row-${p.id}">
-                <td class="ps-4 fw-bold">#${p.id}</td>
+                <td class="ps-4 fw-bold text-primary">${labelNro}</td>
                 <td class="small text-muted" style="max-width: 300px;">${items}</td>
                 <td class="text-center fw-bold">$${parseFloat(p.total).toFixed(2)}</td>
                 <td class="text-center">

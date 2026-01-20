@@ -2,14 +2,15 @@
 
 namespace App\Domain\Entity;
 
+use App\Infrastructure\Doctrine\Repository\FacturaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity]
-#[ORM\Table(name: 'ventas')]
+#[ORM\Entity(repositoryClass: FacturaRepository::class)]
+#[ORM\Table(name: 'facturas')]
 #[ORM\HasLifecycleCallbacks]
-class Venta
+class Factura
 {
     use \App\Domain\Entity\Traits\FechasTrait;
 
@@ -31,7 +32,7 @@ class Venta
     #[ORM\Column(length: 20, unique: true, nullable: true)]
     private ?string $numeroFactura = null;
 
-    #[ORM\OneToMany(mappedBy: 'venta', targetEntity: VentaDetalle::class, cascade: ['persist', 'remove'])]
+    #[ORM\OneToMany(mappedBy: 'factura', targetEntity: FacturaDetalle::class, cascade: ['persist', 'remove'])]
     private Collection $detalles;
 
     public function __construct()
@@ -43,24 +44,26 @@ class Venta
     public function getId(): ?int { return $this->id; }
     public function getEstado(): string { return $this->estado; }
     public function getTotal(): float { return $this->total; }
-    public function getDetalles(): Collection { return $this->detalles; }
+    public function getNumeroFactura(): ?string { return $this->numeroFactura; }
 
     public function agregarItem(string $nombre, float $precio, float $costo, int $cantidad): void
     {
-        $detalle = new VentaDetalle($this, $nombre, $precio, $costo, $cantidad);
+        $detalle = new FacturaDetalle($this, $nombre, $precio, $costo, $cantidad);
         $this->detalles->add($detalle);
         $this->total += ($precio * $cantidad);
     }
 
-    public function marcarComoTerminado(): void { $this->estado = self::ESTADO_TERMINADO; }
+    public function marcarComoTerminado(): void 
+    { 
+        $this->estado = self::ESTADO_TERMINADO; 
+    }
     
     public function facturar(string $numero): void 
     { 
+        // 🟢 Permitimos facturar tanto si está TERMINADO como PENDIENTE para mayor flexibilidad
         $this->numeroFactura = $numero;
         $this->estado = self::ESTADO_FACTURADO; 
     }
-
-    public function getNumeroFactura(): ?string { return $this->numeroFactura; }
 
     public function toArray(): array
     {
@@ -68,8 +71,8 @@ class Venta
             'id' => $this->id,
             'numeroFactura' => $this->numeroFactura,
             'estado' => $this->estado,
-            'total' => $this->total,
-            'fecha' => $this->getFechaCreacion()->format('Y-m-d H:i:s'),
+            'total' => (float)$this->total,
+            'fecha' => $this->getFechaCreacion() ? $this->getFechaCreacion()->format('Y-m-d H:i:s') : null,
             'items' => array_map(fn($d) => $d->toArray(), $this->detalles->toArray())
         ];
     }

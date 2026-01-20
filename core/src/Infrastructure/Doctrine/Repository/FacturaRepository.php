@@ -16,28 +16,18 @@ class FacturaRepository extends ServiceEntityRepository
         parent::__construct($registry, Factura::class);
     }
 
-    //    /**
-    //     * @return Factura[] Returns an array of Factura objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('f')
-    //            ->andWhere('f.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('f.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    public function getNextInvoiceNumber(): string
+    {
+        $lastFactura = $this->createQueryBuilder('f')
+            ->where('f.numeroFactura IS NOT NULL')
+            ->orderBy('f.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
 
-    //    public function findOneBySomeField($value): ?Factura
-    //    {
-    //        return $this->createQueryBuilder('f')
-    //            ->andWhere('f.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+        if (!$lastFactura) return "#000001";
+
+        $lastNumber = (int) str_replace('#', '', $lastFactura->getNumeroFactura());
+        return "#" . str_pad((string)($lastNumber + 1), 6, '0', STR_PAD_LEFT);
+    }
 }

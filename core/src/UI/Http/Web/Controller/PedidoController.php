@@ -4,7 +4,8 @@ namespace App\UI\Http\Web\Controller;
 
 use App\Application\DTO\Request\PedidoRequestDTO;
 use App\Application\Handler\Pedido\CreatePedidoHandler;
-use App\Domain\Entity\Venta;
+use App\Domain\Entity\Factura;
+use App\Infrastructure\Doctrine\Repository\FacturaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,52 +20,42 @@ class PedidoController extends AbstractController
         private EntityManagerInterface $em
     ) {}
 
-    #[Route('/pendientes', methods: ['GET'])]
-    public function pendientes(): JsonResponse
+    #[Route('/pendientes', name: 'app_pedidos_pendientes', methods: ['GET'])]
+    public function pendientes(FacturaRepository $repo): JsonResponse
     {
-        $ventas = $this->em->getRepository(Venta::class)->findBy(
-            ['estado' => [Venta::ESTADO_PENDIENTE, Venta::ESTADO_TERMINADO]],
+        $pedidos = $repo->findBy(
+            ['estado' => [Factura::ESTADO_PENDIENTE, Factura::ESTADO_TERMINADO]],
             ['id' => 'DESC']
         );
-
-        return new JsonResponse(
-            array_map(fn($v) => $v->toArray(), $ventas)
-        );
+        return new JsonResponse(array_map(fn($p) => $p->toArray(), $pedidos));
     }
 
-    #[Route('/{id}/terminar', methods: ['POST'])]
-    public function terminar(int $id): JsonResponse
+    #[Route('/{id}/terminar', name: 'app_pedidos_terminar', methods: ['POST'])]
+    public function terminar(int $id, FacturaRepository $repo): JsonResponse
     {
-        $venta = $this->em->getRepository(Venta::class)->find($id);
-        if (!$venta) return new JsonResponse(['message' => 'Venta no encontrada'], 404);
+        $pedido = $repo->find($id);
+        if (!$pedido) return new JsonResponse(['message' => 'No encontrado'], 404);
         
         try {
-            $venta->marcarComoTerminado();
+            $pedido->marcarComoTerminado();
             $this->em->flush();
-            $this->notifyMercure($venta, 'ORDER_READY');
-            return new JsonResponse(['message' => 'Pedido terminado']);
-        } catch (
-Exception $e) { return new JsonResponse(['message' => $e->getMessage()], 400); }
+            $this->notifyMercure($pedido, 'ORDER_READY');
+            return new JsonResponse(['message' => 'Pedido terminado', 'pedido' => $pedido->toArray()]);
+        } catch (\Exception $e) { return new JsonResponse(['message' => $e->getMessage()], 400); }
     }
 
     #[Route('/{id}/facturar', name: 'app_pedidos_facturar', methods: ['POST'])]
-    public function facturar(int $id): JsonResponse
+    public function facturar(int $id, FacturaRepository $repo): JsonResponse
     {
-        $repo = $this->em->getRepository(Venta::class);
-        $venta = $repo->find($id);
-        
-        if (!$venta) return new JsonResponse(['message' => 'Venta no encontrada'], 404);
+        $pedido = $repo->find($id);
+        if (!$pedido) return new JsonResponse(['message' => 'No encontrado'], 404);
         
         try {
             $proximoNumero = $repo->getNextInvoiceNumber();
-            $venta->facturar($proximoNumero);
+            $pedido->facturar($proximoNumero);
             $this->em->flush();
-            
-            $this->notifyMercure($venta, 'ORDER_INVOICED');
-            return new JsonResponse([
-                'message' => 'Venta facturada con éxito: ' . $proximoNumero,
-                'pedido' => $venta->toArray()
-            ]);
+            $this->notifyMercure($pedido, 'ORDER_INVOICED');
+            return new JsonResponse(['message' => 'Facturado con éxito: ' . $proximoNumero, 'pedido' => $pedido->toArray()]);
         } catch (\Exception $e) { return new JsonResponse(['message' => $e->getMessage()], 400); }
     }
 
@@ -73,39 +64,26 @@ Exception $e) { return new JsonResponse(['message' => $e->getMessage()], 400); }
     {
         $data = json_decode($request->getContent(), true) ?? [];
         $dto = new PedidoRequestDTO($data['items'] ?? []);
-        
         try {
-            $venta = $this->createHandler->handle($dto);
-            $this->notifyMercure($venta, 'NEW_ORDER');
-            return new JsonResponse([
-                'message' => 'Pedido en cola correctamente',
-                'pedido' => $venta->toArray()
-            ], JsonResponse::HTTP_CREATED);
-        } catch (
-Exception $e) {
-            return new JsonResponse(['message' => $e->getMessage()], JsonResponse::HTTP_BAD_REQUEST);
-        }
+            $factura = $this->createHandler->handle($dto);
+            $this->notifyMercure($factura, 'NEW_ORDER');
+            return new JsonResponse(['message' => 'Pedido en cola', 'pedido' => $factura->toArray()], 201);
+        } catch (\Exception $e) { return new JsonResponse(['message' => $e->getMessage()], 400); }
     }
 
-    private function notifyMercure(Venta $venta, string $type): void
+    private function notifyMercure(Factura $factura, string $type): void
     {
         $url = "http://mercure/.well-known/mercure";
         $data = http_build_query([
             'topic' => 'donwok/pedidos',
-            'data'  => json_encode(['type' => $type, 'pedido' => $venta->toArray()])
+            'data'  => json_encode(['type' => $type, 'pedido' => $factura->toArray()])
         ]);
-
-        $opts = [
-            'http' => [
-                'method'  => 'POST',
-                'header'  => "Content-type: application/x-www-form-urlencoded\r\n" .
-                             "Authorization: Bearer !ChangeThisMercureHubFreeApp2022!\r\n",
-                'content' => $data,
-                'timeout' => 2
-            ]
-        ];
-
-        try { file_get_contents($url, false, stream_context_create($opts)); } catch (
-Exception $e) {}
+        $opts = ['http' => [
+            'method'  => 'POST',
+            'header'  => "Content-type: application/x-www-form-urlencoded\r\nAuthorization: Bearer !ChangeThisMercureHubFreeApp2022!\r\n",
+            'content' => $data,
+            'timeout' => 2
+        ]];
+        try { file_get_contents($url, false, stream_context_create($opts)); } catch (\Exception $e) {}
     }
 }
