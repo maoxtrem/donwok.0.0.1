@@ -20,6 +20,7 @@ class UpdateProductoHandler
         }
 
         // Usamos métodos de negocio de la entidad
+        $producto->actualizarNombre($dto->nombre);
         $producto->actualizarPrecio($dto->precioActual);
         $producto->actualizarCosto($dto->costoActual);
         if ($dto->activo) {

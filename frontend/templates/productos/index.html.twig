@@ -161,7 +161,7 @@
             }
             productModal.hide();
             loadProducts();
-        } catch (err) { alert(err.message); }
+        } catch (err) { /* Notificado por CoreAPI */ }
     });
 
     window.deleteProduct = async (id) => {
@@ -169,7 +169,7 @@
         try {
             await api.delete(`/productos/${id}`);
             loadProducts();
-        } catch (err) { alert(err.message); }
+        } catch (err) { /* Notificado por CoreAPI */ }
     };
 </script>
 {% endblock %}

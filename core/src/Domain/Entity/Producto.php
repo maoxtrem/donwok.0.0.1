@@ -36,6 +36,9 @@ class Producto
         float $costoActual,
         bool $activo = true
     ) {
+        if (empty(trim($nombre))) {
+            throw new \InvalidArgumentException("El nombre del producto no puede estar vacío.");
+        }
         $this->nombre = $nombre;
         $this->precioActual = $precioActual;
         $this->costoActual = $costoActual;
@@ -69,6 +72,14 @@ class Producto
     }
 
     // Métodos de negocio
+    public function actualizarNombre(string $nuevoNombre): void
+    {
+        if (empty(trim($nuevoNombre))) {
+            throw new \InvalidArgumentException("El nombre del producto no puede estar vacío.");
+        }
+        $this->nombre = $nuevoNombre;
+    }
+
     public function actualizarPrecio(float $nuevoPrecio): void
     {
         if ($nuevoPrecio <= 0) {

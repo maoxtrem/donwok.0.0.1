@@ -4,60 +4,322 @@
 
 {% block stylesheets %}
 <style>
-    .pos-grid { display: flex; height: calc(100vh - 120px); gap: 1.5rem; }
-    .menu-panel { flex: 1; overflow-y: auto; padding-right: 0.5rem; }
-    .invoice-panel { width: 400px; display: flex; flex-direction: column; }
-    
-    .product-card {
-        background: white; border-radius: 15px; padding: 1.2rem;
-        cursor: pointer; transition: all 0.2s; border: 1px solid transparent;
-        text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center;
+    /* Layout POS Responsivo */
+    .pos-wrapper {
+        display: flex;
+        flex-direction: row; /* Escritorio: Lado a lado */
+        gap: 1.5rem;
+        min-height: calc(100vh - 120px);
     }
-    .product-card:hover { transform: translateY(-3px); border-color: #4299e1; box-shadow: 0 8px 15px rgba(66,153,225,0.1); }
-    
-    .invoice-card { background: white; border-radius: 20px; flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
-    .invoice-header { background: #1a365d; color: white; padding: 1.2rem; }
-    .invoice-body { flex-grow: 1; overflow-y: auto; padding: 1rem; }
-    
-    .btn-qty { width: 26px; height: 26px; border-radius: 50%; border: none; background: #edf2f7; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+
+    @media (max-width: 992px) {
+        .pos-wrapper {
+            flex-direction: column; /* Tablet/Móvil: Apilados */
+            height: auto;
+        }
+        .invoice-container {
+            width: 100% !important; /* Factura ancho completo */
+            order: -1; /* Opcional: mostrar factura arriba en móvil para ver total */
+            margin-bottom: 2rem;
+        }
+        .menu-container {
+            height: auto;
+        }
+    }
+
+    /* Panel Izquierdo: Menú */
+    .menu-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Buscador Premium */
+    .search-bar {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 0.8rem 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        margin-bottom: 2rem;
+        border: 1px solid #eef2f7;
+        transition: all 0.3s ease;
+    }
+
+    .search-bar:focus-within {
+        border-color: #4299e1;
+        box-shadow: 0 10px 25px rgba(66, 153, 225, 0.1);
+        transform: translateY(-1px);
+    }
+
+    .search-bar i {
+        color: #4299e1;
+        font-size: 1.1rem;
+    }
+
+    .search-bar input {
+        border: none;
+        outline: none;
+        width: 100%;
+        font-size: 1rem;
+        font-weight: 500;
+        color: #2d3748;
+    }
+
+    .search-bar input::placeholder {
+        color: #a0aec0;
+    }
+
+    .products-grid {
+        flex: 1;
+        padding: 10px 5px 20px 5px;
+    }
+
+    /* Ajuste de Cards para que no se encojan */
+    .pos-product-card {
+        min-width: 200px; /* Evita que se vuelvan demasiado delgadas */
+        background: white; 
+        border-radius: 8px;
+        padding: 0;
+        cursor: pointer; 
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid #f1f5f9;
+        height: 100%; 
+        display: flex; 
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .pos-product-card:hover { 
+        transform: translateY(-6px); 
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        /* Sin borde azul en el hover para mayor limpieza */
+    }
+
+    .product-img-wrapper {
+        width: 100%;
+        height: 160px; /* Imagen más grande */
+        background-color: #f8fafc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .product-img-wrapper img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+    }
+
+    .pos-product-card:hover .product-img-wrapper img {
+        transform: scale(1.05); /* Leve zoom al pasar el cursor */
+    }
+
+    .product-info-wrapper {
+        padding: 1.2rem;
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .pos-product-card h6 {
+        font-weight: 700;
+        color: #1a202c;
+        margin: 0;
+        font-size: 1.05rem;
+    }
+
+    .product-description {
+        font-size: 0.8rem;
+        color: #718096;
+        line-height: 1.2;
+        margin-bottom: 8px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .pos-product-card .price-tag {
+        color: #2b6cb0;
+        font-weight: 800;
+        font-size: 1.2rem;
+        margin-top: auto;
+    }
+
+    /* Panel Derecho: Factura */
+    .invoice-container {
+        width: 420px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .invoice-card {
+        background: white;
+        border-radius: 24px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+        border: 1px solid #f0f4f8;
+    }
+
+    .invoice-header {
+        background: linear-gradient(135deg, #1a365d 0%, #2a4365 100%);
+        color: white;
+        padding: 1.5rem;
+    }
+
+    .invoice-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.5rem;
+    }
+
+    .invoice-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .item-info h6 { margin: 0; font-weight: 700; color: #1a202c; }
+    .item-info small { color: #718096; }
+
+    .qty-badge {
+        background: #ebf8ff;
+        color: #3182ce;
+        padding: 0.2rem 0.8rem;
+        border-radius: 20px;
+        font-weight: 800;
+        font-size: 0.85rem;
+    }
+
+    .btn-qty-pos {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        border: none;
+        background: #f7fafc;
+        color: #4a5568;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        font-weight: bold;
+    }
+
+    .btn-qty-pos:hover { background: #edf2f7; color: #1a202c; }
+
+    .invoice-footer {
+        padding: 2rem;
+        background: #fcfcfc;
+        border-top: 1px solid #f1f5f9;
+    }
+
+    .total-display {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .total-display .label { font-size: 1.1rem; color: #718096; font-weight: 600; }
+    .total-display .amount { font-size: 2.2rem; font-weight: 800; color: #1a365d; }
+
+    .btn-checkout {
+        background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        color: white;
+        border: none;
+        width: 100%;
+        padding: 1.2rem;
+        border-radius: 16px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        box-shadow: 0 10px 20px rgba(72, 187, 120, 0.2);
+        transition: all 0.3s;
+    }
+
+    .btn-checkout:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 25px rgba(72, 187, 120, 0.3);
+    }
+
+    .btn-checkout:disabled { background: #cbd5e0; cursor: not-allowed; box-shadow: none; }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="container-fluid">
-    <div class="mb-4">
-        <h2 class="fw-bold text-dark">Ventas (POS)</h2>
-    </div>
+<div class="container-fluid p-4">
+    <div class="pos-wrapper">
+        
+        <!-- PANEL IZQUIERDO: MENÚ -->
+        <div class="menu-container">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="fw-bold text-dark m-0">Punto de Venta</h2>
+                <div class="text-muted small"><i class="bi bi-clock me-1"></i> <span id="current-time"></span></div>
+            </div>
 
-    <div class="pos-grid">
-        {# Menú de Productos #}
-        <div class="menu-panel">
-            <div class="row g-3" id="productsMenu">
-                {# Cargado por JS #}
+            <div class="search-bar">
+                <i class="bi bi-search text-muted"></i>
+                <input type="text" id="productSearch" placeholder="Buscar producto por nombre..." onkeyup="filterProducts()">
+            </div>
+
+            <div class="products-grid">
+                <div class="row g-3" id="menu-items">
+                    <!-- Cargado por JS -->
+                    <div class="col-12 text-center py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        {# Factura / Pedido #}
-        <div class="invoice-panel">
+        <!-- PANEL DERECHO: FACTURA -->
+        <div class="invoice-container">
             <div class="invoice-card shadow-sm">
                 <div class="invoice-header">
-                    <h5 class="mb-0 fw-bold">Pedido Actual</h5>
-                    <small class="opacity-75" id="cajeroName">Cajero: Admin</small>
-                </div>
-                <div class="invoice-body" id="invoiceItems">
-                    <div class="text-center text-muted mt-5">Selecciona productos para comenzar</div>
-                </div>
-                <div class="p-4 border-top bg-light">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="h5 mb-0">Total</span>
-                        <span class="h3 mb-0 fw-bold text-primary" id="totalAmount">$0.00</span>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0 fw-bold">Pedido Actual</h5>
+                            <small class="opacity-75">DonWok Principal</small>
+                        </div>
+                        <i class="bi bi-receipt h4 mb-0 opacity-50"></i>
                     </div>
-                    <button class="btn btn-success w-100 py-3 fw-bold shadow-sm" style="border-radius: 12px;" onclick="processOrder()">
-                        CREAR PEDIDO
+                </div>
+
+                <div class="invoice-body" id="invoice-items-list">
+                    <div class="text-center text-muted mt-5 py-5">
+                        <i class="bi bi-cart-x h1 d-block mb-3 opacity-20"></i>
+                        <p>No hay productos en el pedido</p>
+                    </div>
+                </div>
+
+                <div class="invoice-footer">
+                    <div class="total-display">
+                        <span class="label">Total a Pagar</span>
+                        <span class="amount" id="grand-total">$0.00</span>
+                    </div>
+                    <button class="btn-checkout" id="btn-process" disabled onclick="processOrder()">
+                        PROCESAR PEDIDO
                     </button>
                 </div>
             </div>
         </div>
+
     </div>
 </div>
 {% endblock %}
@@ -66,89 +328,138 @@
 <script type="module">
     import CoreAPI from '/js/core.js';
     const api = new CoreAPI();
+    
+    let allProducts = [];
     let cart = [];
 
-    document.addEventListener('DOMContentLoaded', async () => {
+    // Reloj
+    setInterval(() => {
+        const now = new Date();
+        document.getElementById('current-time').innerText = now.toLocaleTimeString();
+    }, 1000);
+
+    // Cargar productos
+    async function init() {
         try {
-            const products = await api.get('/productos');
-            renderMenu(products.filter(p => p.activo));
-        } catch (err) { console.error(err); }
-    });
+            const data = await api.get('/productos');
+            allProducts = data.filter(p => p.activo);
+            renderMenu(allProducts);
+        } catch (err) {
+            document.getElementById('menu-items').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+        }
+    }
 
     function renderMenu(products) {
-        const menu = document.getElementById('productsMenu');
-        menu.innerHTML = products.map(p => `
-            <div class="col-md-4 col-lg-3">
-                <div class="product-card glass-card" onclick='addToCart(${JSON.stringify(p)})'>
-                    <h6 class="fw-bold text-dark mb-1">${p.nombre}</h6>
-                    <span class="text-primary fw-bold">$${parseFloat(p.precioActual).toFixed(2)}</span>
+        const grid = document.getElementById('menu-items');
+        if (products.length === 0) {
+            grid.innerHTML = '<div class="col-12 text-center py-5 text-muted">No se encontraron productos</div>';
+            return;
+        }
+
+        const defaultImg = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=400&h=300&auto=format&fit=crop';
+
+        grid.innerHTML = products.map(p => `
+            <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+                <div class="pos-product-card" onclick='window.addToCart(${JSON.stringify(p)})'>
+                    <div class="product-img-wrapper">
+                        <img src="${defaultImg}" alt="${p.nombre}">
+                    </div>
+                    <div class="product-info-wrapper">
+                        <h6>${p.nombre}</h6>
+                        <p class="product-description">Sabor original DonWok, preparado con ingredientes frescos del día.</p>
+                        <span class="price-tag">$${parseFloat(p.precioActual).toFixed(2)}</span>
+                    </div>
                 </div>
             </div>
         `).join('');
     }
 
+    // Exponer funciones globales
+    window.filterProducts = () => {
+        const query = document.getElementById('productSearch').value.toLowerCase();
+        const filtered = allProducts.filter(p => p.nombre.toLowerCase().includes(query));
+        renderMenu(filtered);
+    };
+
     window.addToCart = (product) => {
-        const existing = cart.find(i => i.id === product.id);
+        const existing = cart.find(item => item.id === product.id);
         if (existing) {
             existing.qty++;
         } else {
-            cart.push({...product, qty: 1});
+            cart.push({ ...product, qty: 1 });
         }
         renderInvoice();
-    }
+    };
 
-    window.changeQty = (id, delta) => {
+    window.updateQty = (id, delta) => {
         const item = cart.find(i => i.id === id);
+        if (!item) return;
         item.qty += delta;
-        if (item.qty <= 0) cart = cart.filter(i => i.id !== id);
+        if (item.qty <= 0) {
+            cart = cart.filter(i => i.id !== id);
+        }
         renderInvoice();
-    }
+    };
 
     function renderInvoice() {
-        const body = document.getElementById('invoiceItems');
-        const totalLabel = document.getElementById('totalAmount');
-        
+        const list = document.getElementById('invoice-items-list');
+        const totalAmount = document.getElementById('grand-total');
+        const btn = document.getElementById('btn-process');
+
         if (cart.length === 0) {
-            body.innerHTML = '<div class="text-center text-muted mt-5">Selecciona productos para comenzar</div>';
-            totalLabel.innerText = '$0.00';
+            list.innerHTML = '<div class="text-center text-muted mt-5 py-5"><i class="bi bi-cart-x h1 d-block mb-3 opacity-20"></i><p>No hay productos en el pedido</p></div>';
+            totalAmount.innerText = '$0.00';
+            btn.disabled = true;
             return;
         }
 
         let total = 0;
-        let html = '<table class="table table-borderless align-middle">';
-        cart.forEach(item => {
+        list.innerHTML = cart.map(item => {
             const subtotal = item.precioActual * item.qty;
             total += subtotal;
-            html += `
-                <tr class="border-bottom">
-                    <td>
-                        <div class="fw-bold small text-dark">${item.nombre}</div>
-                        <small class="text-muted">$${parseFloat(item.precioActual).toFixed(2)}</small>
-                    </td>
-                    <td>
-                        <div class="d-flex align-items-center gap-2">
-                            <button class="btn-qty" onclick="changeQty(${item.id}, -1)">-</button>
-                            <span class="small fw-bold">${item.qty}</span>
-                            <button class="btn-qty" onclick='addToCart({id:${item.id}, nombre:"${item.nombre}", precioActual:${item.precioActual}})'>+</button>
-                        </div>
-                    </td>
-                    <td class="text-end fw-bold small">$${subtotal.toFixed(2)}</td>
-                </tr>
+            return `
+                <div class="invoice-item">
+                    <div class="item-info">
+                        <h6>${item.nombre}</h6>
+                        <small>$${parseFloat(item.precioActual).toFixed(2)} x ${item.qty}</small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn-qty-pos" onclick="window.updateQty(${item.id}, -1)">-</button>
+                        <span class="qty-badge">${item.qty}</span>
+                        <button class="btn-qty-pos" onclick="window.updateQty(${item.id}, 1)">+</button>
+                        <div class="ms-3 fw-bold text-dark" style="min-width: 70px; text-align: right;">$${subtotal.toFixed(2)}</div>
+                    </div>
+                </div>
             `;
-        });
-        html += '</table>';
-        body.innerHTML = html;
-        totalLabel.innerText = `$${total.toFixed(2)}`;
+        }).join('');
+
+        totalAmount.innerText = `$${total.toFixed(2)}`;
+        btn.disabled = false;
     }
 
     window.processOrder = async () => {
         if (cart.length === 0) return;
+        const btn = document.getElementById('btn-process');
+        btn.disabled = true;
+        btn.innerText = 'PROCESANDO...';
+
         try {
-            // Aquí iría el POST /ventas al Core si el endpoint existiera
-            alert('¡Pedido creado con éxito! (Simulado)');
-            cart = [];
-            renderInvoice();
-        } catch (err) { alert(err.message); }
-    }
+            // Simulación de guardado
+            setTimeout(() => {
+                api.notify('Éxito', '¡Venta realizada con éxito!', 'success');
+                cart = [];
+                renderInvoice();
+                btn.innerText = 'PROCESAR PEDIDO';
+            }, 800);
+        } catch (err) {
+            api.notify('Error', err.message, 'error');
+            btn.disabled = false;
+            btn.innerText = 'PROCESAR PEDIDO';
+        }
+    };
+
+    // Iniciar
+    init();
+
 </script>
 {% endblock %}

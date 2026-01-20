@@ -22,8 +22,6 @@
                 <input type="password" id="password" class="form-control py-2" placeholder="••••••••" required>
             </div>
 
-            <div id="loginError" class="alert alert-danger d-none py-2 small text-center"></div>
-
             <button type="submit" id="btnLogin" class="btn btn-primary w-100 py-2 fw-bold" style="border-radius: 10px; background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); border:none;">
                 <span id="btnText">Iniciar Sesión</span>
                 <span id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
@@ -42,12 +40,10 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
-    const errorDiv = document.getElementById('loginError');
     const btn = document.getElementById('btnLogin');
     const btnText = document.getElementById('btnText');
     const btnSpinner = document.getElementById('btnSpinner');
 
-    errorDiv.classList.add('d-none');
     btn.disabled = true;
     btnText.classList.add('d-none');
     btnSpinner.classList.remove('d-none');
@@ -62,8 +58,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         // 3. Redirigir (La cookie ya está en el navegador)
         window.location.href = '/dashboard';
     } catch (err) {
-        errorDiv.textContent = err.message;
-        errorDiv.classList.remove('d-none');
+        // La clase CoreAPI ya dispara la notificación de SweetAlert2
         btn.disabled = false;
         btnText.classList.remove('d-none');
         btnSpinner.classList.add('d-none');
