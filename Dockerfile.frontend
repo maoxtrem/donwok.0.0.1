@@ -1,0 +1,30 @@
+# =====================
+# FRONTEND DOCKERFILE (LIGERO Y DESACOPLADO)
+# =====================
+FROM php:8.3-cli-alpine
+
+WORKDIR /app
+
+# Solo dependencias básicas para Symfony y Twig
+RUN apk add --no-cache \
+    git \
+    unzip \
+    icu-dev \
+    libzip-dev \
+    bash
+
+RUN docker-php-ext-install \
+    intl \
+    zip \
+    opcache
+
+# Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Symfony CLI para desarrollo
+RUN curl -sS https://get.symfony.com/cli/installer | bash \
+ && mv /root/.symfony*/bin/symfony /usr/local/bin/symfony
+
+EXPOSE 8000
+
+CMD ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0"]

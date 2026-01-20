@@ -1,0 +1,18 @@
+# Excluir datos de base de datos
+db_data/
+
+# Excluir carpetas de dependencias pesadas
+**/node_modules/
+**/vendor/
+
+# Excluir archivos de cache y logs de Symfony
+**/var/cache/
+**/var/log/
+
+# Excluir Git
+.git/
+.gitignore
+
+# Excluir archivos de entorno
+.env
+.env.local

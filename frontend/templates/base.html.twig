@@ -81,6 +81,30 @@
                 border-radius: 15px;
                 box-shadow: 0 10px 25px rgba(0,0,0,0.05);
             }
+
+            /* Botón Salir Especial */
+            .btn-logout-sidebar {
+                background: rgba(254, 178, 178, 0.1);
+                color: #feb2b2 !important;
+                border-radius: 12px;
+                border: 1px solid rgba(254, 178, 178, 0.2) !important;
+                margin-top: 1rem;
+                justify-content: center;
+                font-weight: 600;
+                transition: all 0.3s ease !important;
+            }
+
+            .btn-logout-sidebar:hover {
+                background: #f56565 !important;
+                color: white !important;
+                border-color: #f56565 !important;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
+            }
+
+            .btn-logout-sidebar i {
+                font-size: 1.1rem;
+            }
         </style>
         {% block stylesheets %}{% endblock %}
     </head>
@@ -113,9 +137,10 @@
                 </a>
             </div>
 
-            <div class="mt-auto p-3 border-top border-secondary">
-                <a href="/login" class="nav-link text-danger" onclick="localStorage.removeItem('authToken')">
-                    <i class="bi bi-box-arrow-right"></i> Salir
+            <div class="mt-auto p-4">
+                <a href="/login" class="nav-link btn-logout-sidebar" onclick="localStorage.removeItem('authToken')">
+                    <i class="bi bi-box-arrow-left"></i> 
+                    <span>Cerrar Sesión</span>
                 </a>
             </div>
         </nav>

@@ -73,22 +73,21 @@ services:
       - internal_net
 
   # =====================
-  # FRONTEND (SYMFONY) - Reemplaza al React
+  # FRONTEND (SYMFONY) - Totalmente Desacoplado
   # =====================
   frontend:
     container_name: frontend-symfony
     build:
       context: .
-      target: dev
+      dockerfile: Dockerfile.frontend
     volumes:
       - ./frontend:/app
     ports:
       - "80:8000"
     environment:
       APP_ENV: dev
-      CORE_BASE_URL: http://core:8000
-      AUTH_BASE_URL: http://auth:8000
-      MERCURE_PUBLIC_URL: http://localhost:3000/.well-known/mercure
+      # No hay DATABASE_URL ni CORE_BASE_URL internos
+      # El navegador usa el puerto expuesto del host
     networks:
       - internal_net
 
