@@ -117,19 +117,36 @@ services:
   # =====================
   # FRONTEND - DEV
   # =====================
-  frontend:
-    container_name: frontend-dev
+  # frontend:
+  #   container_name: frontend-dev
+  #   build:
+  #     context: .
+  #     target: dev
+  #   volumes:
+  #     - ./frontend:/app
+  #   ports:
+  #     - "80:8000"
+  #   depends_on:
+  #     - db
+  #   environment:
+  #     APP_ENV: dev
+  #   networks:
+  #     - internal_net
+
+  # =====================
+  # FRONTEND-REACT - DEV
+  # =====================
+  frontend-react:
+    container_name: frontend-react-dev
     build:
-      context: .
-      target: dev
+      context: ./frontend
+      dockerfile: Dockerfile.react
     volumes:
       - ./frontend:/app
+      - /app/node_modules
     ports:
-      - "80:8000"
-    depends_on:
-      - db
+      - "3001:3000"
     environment:
-      APP_ENV: dev
-      
+      - NODE_ENV=development
     networks:
       - internal_net
