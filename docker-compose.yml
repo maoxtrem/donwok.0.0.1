@@ -3,7 +3,9 @@ networks:
     driver: bridge
 
 services:
-  # ... (resto igual)
+  # =====================
+  # BACKEND / CORE - DEV
+  # =====================
   core:
     container_name: core-dev
     build:
@@ -18,14 +20,60 @@ services:
     environment:
       APP_ENV: dev
       DATABASE_URL: "mysql://root:root@db:3306/donwok?serverVersion=8.0"
+      JWT_PUBLIC_KEY: /app/config/jwt/public.pem
+      AUTH_BASE_URL: http://auth
+      CORE_SERVICE_NAME: core
+      CORE_SERVICE_SECRET: super-secret-core-key
+      
+      # Mercure Config
       MERCURE_URL: http://gateway/.well-known/mercure
       MERCURE_PUBLIC_URL: http://localhost/.well-known/mercure
-      # Token JWT prefirmado con la clave '!ChangeMe!' para publicar en cualquier tópico
-      #MERCURE_JWT_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJtZXJjdXJlIjp7InB1Ymxpc2giOlsiKiJdfX0.yL_7v_QC_ZAnZisrv9shAtv_9lsIDZ6Be_id_id_id_i"
       MERCURE_JWT_SECRET: "secret-key-must-be-at-least-32-chars-long-1234"
     networks:
       - internal_net
 
+  # =====================
+  # AUTH - DEV
+  # =====================
+  auth:
+    container_name: auth-dev
+    build:
+      context: .
+      target: dev
+    volumes:
+      - ./auth:/app
+      - ./auth/config/jwt:/app/config/jwt:rw
+    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
+    environment:
+      APP_ENV: dev
+      JWT_PRIVATE_KEY: /app/config/jwt/private.pem
+      JWT_PUBLIC_KEY: /app/config/jwt/public.pem
+      JWT_ISSUER: auth-service
+      JWT_AUDIENCE: core-service
+      JWT_TTL: 600
+      DATABASE_URL: "mysql://root:root@db:3306/donwok_auth?serverVersion=8.0"
+      CORE_SERVICE_NAME: core
+      CORE_SERVICE_SECRET: super-secret-core-key
+    networks:
+      - internal_net
+
+  # =====================
+  # FRONTEND (SYMFONY)
+  # =====================
+  frontend:
+    container_name: frontend-symfony
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    volumes:
+      - ./frontend:/app
+    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
+    networks:
+      - internal_net
+
+  # =====================
+  # MERCURE HUB (Tiempo Real)
+  # =====================
   mercure:
     image: dunglas/mercure
     container_name: mercure-hub
@@ -40,6 +88,9 @@ services:
     networks:
       - internal_net
 
+  # =====================
+  # GATEWAY
+  # =====================
   gateway:
     image: nginx:alpine
     container_name: gateway-pos
@@ -55,32 +106,9 @@ services:
     networks:
       - internal_net
 
-  auth:
-    container_name: auth-dev
-    build:
-      context: .
-      target: dev
-    volumes:
-      - ./auth:/app
-      - ./auth/config/jwt:/app/config/jwt:rw
-    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
-    environment:
-      APP_ENV: dev
-      DATABASE_URL: "mysql://root:root@db:3306/donwok_auth?serverVersion=8.0"
-    networks:
-      - internal_net
-
-  frontend:
-    container_name: frontend-symfony
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
-    volumes:
-      - ./frontend:/app
-    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
-    networks:
-      - internal_net
-
+  # =====================
+  # DATABASE
+  # =====================
   db:
     image: mariadb:10.11
     container_name: mariadb
