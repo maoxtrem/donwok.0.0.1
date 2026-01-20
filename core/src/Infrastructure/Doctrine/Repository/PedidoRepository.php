@@ -31,8 +31,8 @@ class PedidoRepository extends ServiceEntityRepository implements PedidoReposito
     public function findPendientes(): array
     {
         return $this->createQueryBuilder('p')
-            ->andWhere('p.estado = :val')
-            ->setParameter('val', Pedido::ESTADO_PENDIENTE)
+            ->andWhere('p.estado IN (:states)')
+            ->setParameter('states', [Pedido::ESTADO_PENDIENTE, Pedido::ESTADO_TERMINADO])
             ->orderBy('p.id', 'DESC')
             ->getQuery()
             ->getResult();

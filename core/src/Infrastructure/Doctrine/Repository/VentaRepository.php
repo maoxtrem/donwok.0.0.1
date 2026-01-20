@@ -16,28 +16,25 @@ class VentaRepository extends ServiceEntityRepository
         parent::__construct($registry, Venta::class);
     }
 
-    //    /**
-    //     * @return Venta[] Returns an array of Venta objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('v')
-    //            ->andWhere('v.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('v.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    public function getNextInvoiceNumber(): string
+    {
+        // Buscamos el último número de factura generado
+        $lastVenta = $this->createQueryBuilder('v')
+            ->where('v.numeroFactura IS NOT NULL')
+            ->orderBy('v.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
 
-    //    public function findOneBySomeField($value): ?Venta
-    //    {
-    //        return $this->createQueryBuilder('v')
-    //            ->andWhere('v.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+        if (!$lastVenta) {
+            return "#000001";
+        }
+
+        // Extraemos el número después del #
+        $lastNumber = (int) str_replace('#', '', $lastVenta->getNumeroFactura());
+        $nextNumber = $lastNumber + 1;
+
+        // Formateamos con 6 dígitos
+        return "#" . str_pad((string)$nextNumber, 6, '0', STR_PAD_LEFT);
+    }
 }

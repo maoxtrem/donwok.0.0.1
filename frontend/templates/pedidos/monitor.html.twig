@@ -23,7 +23,6 @@
         display: flex; height: 100vh; width: 100vw;
     }
 
-    /* Columnas Principales */
     .monitor-col {
         flex: 1; padding: 3rem; display: flex; flex-direction: column;
     }
@@ -31,7 +30,6 @@
     .col-pending { background: linear-gradient(180deg, rgba(15,23,42,1) 0%, rgba(30,41,59,1) 100%); border-right: 2px solid rgba(255,255,255,0.05); }
     .col-ready { background: linear-gradient(180deg, rgba(15,23,42,1) 0%, rgba(17,24,39,1) 100%); }
 
-    /* Cabeceras */
     .monitor-header {
         text-align: center; margin-bottom: 4rem;
     }
@@ -43,7 +41,6 @@
     .text-pending { color: var(--accent-amber); text-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
     .text-ready { color: var(--accent-emerald); text-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
 
-    /* Grilla de Pedidos */
     .orders-grid {
         display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2rem;
     }
@@ -70,7 +67,6 @@
         font-size: 5rem; font-weight: 900; color: white;
     }
 
-    /* Botón Flotante Volver */
     .btn-back-float {
         position: fixed; bottom: 2rem; right: 2rem;
         width: 60px; height: 60px; border-radius: 50%;
@@ -86,7 +82,6 @@
         box-shadow: 0 10px 25px rgba(66, 153, 225, 0.4);
     }
 
-    /* Efectos de Brillo */
     .glow-dot {
         position: absolute; top: 10px; right: 10px; width: 12px; height: 12px; border-radius: 50%;
     }
@@ -98,30 +93,23 @@
 
 {% block body %}
 <div class="monitor-container">
-    <!-- Columna EN PREPARACIÓN -->
     <div class="monitor-col col-pending">
         <div class="monitor-header">
             <h1 class="text-pending">Preparando</h1>
             <div class="opacity-50 text-white small">Tu pedido estará listo en unos minutos</div>
         </div>
-        <div id="pending-list" class="orders-grid">
-            <!-- Cargado por JS -->
-        </div>
+        <div id="pending-list" class="orders-grid"></div>
     </div>
 
-    <!-- Columna LISTOS -->
     <div class="monitor-col col-ready">
         <div class="monitor-header">
             <h1 class="text-ready">Listos</h1>
             <div class="opacity-50 text-white small">Por favor, acércate al mostrador</div>
         </div>
-        <div id="ready-list" class="orders-grid">
-            <!-- Cargado por JS -->
-        </div>
+        <div id="ready-list" class="orders-grid"></div>
     </div>
 </div>
 
-<!-- Botón Volver -->
 <a href="/dashboard" class="btn-back-float" title="Volver al Dashboard">
     <i class="bi bi-grid-fill"></i>
 </a>
@@ -134,12 +122,13 @@
 
     async function init() {
         try {
-            // Carga inicial
             const pedidos = await api.get('/pedidos/pendientes');
-            pedidos.forEach(p => addOrder(p, 'pending'));
+            pedidos.forEach(p => {
+                if (p.estado === 'PENDIENTE') addOrder(p, 'pending');
+                if (p.estado === 'TERMINADO') addOrder(p, 'ready');
+            });
 
-            // Conectar a Mercure (Puerto 3001)
-            const url = new URL('http://localhost:3001/.well-known/mercure');
+            const url = new URL(`http://${window.location.hostname}:3001/.well-known/mercure`);
             url.searchParams.append('topic', 'donwok/pedidos');
 
             const eventSource = new EventSource(url);
@@ -150,6 +139,9 @@
                     playNotification();
                 } else if (data.type === 'ORDER_READY') {
                     moveOrderToReady(data.pedido.id);
+                    playNotification();
+                } else if (data.type === 'ORDER_INVOICED') {
+                    removeOrder(data.pedido.id);
                 }
             };
         } catch (err) { console.error(err); }
@@ -173,10 +165,13 @@
         const card = document.getElementById(`order-${id}`);
         if (card) {
             card.remove();
-            // Para el ejemplo, simplemente lo removemos o lo añadimos a la lista de listos
-            // En un flujo real, 'data.pedido' vendría con la info completa
             addOrder({id: id}, 'ready');
         }
+    }
+
+    function removeOrder(id) {
+        const card = document.getElementById(`order-${id}`);
+        if (card) card.remove();
     }
 
     function playNotification() {

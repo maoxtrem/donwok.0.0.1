@@ -7,7 +7,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold m-0">Cola de Producción</h2>
-            <p class="text-muted">Procesa y factura los pedidos pendientes</p>
+            <p class="text-muted">Gestiona el flujo de preparación y cobro en tiempo real</p>
         </div>
     </div>
 
@@ -23,7 +23,7 @@
                 </tr>
             </thead>
             <tbody id="production-queue">
-                {# Cargado por JS #}
+                <tr><td colspan="5" class="text-center py-5 text-muted">Cargando cola...</td></tr>
             </tbody>
         </table>
     </div>
@@ -36,56 +36,121 @@
     const api = new CoreAPI();
 
     async function init() {
-        const pedidos = await api.get('/pedidos/pendientes');
-        renderQueue(pedidos);
+        try {
+            const pedidos = await api.get('/pedidos/pendientes');
+            renderQueue(pedidos);
+        } catch (err) { console.error(err); }
 
         // Escuchar tiempo real
-        const url = new URL('http://localhost:3001/.well-known/mercure');
+        const url = new URL(`http://${window.location.hostname}:3001/.well-known/mercure`);
         url.searchParams.append('topic', 'donwok/pedidos');
         const eventSource = new EventSource(url);
         
         eventSource.onmessage = e => {
             const data = JSON.parse(e.data);
             if (data.type === 'NEW_ORDER') {
-                prependToQueue(data.pedido);
+                if (!document.getElementById(`row-${data.pedido.id}`)) {
+                    prependToQueue(data.pedido);
+                }
+            } else if (data.type === 'ORDER_READY') {
+                updateOrderRow(data.pedido);
+            } else if (data.type === 'ORDER_INVOICED') {
+                removeOrderRow(data.pedido.id);
             }
         };
     }
 
     function renderQueue(pedidos) {
         const body = document.getElementById('production-queue');
+        if (pedidos.length === 0) {
+            body.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">No hay pedidos pendientes</td></tr>';
+            return;
+        }
         body.innerHTML = pedidos.map(p => rowTemplate(p)).join('');
     }
 
     function prependToQueue(pedido) {
         const body = document.getElementById('production-queue');
+        // Si estaba el mensaje de "No hay pedidos", lo quitamos
+        if (body.children.length === 1 && body.innerText.includes('No hay pedidos')) body.innerHTML = '';
         body.insertAdjacentHTML('afterbegin', rowTemplate(pedido));
+    }
+
+    function updateOrderRow(pedido) {
+        const oldRow = document.getElementById(`row-${pedido.id}`);
+        if (oldRow) {
+            // Animación de parpadeo suave al actualizar
+            oldRow.style.backgroundColor = '#f0f9ff';
+            setTimeout(() => {
+                oldRow.outerHTML = rowTemplate(pedido);
+            }, 300);
+        }
+    }
+
+    function removeOrderRow(id) {
+        const row = document.getElementById(`row-${id}`);
+        if (row) {
+            row.style.opacity = '0';
+            row.style.transform = 'translateX(20px)';
+            row.style.transition = 'all 0.4s ease';
+            setTimeout(() => {
+                row.remove();
+                if (document.getElementById('production-queue').children.length === 0) {
+                    renderQueue([]);
+                }
+            }, 400);
+        }
     }
 
     function rowTemplate(p) {
         const items = p.items.map(i => `${i.cantidad}x ${i.producto}`).join(', ');
+        const isPending = p.estado === 'PENDIENTE';
+        const badgeClass = isPending ? 'bg-warning-subtle text-warning' : 'bg-success-subtle text-success';
+        const btnText = isPending ? 'TERMINAR' : 'FACTURAR';
+        const btnAction = isPending ? `window.terminarPedido(${p.id})` : `window.facturarPedido(${p.id})`;
+        const btnClass = isPending ? 'btn-primary' : 'btn-success';
+
         return `
             <tr id="row-${p.id}">
                 <td class="ps-4 fw-bold">#${p.id}</td>
-                <td class="small text-muted">${items}</td>
+                <td class="small text-muted" style="max-width: 300px;">${items}</td>
                 <td class="text-center fw-bold">$${parseFloat(p.total).toFixed(2)}</td>
                 <td class="text-center">
-                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-3 py-2">PENDIENTE</span>
+                    <span class="badge ${badgeClass} border px-3 py-2">${p.estado}</span>
                 </td>
                 <td class="pe-4 text-end">
-                    <button class="btn btn-primary btn-sm px-3" onclick="processOrder(${p.id})">
-                        FACTURAR
+                    <button id="btn-action-${p.id}" class="btn ${btnClass} btn-sm px-3 fw-bold shadow-sm" onclick="${btnAction}">
+                        ${btnText}
                     </button>
                 </td>
             </tr>
         `;
     }
 
-    window.processOrder = async (id) => {
+    window.terminarPedido = async (id) => {
+        const btn = document.getElementById(`btn-action-${id}`);
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
         try {
-            await api.post(`/pedidos/${id}/procesar`);
-            document.getElementById(`row-${id}`).remove();
-        } catch (err) { console.error(err); }
+            await api.post(`/pedidos/${id}/terminar`);
+            // El estado se actualizará vía Mercure automáticamente
+        } catch (err) { 
+            btn.disabled = false;
+            btn.innerText = 'TERMINAR';
+        }
+    }
+
+    window.facturarPedido = async (id) => {
+        const btn = document.getElementById(`btn-action-${id}`);
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        try {
+            await api.post(`/pedidos/${id}/facturar`);
+            // La fila se eliminará vía Mercure automáticamente
+        } catch (err) { 
+            btn.disabled = false;
+            btn.innerText = 'FACTURAR';
+        }
     }
 
     init();

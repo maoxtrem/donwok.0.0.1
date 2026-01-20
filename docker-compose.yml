@@ -102,7 +102,11 @@ services:
       SERVER_NAME: ":80"
       MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisMercureHubFreeApp2022!"
       MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisMercureHubFreeApp2022!"
-      MERCURE_EXTRA_DIRECTIVES: "cors_origins *"
+      # 🟢 Configuración ultra-abierta para desarrollo
+      MERCURE_EXTRA_DIRECTIVES: |
+        cors_origins *
+        anonymous
+        publish_origins *
     ports:
       - "3001:80"
     networks:
