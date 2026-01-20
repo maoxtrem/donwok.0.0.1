@@ -1,60 +1,73 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Acceso - DonWok{% endblock %}
-
-{% block stylesheets %}
-<style>
-    .login-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-    }
-    .btn-login {
-        background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
-        border: none;
-        border-radius: 12px;
-        color: white;
-        padding: 12px;
-        font-weight: 700;
-        transition: all 0.3s;
-    }
-    .btn-login:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 15px rgba(66, 153, 225, 0.3);
-    }
-    .form-control {
-        border-radius: 10px;
-        padding: 12px;
-        border: 1px solid #e2e8f0;
-    }
-</style>
-{% endblock %}
+{% block body_class %}login-page{% endblock %}
+{# Forzamos ocultar sidebar en login si no hay sesión #}
+{% block show_sidebar %}{% endblock %}
 
 {% block body %}
-<div class="login-container">
-    <div class="glass-card p-5 shadow-lg" style="width: 100%; max-width: 400px;">
+<div class="d-flex justify-content-center align-items-center vh-100" style="background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);">
+    <div class="glass-card p-5 shadow-lg" style="width: 100%; max-width: 420px;">
         <div class="text-center mb-4">
-            <h2 class="fw-bold" style="color: #2d3748;">DonWok Access</h2>
-            <p class="text-muted">Ingresa tus credenciales</p>
+            <h2 class="fw-bold text-dark">DonWok Access</h2>
+            <p class="text-muted">Gestión de Inventario y POS</p>
         </div>
 
-        <form method="post" action="/login">
+        <form id="loginForm">
             <div class="mb-3">
-                <label class="form-label fw-bold">Usuario</label>
-                <input type="text" name="_username" class="form-control" placeholder="admin" required autofocus>
+                <label class="form-label fw-600">Usuario</label>
+                <input type="text" id="username" class="form-control py-2" placeholder="admin" required autofocus>
             </div>
             <div class="mb-4">
-                <label class="form-label fw-bold">Contraseña</label>
-                <input type="password" name="_password" class="form-control" placeholder="••••••••" required>
+                <label class="form-label fw-600">Contraseña</label>
+                <input type="password" id="password" class="form-control py-2" placeholder="••••••••" required>
             </div>
 
-            {% if error is defined and error %}
-                <div class="alert alert-danger py-2 small text-center">{{ error }}</div>
-            {% endif %}
+            <div id="loginError" class="alert alert-danger d-none py-2 small text-center"></div>
 
-            <button type="submit" class="btn-login w-100">Iniciar Sesión</button>
+            <button type="submit" id="btnLogin" class="btn btn-primary w-100 py-2 fw-bold" style="border-radius: 10px; background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); border:none;">
+                <span id="btnText">Iniciar Sesión</span>
+                <span id="btnSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+            </button>
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block javascripts %}
+<script type="module">
+import CoreAPI from '/js/core.js';
+const api = new CoreAPI();
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const errorDiv = document.getElementById('loginError');
+    const btn = document.getElementById('btnLogin');
+    const btnText = document.getElementById('btnText');
+    const btnSpinner = document.getElementById('btnSpinner');
+
+    errorDiv.classList.add('d-none');
+    btn.disabled = true;
+    btnText.classList.add('d-none');
+    btnSpinner.classList.remove('d-none');
+
+    try {
+        // 1. Obtener Token JWT (Solo para handshake)
+        const token = await api.loginAuth(username, password);
+        
+        // 2. Establecer Sesión en Core (Aquí se crea la cookie CORESESSID)
+        await api.establishSession(token);
+
+        // 3. Redirigir (La cookie ya está en el navegador)
+        window.location.href = '/dashboard';
+    } catch (err) {
+        errorDiv.textContent = err.message;
+        errorDiv.classList.remove('d-none');
+        btn.disabled = false;
+        btnText.classList.remove('d-none');
+        btnSpinner.classList.add('d-none');
+    }
+});
+</script>
 {% endblock %}

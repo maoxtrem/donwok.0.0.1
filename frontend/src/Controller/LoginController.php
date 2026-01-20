@@ -8,9 +8,21 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class LoginController extends AbstractController
 {
+    #[Route('/', name: 'app_home')]
+    public function home(): Response
+    {
+        return $this->redirectToRoute('app_login');
+    }
+
     #[Route('/login', name: 'app_login')]
     public function index(): Response
     {
         return $this->render('login/index.html.twig');
+    }
+
+    #[Route('/logout', name: 'app_logout')]
+    public function logout(): void
+    {
+        // El logout se maneja por JS eliminando el token del localStorage
     }
 }

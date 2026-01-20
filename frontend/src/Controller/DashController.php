@@ -8,11 +8,21 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class DashController extends AbstractController
 {
-    #[Route('/dash', name: 'app_dash')]
+    #[Route('/dashboard', name: 'app_dashboard')]
     public function index(): Response
     {
-        return $this->render('dash/index.html.twig', [
-            'controller_name' => 'DashController',
-        ]);
+        return $this->render('dash/index.html.twig');
+    }
+
+    #[Route('/productos', name: 'app_productos')]
+    public function productos(): Response
+    {
+        return $this->render('productos/index.html.twig');
+    }
+
+    #[Route('/ventas', name: 'app_ventas')]
+    public function ventas(): Response
+    {
+        return $this->render('ventas/index.html.twig');
     }
 }

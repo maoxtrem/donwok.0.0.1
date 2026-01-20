@@ -5,7 +5,7 @@ framework:
         name: CORESESSID
         cookie_secure: false
         cookie_httponly: true
-        cookie_samesite: none
+        cookie_samesite: lax
         cookie_path: /
 
 when@test:
