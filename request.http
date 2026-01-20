@@ -6,11 +6,9 @@ Content-Type: application/json
   "password": "admin"
 }
 
-####
+#### core
 POST http://localhost:8000/login-by-token
 Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjEsInVzZXJuYW1lIjoiYWRtaW4iLCJyb2xlcyI6WyJST0xFX0FETUlOIl0sImV4cCI6MTc2ODgwMzM5NH0.o7D4sHRnnB2NrfFdUAzadZPCAz1JcvOu56nu3u4hWt0qPa5x2zkQY3CJh7c3gc_lHdtKPkdp49vfNdObG6x73MhCXNT07NDrvdXGJbEdaoO9j80VmE9abBpPw-8GAaRDZIOfISisPbTWglX46tQwhNFg0ucooR32FNeI8-jECY2KmM4cLaKGXM-Kah1vQ9CZr4PDZdmeP0LWSzAAd0_rYpNV3w9-rYoK_jJsNyTHt_CuMYh-piwiX5K0KRP1uMXmWUJSjBjzX5zFmY_g0k30HYUc0u0jjVKEvmpsmzmCBXbaW0Em6Lky8yJtXDds-sOKtwvNgdoGkf_dRhcvMUgeVg
-
-
 
 
 #### logout
@@ -36,7 +34,7 @@ Content-Type: application/json
 ###
 
 ### ACTUALIZAR PRODUCTO
-PUT http://localhost:8000/productos/20
+PUT http://localhost:8000/productos/2
 Content-Type: application/json
 
 {
@@ -49,7 +47,7 @@ Content-Type: application/json
 ###
 
 ### ELIMINAR PRODUCTO (Soft Delete)
-DELETE http://localhost:8000/productos/1
+DELETE http://localhost:8000/productos/2
 Accept: application/json
 
 
