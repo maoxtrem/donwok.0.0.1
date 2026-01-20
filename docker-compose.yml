@@ -14,7 +14,7 @@ services:
     volumes:
       - ./core:/app
       - ./auth/config/jwt/public.pem:/app/config/jwt/public.pem:ro
-    # 🟢 NO expone puertos al host (Seguridad + Desacoplamiento)
+    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
     depends_on:
       - db
     environment:
@@ -23,7 +23,7 @@ services:
       JWT_PUBLIC_KEY: /app/config/jwt/public.pem
       CORE_SERVICE_NAME: core
       CORE_SERVICE_SECRET: super-secret-core-key
-      AUTH_BASE_URL: http://auth:8000
+      AUTH_BASE_URL: http://auth
     networks:
       - internal_net
 
@@ -38,7 +38,7 @@ services:
     volumes:
       - ./auth:/app
       - ./auth/config/jwt:/app/config/jwt:rw
-    # 🟢 NO expone puertos al host
+    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
     environment:
       APP_ENV: dev
       JWT_PRIVATE_KEY: /app/config/jwt/private.pem
@@ -62,31 +62,34 @@ services:
       dockerfile: Dockerfile.frontend
     volumes:
       - ./frontend:/app
-    # 🟢 NO expone puertos al host
+    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
     environment:
       APP_ENV: dev
     networks:
       - internal_net
 
   # =====================
-  # MERCURE HUB (Motor real)
+  # CENTRIFUGO (Tiempo Real)
   # =====================
-  mercure-hub:
-    container_name: mercure-hub
-    image: dunglas/mercure
+  centrifugo:
+    image: centrifugo/centrifugo:v5
+    container_name: centrifugo
     restart: unless-stopped
+    command: centrifugo --config=config.json
     environment:
-      SERVER_NAME: ":80"
-      MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisMercureHubFreeApp2022!"
-      MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisMercureHubFreeApp2022!"
-      MERCURE_EXTRA_DIRECTIVES: |
-        cors_origins *
-        anonymous
+      CENTRIFUGO_TOKEN_HMAC_SECRET_KEY: "super-secret-key"
+      CENTRIFUGO_API_KEY: "api-key"
+      # Permitimos conexiones sin token para desarrollo
+      CENTRIFUGO_ALLOW_ANONYMOUS_CONNECT_WITHOUT_TOKEN: "true"
+    volumes:
+      - ./centrifugo/config.json:/centrifugo/config.json:ro
+    ports:
+      - "8008:8000" # Puerto para dashboard y WS
     networks:
       - internal_net
 
   # =====================
-  # GATEWAY (El único punto de entrada)
+  # GATEWAY
   # =====================
   gateway:
     image: nginx:alpine
@@ -99,11 +102,9 @@ services:
       - frontend
       - core
       - auth
-      - mercure-hub
+      - centrifugo
     networks:
-      internal_net:
-        aliases:
-          - mercure # 🟢 Ahora el Core encontrará "mercure" aquí
+      - internal_net
 
   # =====================
   # DATABASE

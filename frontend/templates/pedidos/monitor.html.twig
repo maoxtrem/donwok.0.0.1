@@ -13,106 +13,46 @@
         --accent-amber: #f59e0b;
         --accent-emerald: #10b981;
     }
-
-    body, html {
-        margin: 0; padding: 0; height: 100%; overflow: hidden;
-        background-color: var(--bg-dark);
-    }
-
-    .monitor-container {
-        display: flex; height: 100vh; width: 100vw;
-    }
-
-    .monitor-col {
-        flex: 1; padding: 3rem; display: flex; flex-direction: column;
-    }
-
-    .col-pending { background: linear-gradient(180deg, rgba(15,23,42,1) 0%, rgba(30,41,59,1) 100%); border-right: 2px solid rgba(255,255,255,0.05); }
-    .col-ready { background: linear-gradient(180deg, rgba(15,23,42,1) 0%, rgba(17,24,39,1) 100%); }
-
-    .monitor-header {
-        text-align: center; margin-bottom: 4rem;
-    }
-
-    .monitor-header h1 {
-        font-size: 3.5rem; font-weight: 900; letter-spacing: -1px; text-transform: uppercase;
-    }
-
+    body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: var(--bg-dark); }
+    .monitor-container { display: flex; height: 100vh; width: 100vw; }
+    .monitor-col { flex: 1; padding: 3rem; display: flex; flex-direction: column; overflow: hidden; }
+    .col-pending { background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); border-right: 2px solid rgba(255,255,255,0.05); }
+    .col-ready { background: linear-gradient(180deg, #0f172a 0%, #111827 100%); }
+    .monitor-header { text-align: center; margin-bottom: 4rem; }
+    .monitor-header h1 { font-size: 3.5rem; font-weight: 900; letter-spacing: -1px; text-transform: uppercase; }
     .text-pending { color: var(--accent-amber); text-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
     .text-ready { color: var(--accent-emerald); text-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
+    .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2rem; }
+    .order-card { aspect-ratio: 1/1; border-radius: 24px; display: flex; align-items: center; justify-content: center; animation: orderIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); position: relative; }
+    @keyframes orderIn { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+    .card-pending { background: var(--card-pending); border: 2px solid rgba(245, 158, 11, 0.2); }
+    .card-ready { background: var(--card-ready); border: 2px solid rgba(16, 185, 129, 0.2); }
+    .order-number { font-size: 5rem; font-weight: 900; color: white; }
+    
+    #ws-status-monitor { position: fixed; top: 1rem; right: 1rem; z-index: 3000; opacity: 0.8; }
+    .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 
-    .orders-grid {
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2rem;
-    }
-
-    .order-card {
-        aspect-ratio: 1/1; border-radius: 24px; display: flex; align-items: center; justify-content: center;
-        animation: orderIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-        position: relative; overflow: hidden;
-    }
-
-    @keyframes orderIn {
-        from { opacity: 0; transform: scale(0.5); }
-        to { opacity: 1; transform: scale(1); }
-    }
-
-    .card-pending {
-        background: var(--card-pending); border: 2px solid rgba(245, 158, 11, 0.2);
-    }
-    .card-ready {
-        background: var(--card-ready); border: 2px solid rgba(16, 185, 129, 0.2);
-    }
-
-    .order-number {
-        font-size: 5rem; font-weight: 900; color: white;
-    }
-
-    .btn-back-float {
-        position: fixed; bottom: 2rem; right: 2rem;
-        width: 60px; height: 60px; border-radius: 50%;
-        background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);
-        display: flex; align-items: center; justify-content: center;
-        color: white; font-size: 1.5rem; text-decoration: none;
-        transition: all 0.3s; border: 1px solid rgba(255,255,255,0.1);
-        z-index: 2000;
-    }
-
-    .btn-back-float:hover {
-        background: #4299e1; transform: scale(1.1) rotate(-15deg);
-        box-shadow: 0 10px 25px rgba(66, 153, 225, 0.4);
-    }
-
-    .glow-dot {
-        position: absolute; top: 10px; right: 10px; width: 12px; height: 12px; border-radius: 50%;
-    }
-    .glow-pending { background: var(--accent-amber); box-shadow: 0 0 10px var(--accent-amber); }
-    .glow-ready { background: var(--accent-emerald); box-shadow: 0 0 10px var(--accent-emerald); }
-
+    .btn-back-float { position: fixed; bottom: 2rem; right: 2rem; width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem; text-decoration: none; transition: all 0.3s; z-index: 2000; border: 1px solid rgba(255,255,255,0.1); }
 </style>
 {% endblock %}
 
 {% block body %}
+<div id="ws-status-monitor">
+    <span class="badge bg-warning text-dark animate-pulse">Conectando...</span>
+</div>
+
 <div class="monitor-container">
     <div class="monitor-col col-pending">
-        <div class="monitor-header">
-            <h1 class="text-pending">Preparando</h1>
-            <div class="opacity-50 text-white small">Tu pedido estará listo en unos minutos</div>
-        </div>
+        <div class="monitor-header"><h1 class="text-pending">Preparando</h1></div>
         <div id="pending-list" class="orders-grid"></div>
     </div>
-
     <div class="monitor-col col-ready">
-        <div class="monitor-header">
-            <h1 class="text-ready">Listos</h1>
-            <div class="opacity-50 text-white small">Por favor, acércate al mostrador</div>
-        </div>
+        <div class="monitor-header"><h1 class="text-ready">Listos</h1></div>
         <div id="ready-list" class="orders-grid"></div>
     </div>
 </div>
-
-<a href="/dashboard" class="btn-back-float" title="Volver al Dashboard">
-    <i class="bi bi-grid-fill"></i>
-</a>
+<a href="/dashboard" class="btn-back-float"><i class="bi bi-grid-fill"></i></a>
 {% endblock %}
 
 {% block javascripts %}
@@ -120,66 +60,83 @@
     import CoreAPI from '/js/core.js';
     const api = new CoreAPI();
 
-    async function init() {
+    function updateStatus(text, colorClass) {
+        const el = document.getElementById('ws-status-monitor');
+        if (el) el.innerHTML = `<span class="badge ${colorClass} animate-pulse">${text}</span>`;
+    }
+
+    // 🟢 Inicializar WebSocket de inmediato
+    function startWebSocket() {
+        if (typeof Centrifuge === 'undefined') {
+            updateStatus('Error: JS no cargado', 'bg-danger');
+            return;
+        }
+
+        const centrifuge = new Centrifuge(`ws://${window.location.host}/connection/websocket`);
+        const sub = centrifuge.newSubscription('public:pedidos');
+
+        sub.on('publication', (ctx) => {
+            console.log("[WS] Evento:", ctx.data);
+            handleIncomingEvent(ctx.data);
+        });
+
+        sub.on('subscribed', () => {
+            updateStatus('Online ✅', 'bg-success');
+            console.log("[WS] Suscrito correctamente.");
+        });
+
+        sub.on('error', (err) => {
+            updateStatus('Error de Canal ❌', 'bg-danger');
+            console.error("[WS] Error sub:", err);
+        });
+
+        centrifuge.on('disconnected', () => updateStatus('Offline ⚠️', 'bg-warning text-dark'));
+        
+        sub.subscribe();
+        centrifuge.connect();
+    }
+
+    // 🔵 Cargar datos iniciales
+    async function loadInitialData() {
         try {
             const pedidos = await api.get('/pedidos/pendientes');
             pedidos.forEach(p => {
-                if (p.estado === 'PENDIENTE') addOrder(p, 'pending');
-                if (p.estado === 'TERMINADO') addOrder(p, 'ready');
+                if (p.estado === 'PENDIENTE') window.renderOrder(p, 'pending');
+                if (p.estado === 'TERMINADO') window.renderOrder(p, 'ready');
             });
-
-            // Conectar a Mercure vía Gateway (Ruta relativa)
-            const url = new URL('/.well-known/mercure', window.location.origin);
-            url.searchParams.append('topic', 'donwok/pedidos');
-
-            const eventSource = new EventSource(url);
-            eventSource.onmessage = e => {
-                const data = JSON.parse(e.data);
-                if (data.type === 'NEW_ORDER') {
-                    addOrder(data.pedido, 'pending');
-                    playNotification();
-                } else if (data.type === 'ORDER_READY') {
-                    moveOrderToReady(data.pedido.id);
-                    playNotification();
-                } else if (data.type === 'ORDER_INVOICED') {
-                    removeOrder(data.pedido.id);
-                }
-            };
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error("Error cargando API:", err); }
     }
 
-    function addOrder(pedido, type) {
+    function handleIncomingEvent(data) {
+        if (data.type === 'NEW_ORDER') window.renderOrder(data.pedido, 'pending');
+        else if (data.type === 'ORDER_READY') window.moveOrder(data.pedido.id);
+        else if (data.type === 'ORDER_INVOICED') window.removeOrder(data.pedido.id);
+    }
+
+    window.renderOrder = (pedido, type) => {
+        if (document.getElementById(`order-${pedido.id}`)) return;
         const grid = type === 'pending' ? document.getElementById('pending-list') : document.getElementById('ready-list');
         const cardClass = type === 'pending' ? 'card-pending' : 'card-ready';
-        const glowClass = type === 'pending' ? 'glow-pending' : 'glow-ready';
-        
-        const card = `
-            <div class="order-card ${cardClass}" id="order-${pedido.id}">
-                <div class="glow-dot ${glowClass}"></div>
-                <div class="order-number">${pedido.id}</div>
-            </div>
-        `;
+        const card = `<div class="order-card ${cardClass}" id="order-${pedido.id}"><div class="order-number">${pedido.id}</div></div>`;
         grid.insertAdjacentHTML('afterbegin', card);
-    }
+    };
 
-    function moveOrderToReady(id) {
+    window.moveOrder = (id) => {
         const card = document.getElementById(`order-${id}`);
-        if (card) {
-            card.remove();
-            addOrder({id: id}, 'ready');
-        }
-    }
+        if (card) { card.remove(); window.renderOrder({id: id}, 'ready'); playSound(); }
+    };
 
-    function removeOrder(id) {
+    window.removeOrder = (id) => {
         const card = document.getElementById(`order-${id}`);
         if (card) card.remove();
+    };
+
+    function playSound() {
+        new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play().catch(() => {});
     }
 
-    function playNotification() {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-        audio.play().catch(() => {});
-    }
-
-    init();
+    // Arrancar todo
+    startWebSocket();
+    loadInitialData();
 </script>
 {% endblock %}

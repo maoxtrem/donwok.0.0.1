@@ -60,7 +60,6 @@ class Factura
     
     public function facturar(string $numero): void 
     { 
-        // 🟢 Permitimos facturar tanto si está TERMINADO como PENDIENTE para mayor flexibilidad
         $this->numeroFactura = $numero;
         $this->estado = self::ESTADO_FACTURADO; 
     }

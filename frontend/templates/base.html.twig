@@ -7,8 +7,9 @@
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
         
-        {# SweetAlert2 Local #}
+        {# Librerías Globales #}
         <script src="/vendor/sweetalert2/sweetalert2.all.min.js"></script>
+        <script src="/vendor/centrifuge.min.js"></script>
         
         <style>
             :root {
@@ -35,10 +36,6 @@
                 display: flex;
                 flex-direction: column;
             }
-
-            /* Por defecto ocultamos el sidebar si la página es 'login-page' */
-            .login-page .sidebar { display: none !important; }
-            .login-page .main-content { margin-left: 0 !important; padding: 0; }
 
             .sidebar-header {
                 padding: 2rem 1.5rem;
@@ -70,7 +67,7 @@
                 transition: margin-left 0.3s ease;
             }
 
-            /* Pantallas completas (Monitor y Login) */
+            .login-page .sidebar, .monitor-page .sidebar { display: none !important; }
             .login-page .main-content, .monitor-page .main-content { 
                 margin-left: 0 !important; 
                 padding: 0 !important; 
@@ -82,7 +79,6 @@
                 box-shadow: 0 10px 25px rgba(0,0,0,0.05);
             }
 
-            /* Botón Salir Especial */
             .btn-logout-sidebar {
                 background: rgba(254, 178, 178, 0.1);
                 color: #feb2b2 !important;
@@ -101,16 +97,11 @@
                 transform: translateY(-2px);
                 box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
             }
-
-            .btn-logout-sidebar i {
-                font-size: 1.1rem;
-            }
         </style>
         {% block stylesheets %}{% endblock %}
     </head>
     <body class="{% block body_class %}{% endblock %}">
         
-        {# Sidebar: Solo si NO es monitor y NO es login #}
         {% if app.request.get('_route') != 'app_pedidos_monitor' and block('body_class') != 'login-page' %}
         <nav class="sidebar">
             <div class="sidebar-header">
