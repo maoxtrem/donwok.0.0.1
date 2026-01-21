@@ -17,6 +17,8 @@ class Factura
     public const ESTADO_PENDIENTE = 'PENDIENTE';
     public const ESTADO_TERMINADO = 'TERMINADO';
     public const ESTADO_FACTURADO = 'FACTURADO';
+    public const ESTADO_CERRADA = 'CERRADA';
+    public const ESTADO_ANULADA = 'ANULADA';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -62,6 +64,16 @@ class Factura
     { 
         $this->numeroFactura = $numero;
         $this->estado = self::ESTADO_FACTURADO; 
+    }
+
+    public function cerrar(): void
+    {
+        $this->estado = self::ESTADO_CERRADA;
+    }
+
+    public function anular(): void
+    {
+        $this->estado = self::ESTADO_ANULADA;
     }
 
     public function toArray(): array

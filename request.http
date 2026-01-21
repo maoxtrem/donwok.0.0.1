@@ -82,3 +82,15 @@ Content-Type: application/json
   "service": "core",
   "secret": "super-secret-core-key"
 }
+
+### CAJA: LISTAR FACTURAS EMITIDAS
+GET http://localhost:8000/caja/facturas-emitidas
+Accept: application/json
+
+### CAJA: REALIZAR CIERRE
+POST http://localhost:8000/caja/cerrar
+Content-Type: application/json
+
+### CAJA: LISTAR MOVIMIENTOS
+GET http://localhost:8000/caja/movimientos
+Accept: application/json

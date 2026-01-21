@@ -4,6 +4,7 @@ namespace App\UI\Http\Web\Controller;
 
 use App\Application\DTO\Request\PedidoRequestDTO;
 use App\Application\Handler\Pedido\CreatePedidoHandler;
+use App\Application\Handler\Pedido\EliminarPedidoHandler;
 use App\Infrastructure\Doctrine\Repository\FacturaRepository;
 use App\Domain\Entity\Factura;
 use Doctrine\ORM\EntityManagerInterface;
@@ -19,9 +20,22 @@ class PedidoController extends AbstractController
 {
     public function __construct(
         private CreatePedidoHandler $createHandler,
+        private EliminarPedidoHandler $eliminarHandler,
         private EntityManagerInterface $em,
         private HubInterface $hub
     ) {}
+
+    #[Route('/stats', name: 'app_pedidos_stats', methods: ['GET'])]
+    public function stats(FacturaRepository $repo): JsonResponse
+    {
+        $pendientes = $repo->count(['estado' => Factura::ESTADO_PENDIENTE]);
+        $terminados = $repo->count(['estado' => Factura::ESTADO_TERMINADO]);
+
+        return new JsonResponse([
+            'pendientes' => $pendientes,
+            'terminados' => $terminados
+        ]);
+    }
 
     #[Route('/pendientes', name: 'app_pedidos_pendientes', methods: ['GET'])]
     public function pendientes(FacturaRepository $repo): JsonResponse
@@ -75,6 +89,24 @@ class PedidoController extends AbstractController
             return new JsonResponse(['message' => 'Facturado tras colisión: ' . $proximoNumero, 'pedido' => $pedido->toArray()]);
         } catch (\Exception $e) { 
             return new JsonResponse(['message' => $e->getMessage()], 400); 
+        }
+    }
+
+    #[Route('/{id}/eliminar', name: 'app_pedidos_eliminar', methods: ['DELETE'])]
+    public function eliminar(int $id): JsonResponse
+    {
+        try {
+            $this->eliminarHandler->handle($id);
+            // Publicar actualización para que el monitor/gestión lo quite
+            $update = new Update(
+                'donwok/pedidos',
+                json_encode(['type' => 'ORDER_DELETED', 'pedidoId' => $id])
+            );
+            $this->hub->publish($update);
+
+            return new JsonResponse(['message' => 'Pedido eliminado con éxito']);
+        } catch (\Exception $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 400);
         }
     }
 

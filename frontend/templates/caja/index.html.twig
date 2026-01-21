@@ -1,0 +1,196 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Caja Diaria - DonWok{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold m-0">Caja Diaria</h2>
+            <p class="text-muted">Facturas emitidas pendientes de cierre</p>
+        </div>
+        <div>
+            <button id="btn-cerrar-caja" class="btn btn-primary fw-bold px-4 py-2 shadow-sm" onclick="realizarCierreCaja()">
+                <i class="bi bi-safe-fill me-2"></i> REALIZAR CIERRE DE CAJA
+            </button>
+        </div>
+    </div>
+
+    <div class="glass-card shadow-sm overflow-hidden">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="bg-light text-secondary">
+                <tr>
+                    <th class="ps-4">Nro. Factura</th>
+                    <th>Fecha</th>
+                    <th class="text-center">Estado</th>
+                    <th class="text-end">Total</th>
+                    <th class="pe-4 text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="facturas-emitidas-list">
+                <tr><td colspan="5" class="text-center py-5 text-muted">Cargando facturas...</td></tr>
+            </tbody>
+            <tfoot class="bg-light fw-bold">
+                <tr>
+                    <td colspan="3" class="text-end ps-4">TOTAL ACUMULADO:</td>
+                    <td class="text-end text-primary h5 m-0" id="total-acumulado">$0.00</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Detalle -->
+<div class="modal fade" id="modalDetalle" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header bg-light border-0 py-3" style="border-radius: 20px 20px 0 0;">
+                <h5 class="modal-title fw-bold">Detalle de Factura <span id="detalle-nro" class="text-primary"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <ul class="list-group list-group-flush" id="detalle-items-list"></ul>
+                <div class="p-4 bg-light d-flex justify-content-between align-items-center" style="border-radius: 0 0 20px 20px;">
+                    <span class="fw-bold text-secondary">TOTAL FACTURA</span>
+                    <span class="h4 fw-bold text-dark m-0" id="detalle-total"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script type="module">
+    import CoreAPI from '/js/core.js';
+    const api = new CoreAPI();
+    let currentFacturas = [];
+
+    async function cargarFacturas() {
+        try {
+            currentFacturas = await api.get('/caja/facturas-emitidas');
+            renderFacturas(currentFacturas);
+        } catch (err) {
+            console.error(err);
+            // El error ya lo maneja api.notify
+        }
+    }
+
+    function renderFacturas(facturas) {
+        const body = document.getElementById('facturas-emitidas-list');
+        const totalContainer = document.getElementById('total-acumulado');
+        
+        if (!facturas || facturas.length === 0) {
+            body.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">No hay facturas emitidas hoy</td></tr>';
+            totalContainer.innerText = '$0.00';
+            document.getElementById('btn-cerrar-caja').disabled = true;
+            return;
+        }
+
+        let totalGeneral = 0;
+        body.innerHTML = facturas.map(f => {
+            totalGeneral += parseFloat(f.total);
+            return `
+                <tr id="row-factura-${f.id}">
+                    <td class="ps-4 fw-bold">${f.numeroFactura}</td>
+                    <td class="text-muted small">${f.fecha}</td>
+                    <td class="text-center"><span class="badge bg-success-subtle text-success border border-success-subtle">${f.estado}</span></td>
+                    <td class="text-end fw-bold">$${parseFloat(f.total).toFixed(2)}</td>
+                    <td class="pe-4 text-center">
+                        <button class="btn btn-outline-primary btn-sm rounded-circle me-1" onclick="window.verDetalle(${f.id})" title="Ver Detalle">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm rounded-circle" onclick="window.anularFactura(${f.id})" title="Anular Factura">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        totalContainer.innerText = `$${totalGeneral.toFixed(2)}`;
+        document.getElementById('btn-cerrar-caja').disabled = false;
+    }
+
+    window.verDetalle = (id) => {
+        const f = currentFacturas.find(fact => fact.id === id);
+        if (!f) return;
+
+        document.getElementById('detalle-nro').innerText = f.numeroFactura;
+        document.getElementById('detalle-total').innerText = `$${f.total.toFixed(2)}`;
+        
+        const list = document.getElementById('detalle-items-list');
+        list.innerHTML = f.items.map(item => `
+            <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                <div>
+                    <div class="fw-bold">${item.producto}</div>
+                    <small class="text-muted">$${item.precio.toFixed(2)} x ${item.cantidad}</small>
+                </div>
+                <span class="fw-bold">$${(item.precio * item.cantidad).toFixed(2)}</span>
+            </li>
+        `).join('');
+
+        new bootstrap.Modal(document.getElementById('modalDetalle')).show();
+    };
+
+    window.anularFactura = async (id) => {
+        const res = await Swal.fire({
+            title: '¿Anular esta factura?',
+            text: "Esta acción no se puede deshacer y la factura no contará para el cierre.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, anular',
+            cancelButtonText: 'No'
+        });
+
+        if (res.isConfirmed) {
+            try {
+                await api.post(`/caja/facturas/${id}/anular`);
+                cargarFacturas(); // Recargar lista
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    };
+
+    window.realizarCierreCaja = async () => {
+        const result = await Swal.fire({
+            title: '¿Realizar Cierre de Caja?',
+            text: "Se consolidarán todas las facturas y se generará un movimiento de ingreso.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, cerrar caja',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const btn = document.getElementById('btn-cerrar-caja');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> PROCESANDO...';
+
+                const res = await api.post('/caja/cerrar');
+                
+                await Swal.fire({
+                    icon: 'success',
+                    title: '¡Cierre Exitoso!',
+                    html: `Monto total: <b>$${res.detalle.total.toFixed(2)}</b><br>Facturas procesadas: ${res.detalle.cantidad_facturas}`,
+                    confirmButtonText: 'Ver Movimientos'
+                }).then(() => {
+                    window.location.href = '/caja/movimientos';
+                });
+
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Error', err.message || 'No se pudo realizar el cierre', 'error');
+                cargarFacturas(); // Recargar por si acaso
+            }
+        }
+    };
+
+    cargarFacturas();
+</script>
+{% endblock %}

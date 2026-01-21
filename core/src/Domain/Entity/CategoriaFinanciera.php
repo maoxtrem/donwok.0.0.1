@@ -25,4 +25,16 @@ class CategoriaFinanciera
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $descripcion = null;
+
+    public function __construct(string $nombre, string $tipo, ?string $descripcion = null)
+    {
+        $this->nombre = $nombre;
+        $this->tipo = $tipo;
+        $this->descripcion = $descripcion;
+    }
+
+    public function getId(): ?int { return $this->id; }
+    public function getNombre(): string { return $this->nombre; }
+    public function getTipo(): string { return $this->tipo; }
+    public function getDescripcion(): ?string { return $this->descripcion; }
 }

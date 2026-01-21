@@ -42,4 +42,33 @@ class MovimientoFinanciero
 
     #[ORM\Column(nullable: true)]
     private ?int $referenciaId = null;
+
+    public function __construct(
+        string $tipoMovimiento,
+        float $monto,
+        CategoriaFinanciera $categoria,
+        CuentaFinanciera $cuenta,
+        string $referenciaTipo,
+        ?int $referenciaId = null,
+        ?string $descripcion = null
+    ) {
+        $this->tipoMovimiento = $tipoMovimiento;
+        $this->monto = $monto;
+        $this->categoriaFinanciera = $categoria;
+        $this->cuentaFinanciera = $cuenta;
+        $this->referenciaTipo = $referenciaTipo;
+        $this->referenciaId = $referenciaId;
+        $this->descripcion = $descripcion;
+        $this->fechaMovimiento = new \DateTime();
+    }
+
+    public function getId(): ?int { return $this->id; }
+    public function getTipoMovimiento(): string { return $this->tipoMovimiento; }
+    public function getMonto(): float { return $this->monto; }
+    public function getFechaMovimiento(): \DateTimeInterface { return $this->fechaMovimiento; }
+    public function getDescripcion(): ?string { return $this->descripcion; }
+    public function getCategoriaFinanciera(): CategoriaFinanciera { return $this->categoriaFinanciera; }
+    public function getCuentaFinanciera(): CuentaFinanciera { return $this->cuentaFinanciera; }
+    public function getReferenciaTipo(): string { return $this->referenciaTipo; }
+    public function getReferenciaId(): ?int { return $this->referenciaId; }
 }

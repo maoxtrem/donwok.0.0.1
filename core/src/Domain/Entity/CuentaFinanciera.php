@@ -24,4 +24,16 @@ class CuentaFinanciera
 
     #[ORM\Column(type: 'decimal', precision: 12, scale: 2)]
     private float $saldoInicial;
+
+    public function __construct(string $nombre, string $tipo, float $saldoInicial = 0)
+    {
+        $this->nombre = $nombre;
+        $this->tipo = $tipo;
+        $this->saldoInicial = $saldoInicial;
+    }
+
+    public function getId(): ?int { return $this->id; }
+    public function getNombre(): string { return $this->nombre; }
+    public function getTipo(): string { return $this->tipo; }
+    public function getSaldoInicial(): float { return $this->saldoInicial; }
 }

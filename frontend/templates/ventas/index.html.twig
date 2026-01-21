@@ -269,7 +269,17 @@
         <!-- PANEL IZQUIERDO: MENÚ -->
         <div class="menu-container">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="fw-bold text-dark m-0">Punto de Venta</h2>
+                <div>
+                    <h2 class="fw-bold text-dark m-0">Punto de Venta</h2>
+                    <div class="d-flex gap-2 mt-2">
+                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1" style="font-size: 0.75rem;">
+                            <i class="bi bi-hourglass-split"></i> EN COLA: <b id="count-cola">0</b>
+                        </span>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style="font-size: 0.75rem;">
+                            <i class="bi bi-check-circle"></i> LISTOS: <b id="count-listos">0</b>
+                        </span>
+                    </div>
+                </div>
                 <div class="text-muted small"><i class="bi bi-clock me-1"></i> <span id="current-time"></span></div>
             </div>
 
@@ -338,15 +348,38 @@
         document.getElementById('current-time').innerText = now.toLocaleTimeString();
     }, 1000);
 
-    // Cargar productos
+    // Cargar productos y estadísticas
     async function init() {
         try {
-            const data = await api.get('/productos');
-            allProducts = data.filter(p => p.activo);
+            const [productsData, stats] = await Promise.all([
+                api.get('/productos'),
+                api.get('/pedidos/stats')
+            ]);
+
+            allProducts = productsData.filter(p => p.activo);
             renderMenu(allProducts);
+            updateStats(stats);
+            initSSE();
         } catch (err) {
             document.getElementById('menu-items').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
         }
+    }
+
+    function updateStats(stats) {
+        if (stats.pendientes !== undefined) document.getElementById('count-cola').innerText = stats.pendientes;
+        if (stats.terminados !== undefined) document.getElementById('count-listos').innerText = stats.terminados;
+    }
+
+    function initSSE() {
+        const url = new URL('/.well-known/mercure', window.location.origin);
+        url.searchParams.append('topic', 'donwok/pedidos');
+        const eventSource = new EventSource(url);
+        
+        eventSource.onmessage = async () => {
+            // Recargamos stats en cada evento relevante para asegurar precisión
+            const stats = await api.get('/pedidos/stats');
+            updateStats(stats);
+        };
     }
 
     function renderMenu(products) {

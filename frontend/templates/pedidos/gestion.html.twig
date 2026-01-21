@@ -114,10 +114,32 @@
         }
     };
 
+    window.eliminarPedido = async (id) => {
+        const res = await Swal.fire({
+            title: '¿Eliminar este pedido?',
+            text: "El pedido se borrará permanentemente de la cola.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (res.isConfirmed) {
+            try {
+                await api.delete(`/pedidos/${id}/eliminar`);
+                removeOrderRow(id);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    };
+
     async function init() {
         try {
             const pedidos = await api.get('/pedidos/pendientes');
             renderQueue(pedidos);
+            initSSE();
         } catch (err) { 
             console.error("Error inicial:", err);
             Swal.fire({
@@ -126,8 +148,9 @@
                 text: 'No se pudieron cargar los pedidos iniciales.'
             });
         }
+    }
 
-        // Mercure SSE
+    function initSSE() {
         const url = new URL('/.well-known/mercure', window.location.origin);
         url.searchParams.append('topic', 'donwok/pedidos');
 
@@ -144,12 +167,12 @@
             
             if (data.type === 'NEW_ORDER') {
                 prependToQueue(data.pedido);
-                // Notificación discreta de nuevo pedido
                 const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
                 audio.play().catch(() => {});
             }
             else if (data.type === 'ORDER_READY') updateOrderRow(data.pedido);
             else if (data.type === 'ORDER_INVOICED') removeOrderRow(data.pedido.id);
+            else if (data.type === 'ORDER_DELETED') removeOrderRow(data.pedidoId);
         };
 
         eventSource.onerror = () => {
@@ -214,6 +237,9 @@
                 <td class="pe-4 text-end">
                     <button id="btn-action-${p.id}" class="btn ${btnClass} btn-sm px-3 fw-bold" onclick="${btnAction}">
                         ${btnText}
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm px-2" onclick="window.eliminarPedido(${p.id})" title="Eliminar Pedido">
+                        <i class="bi bi-trash"></i>
                     </button>
                 </td>
             </tr>

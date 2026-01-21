@@ -3,17 +3,37 @@
 namespace App\Infrastructure\Doctrine\Repository;
 
 use App\Domain\Entity\Factura;
+use App\Domain\Repository\FacturaRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
  * @extends ServiceEntityRepository<Factura>
  */
-class FacturaRepository extends ServiceEntityRepository
+class FacturaRepository extends ServiceEntityRepository implements FacturaRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Factura::class);
+    }
+
+    public function guardar(Factura $factura): void
+    {
+        $this->getEntityManager()->persist($factura);
+        $this->getEntityManager()->flush();
+    }
+
+    public function buscarPorId(int $id): ?Factura
+    {
+        return $this->find($id);
+    }
+
+    /**
+     * @return Factura[]
+     */
+    public function findPendientesCierre(): array
+    {
+        return $this->findBy(['estado' => Factura::ESTADO_FACTURADO]);
     }
 
     public function getNextInvoiceNumber(): string
