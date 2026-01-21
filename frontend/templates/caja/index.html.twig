@@ -7,37 +7,64 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold m-0">Caja Diaria</h2>
-            <p class="text-muted">Facturas emitidas pendientes de cierre</p>
+            <p class="text-muted">Movimientos pendientes de consolidación</p>
         </div>
-        <div>
-            <button id="btn-cerrar-caja" class="btn btn-primary fw-bold px-4 py-2 shadow-sm" onclick="realizarCierreCaja()">
+        <div class="d-flex gap-3">
+            <div class="glass-card px-4 py-2 text-center border-start border-4 border-primary">
+                <small class="text-muted fw-bold d-block">SALDO ESTIMADO</small>
+                <h4 class="fw-extrabold m-0 text-primary" id="balance-total">$0.00</h4>
+            </div>
+            <button id="btn-cerrar-caja" class="btn btn-primary fw-bold px-4 shadow-sm" onclick="realizarCierreCaja()">
                 <i class="bi bi-safe-fill me-2"></i> REALIZAR CIERRE DE CAJA
             </button>
         </div>
     </div>
 
-    <div class="glass-card shadow-sm overflow-hidden">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="bg-light text-secondary">
-                <tr>
-                    <th class="ps-4">Nro. Factura</th>
-                    <th>Fecha</th>
-                    <th class="text-center">Estado</th>
-                    <th class="text-end">Total</th>
-                    <th class="pe-4 text-center">Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="facturas-emitidas-list">
-                <tr><td colspan="5" class="text-center py-5 text-muted">Cargando facturas...</td></tr>
-            </tbody>
-            <tfoot class="bg-light fw-bold">
-                <tr>
-                    <td colspan="3" class="text-end ps-4">TOTAL ACUMULADO:</td>
-                    <td class="text-end text-primary h5 m-0" id="total-acumulado">$0.00</td>
-                    <td></td>
-                </tr>
-            </tfoot>
-        </table>
+    <div class="row g-4">
+        <!-- SECCIÓN INGRESOS -->
+        <div class="col-lg-7">
+            <div class="glass-card shadow-sm overflow-hidden h-100">
+                <div class="p-3 bg-success-subtle border-bottom d-flex justify-content-between">
+                    <h6 class="m-0 fw-bold text-success-emphasis"><i class="bi bi-plus-circle me-2"></i> INGRESOS (VENTAS)</h6>
+                    <span class="badge bg-success" id="total-ingresos-badge">$0.00</span>
+                </div>
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light small">
+                        <tr>
+                            <th class="ps-4">Nro. Factura</th>
+                            <th>Fecha</th>
+                            <th class="text-end">Total</th>
+                            <th class="pe-4 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="facturas-emitidas-list">
+                        <tr><td colspan="4" class="text-center py-5 text-muted">Cargando facturas...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SECCIÓN EGRESOS -->
+        <div class="col-lg-5">
+            <div class="glass-card shadow-sm overflow-hidden h-100">
+                <div class="p-3 bg-danger-subtle border-bottom d-flex justify-content-between">
+                    <h6 class="m-0 fw-bold text-danger-emphasis"><i class="bi bi-dash-circle me-2"></i> EGRESOS (GASTOS/PRÉSTAMOS)</h6>
+                    <span class="badge bg-danger" id="total-egresos-badge">$0.00</span>
+                </div>
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light small">
+                        <tr>
+                            <th class="ps-4">Concepto</th>
+                            <th class="text-end">Monto</th>
+                            <th class="pe-4 text-center"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="egresos-pendientes-list">
+                        <tr><td colspan="3" class="text-center py-5 text-muted">Cargando egresos...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -66,131 +93,143 @@
     import CoreAPI from '/js/core.js';
     const api = new CoreAPI();
     let currentFacturas = [];
+    let currentEgresos = [];
 
-    async function cargarFacturas() {
+    async function cargarDatos() {
         try {
-            currentFacturas = await api.get('/caja/facturas-emitidas');
-            renderFacturas(currentFacturas);
-        } catch (err) {
-            console.error(err);
-            // El error ya lo maneja api.notify
-        }
+            const [facturas, egresos] = await Promise.all([
+                api.get('/caja/facturas-emitidas'),
+                api.get('/caja/egresos-pendientes')
+            ]);
+            currentFacturas = facturas;
+            currentEgresos = egresos;
+            renderFacturas(facturas);
+            renderEgresos(egresos);
+            actualizarBalance();
+        } catch (err) { console.error(err); }
     }
 
     function renderFacturas(facturas) {
         const body = document.getElementById('facturas-emitidas-list');
-        const totalContainer = document.getElementById('total-acumulado');
-        
         if (!facturas || facturas.length === 0) {
-            body.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">No hay facturas emitidas hoy</td></tr>';
-            totalContainer.innerText = '$0.00';
-            document.getElementById('btn-cerrar-caja').disabled = true;
+            body.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted">No hay ventas hoy</td></tr>';
             return;
         }
 
-        let totalGeneral = 0;
-        body.innerHTML = facturas.map(f => {
-            totalGeneral += parseFloat(f.total);
-            return `
-                <tr id="row-factura-${f.id}">
-                    <td class="ps-4 fw-bold">${f.numeroFactura}</td>
-                    <td class="text-muted small">${f.fecha}</td>
-                    <td class="text-center"><span class="badge bg-success-subtle text-success border border-success-subtle">${f.estado}</span></td>
-                    <td class="text-end fw-bold">$${parseFloat(f.total).toFixed(2)}</td>
-                    <td class="pe-4 text-center">
-                        <button class="btn btn-outline-primary btn-sm rounded-circle me-1" onclick="window.verDetalle(${f.id})" title="Ver Detalle">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                        <button class="btn btn-outline-danger btn-sm rounded-circle" onclick="window.anularFactura(${f.id})" title="Anular Factura">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-
-        totalContainer.innerText = `$${totalGeneral.toFixed(2)}`;
-        document.getElementById('btn-cerrar-caja').disabled = false;
+        body.innerHTML = facturas.map(f => `
+            <tr>
+                <td class="ps-4 fw-bold">${f.numeroFactura}</td>
+                <td class="text-muted small">${f.fecha}</td>
+                <td class="text-end fw-bold">$${parseFloat(f.total).toFixed(2)}</td>
+                <td class="pe-4 text-center">
+                    <button class="btn btn-outline-primary btn-sm rounded-circle" onclick="window.verDetalle(${f.id})"><i class="bi bi-eye"></i></button>
+                    <button class="btn btn-outline-danger btn-sm rounded-circle" onclick="window.anularFactura(${f.id})"><i class="bi bi-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
     }
 
-    window.verDetalle = (id) => {
-        const f = currentFacturas.find(fact => fact.id === id);
-        if (!f) return;
+    function renderEgresos(egresos) {
+        const body = document.getElementById('egresos-pendientes-list');
+        if (!egresos || egresos.length === 0) {
+            body.innerHTML = '<tr><td colspan="3" class="text-center py-5 text-muted">No hay egresos registrados</td></tr>';
+            return;
+        }
 
-        document.getElementById('detalle-nro').innerText = f.numeroFactura;
-        document.getElementById('detalle-total').innerText = `$${f.total.toFixed(2)}`;
-        
-        const list = document.getElementById('detalle-items-list');
-        list.innerHTML = f.items.map(item => `
-            <li class="list-group-item d-flex justify-content-between align-items-center py-3">
-                <div>
-                    <div class="fw-bold">${item.producto}</div>
-                    <small class="text-muted">$${item.precio.toFixed(2)} x ${item.cantidad}</small>
-                </div>
-                <span class="fw-bold">$${(item.precio * item.cantidad).toFixed(2)}</span>
-            </li>
+        body.innerHTML = egresos.map(e => `
+            <tr>
+                <td class="ps-4">
+                    <div class="fw-bold small">${e.concepto}</div>
+                    <div class="text-muted" style="font-size: 0.7rem;">${e.categoria} - ${e.cuenta}</div>
+                </td>
+                <td class="text-end text-danger fw-bold">$${parseFloat(e.monto).toFixed(2)}</td>
+                <td class="pe-4 text-center">
+                    <button class="btn btn-link text-danger btn-sm p-0" onclick="window.eliminarEgresoCola(${e.id}, '${e.tipo}')">
+                        <i class="bi bi-x-circle"></i>
+                    </button>
+                </td>
+            </tr>
         `).join('');
+    }
 
-        new bootstrap.Modal(document.getElementById('modalDetalle')).show();
+    function actualizarBalance() {
+        const totalIngresos = currentFacturas.reduce((sum, f) => sum + parseFloat(f.total), 0);
+        const totalEgresos = currentEgresos.reduce((sum, e) => sum + parseFloat(e.monto), 0);
+        const balance = totalIngresos - totalEgresos;
+
+        document.getElementById('total-ingresos-badge').innerText = `$${totalIngresos.toFixed(2)}`;
+        document.getElementById('total-egresos-badge').innerText = `$${totalEgresos.toFixed(2)}`;
+        document.getElementById('balance-total').innerText = `$${balance.toFixed(2)}`;
+        
+        document.getElementById('btn-cerrar-caja').disabled = (currentFacturas.length === 0 && currentEgresos.length === 0);
+    }
+
+    window.eliminarEgresoCola = async (id, tipo) => {
+        const res = await Swal.fire({ title: '¿Eliminar de la cola?', text: "Este egreso se borrará permanentemente.", icon: 'warning', showCancelButton: true });
+        if (res.isConfirmed) {
+            const endpoint = tipo === 'PRESTAMO' ? `/caja/prestamos-cola/${id}` : `/caja/egresos/${id}`;
+            await api.delete(endpoint);
+            cargarDatos();
+        }
     };
 
     window.anularFactura = async (id) => {
-        const res = await Swal.fire({
-            title: '¿Anular esta factura?',
-            text: "Esta acción no se puede deshacer y la factura no contará para el cierre.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, anular',
-            cancelButtonText: 'No'
-        });
-
+        const res = await Swal.fire({ title: '¿Anular factura?', text: "No contará para el cierre.", icon: 'warning', showCancelButton: true });
         if (res.isConfirmed) {
-            try {
-                await api.post(`/caja/facturas/${id}/anular`);
-                cargarFacturas(); // Recargar lista
-            } catch (err) {
-                console.error(err);
-            }
+            await api.post(`/caja/facturas/${id}/anular`);
+            cargarDatos();
         }
+    };
+
+    window.verDetalle = (id) => {
+        console.log("Ver detalle factura:", id, currentFacturas);
+        const f = currentFacturas.find(fact => fact.id === id);
+        if (!f) {
+            console.error("Factura no encontrada en cache local:", id);
+            return;
+        }
+        
+        console.log("Datos de factura:", f);
+        document.getElementById('detalle-nro').innerText = f.numeroFactura;
+        document.getElementById('detalle-total').innerText = `$${parseFloat(f.total).toFixed(2)}`;
+        
+        const list = document.getElementById('detalle-items-list');
+        if (!f.items || f.items.length === 0) {
+            list.innerHTML = '<li class="list-group-item text-center py-3 text-muted">No hay productos registrados</li>';
+        } else {
+            list.innerHTML = f.items.map(item => `
+                <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                    <div><div class="fw-bold">${item.producto}</div><small class="text-muted">$${parseFloat(item.precio).toFixed(2)} x ${item.cantidad}</small></div>
+                    <span class="fw-bold">$${parseFloat(item.subtotal || (item.precio * item.cantidad)).toFixed(2)}</span>
+                </li>
+            `).join('');
+        }
+        
+        const modalEl = document.getElementById('modalDetalle');
+        const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        modal.show();
     };
 
     window.realizarCierreCaja = async () => {
-        const result = await Swal.fire({
-            title: '¿Realizar Cierre de Caja?',
-            text: "Se consolidarán todas las facturas y se generará un movimiento de ingreso.",
-            icon: 'warning',
+        const totalIngresos = currentFacturas.reduce((sum, f) => sum + parseFloat(f.total), 0);
+        const totalEgresos = currentEgresos.reduce((sum, e) => sum + parseFloat(e.monto), 0);
+        
+        const res = await Swal.fire({
+            title: 'Confirmar Cierre',
+            html: `<div class="text-start">Ingresos: <b>$${totalIngresos.toFixed(2)}</b><br>Egresos: <b>$${totalEgresos.toFixed(2)}</b><hr>Balance: <b class="text-primary h4">$${(totalIngresos - totalEgresos).toFixed(2)}</b></div>`,
+            icon: 'info',
             showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, cerrar caja',
-            cancelButtonText: 'Cancelar'
+            confirmButtonText: 'Procesar Cierre Masivo'
         });
 
-        if (result.isConfirmed) {
-            try {
-                const btn = document.getElementById('btn-cerrar-caja');
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> PROCESANDO...';
-
-                const res = await api.post('/caja/cerrar');
-                
-                await Swal.fire({
-                    icon: 'success',
-                    title: '¡Cierre Exitoso!',
-                    html: `Monto total: <b>$${res.detalle.total.toFixed(2)}</b><br>Facturas procesadas: ${res.detalle.cantidad_facturas}`,
-                    confirmButtonText: 'Ver Movimientos'
-                }).then(() => {
-                    window.location.href = '/caja/movimientos';
-                });
-
-            } catch (err) {
-                console.error(err);
-                Swal.fire('Error', err.message || 'No se pudo realizar el cierre', 'error');
-                cargarFacturas(); // Recargar por si acaso
-            }
+        if (res.isConfirmed) {
+            const result = await api.post('/caja/cerrar');
+            Swal.fire('¡Cierre Exitoso!', 'Los movimientos se han guardado en el historial.', 'success').then(() => {
+                window.location.href = '/caja/movimientos';
+            });
         }
     };
 
-    cargarFacturas();
+    cargarDatos();
 </script>
 {% endblock %}

@@ -31,6 +31,12 @@ class Factura
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     private float $total = 0;
 
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
+    private float $pagoEfectivo = 0;
+
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
+    private float $pagoNequi = 0;
+
     #[ORM\Column(length: 20, unique: true, nullable: true)]
     private ?string $numeroFactura = null;
 
@@ -41,11 +47,15 @@ class Factura
     {
         $this->detalles = new ArrayCollection();
         $this->estado = self::ESTADO_PENDIENTE;
+        $this->pagoEfectivo = 0;
+        $this->pagoNequi = 0;
     }
 
     public function getId(): ?int { return $this->id; }
     public function getEstado(): string { return $this->estado; }
     public function getTotal(): float { return $this->total; }
+    public function getPagoEfectivo(): float { return $this->pagoEfectivo; }
+    public function getPagoNequi(): float { return $this->pagoNequi; }
     public function getNumeroFactura(): ?string { return $this->numeroFactura; }
 
     public function agregarItem(string $nombre, float $precio, float $costo, int $cantidad): void
@@ -60,9 +70,15 @@ class Factura
         $this->estado = self::ESTADO_TERMINADO; 
     }
     
-    public function facturar(string $numero): void 
+    public function facturar(string $numero, float $efectivo = 0, float $nequi = 0): void 
     { 
+        if (abs(($efectivo + $nequi) - $this->total) > 0.01) {
+            throw new \Exception("La suma de los pagos ($efectivo + $nequi) debe ser igual al total de la factura ({$this->total})");
+        }
+
         $this->numeroFactura = $numero;
+        $this->pagoEfectivo = $efectivo;
+        $this->pagoNequi = $nequi;
         $this->estado = self::ESTADO_FACTURADO; 
     }
 
@@ -83,6 +99,8 @@ class Factura
             'numeroFactura' => $this->numeroFactura,
             'estado' => $this->estado,
             'total' => (float)$this->total,
+            'pagoEfectivo' => (float)$this->pagoEfectivo,
+            'pagoNequi' => (float)$this->pagoNequi,
             'fecha' => $this->getFechaCreacion() ? $this->getFechaCreacion()->format('Y-m-d H:i:s') : null,
             'items' => array_map(fn($d) => $d->toArray(), $this->detalles->toArray())
         ];

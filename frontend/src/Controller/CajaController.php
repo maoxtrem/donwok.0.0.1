@@ -20,4 +20,16 @@ class CajaController extends AbstractController
     {
         return $this->render('caja/movimientos.html.twig');
     }
+
+    #[Route('/egresos', name: 'app_caja_egresos_view')]
+    public function egresos(): Response
+    {
+        return $this->render('caja/egresos.html.twig');
+    }
+
+    #[Route('/prestamos', name: 'app_caja_prestamos_view')]
+    public function prestamos(): Response
+    {
+        return $this->render('caja/prestamos.html.twig');
+    }
 }

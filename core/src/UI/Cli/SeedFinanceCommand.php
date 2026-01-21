@@ -28,18 +28,36 @@ class SeedFinanceCommand extends Command
 
         // Categoría Ventas Diarias
         $repoCat = $this->em->getRepository(CategoriaFinanciera::class);
-        if (!$repoCat->findOneBy(['nombre' => 'Ventas Diarias'])) {
-            $cat = new CategoriaFinanciera('Ventas Diarias', 'INGRESO', 'Consolidado de ventas por cierre de caja');
-            $this->em->persist($cat);
-            $io->info('Categoría "Ventas Diarias" creada.');
+        $categorias = [
+            ['Ventas Diarias', 'INGRESO', 'Consolidado de ventas por cierre de caja'],
+            ['Inversiones', 'EGRESO', 'Compra de activos o inversión de capital'],
+            ['Gastos Pasivos', 'EGRESO', 'Gastos fijos, servicios, etc.'],
+            ['Control de salidas', 'EGRESO', 'Salidas de dinero diversas'],
+            ['Préstamos Otorgados', 'EGRESO', 'Dinero prestado a terceros'],
+            ['Cobro de Préstamo', 'INGRESO', 'Recuperación de cartera']
+        ];
+
+        foreach ($categorias as [$nombre, $tipo, $desc]) {
+            if (!$repoCat->findOneBy(['nombre' => $nombre])) {
+                $cat = new CategoriaFinanciera($nombre, $tipo, $desc);
+                $this->em->persist($cat);
+                $io->info("Categoría \"$nombre\" creada.");
+            }
         }
 
-        // Cuenta Caja Principal
+        // Cuenta Caja Principal (Efectivo)
         $repoCuenta = $this->em->getRepository(CuentaFinanciera::class);
-        if (!$repoCuenta->findOneBy(['tipo' => 'CAJA'])) {
+        if (!$repoCuenta->findOneBy(['nombre' => 'Caja Principal'])) {
             $cuenta = new CuentaFinanciera('Caja Principal', 'CAJA', 0);
             $this->em->persist($cuenta);
             $io->info('Cuenta "Caja Principal" creada.');
+        }
+
+        // Cuenta Nequi (Banco)
+        if (!$repoCuenta->findOneBy(['nombre' => 'Cuenta Nequi'])) {
+            $cuenta = new CuentaFinanciera('Cuenta Nequi', 'BANCO', 0);
+            $this->em->persist($cuenta);
+            $io->info('Cuenta "Cuenta Nequi" creada.');
         }
 
         $this->em->flush();

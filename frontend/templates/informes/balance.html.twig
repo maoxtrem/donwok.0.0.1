@@ -1,0 +1,256 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Balance General - DonWok{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold m-0">Balance General</h2>
+            <p class="text-muted">Estado integral de liquidez, rentabilidad y cartera</p>
+        </div>
+        <div class="glass-card p-2 d-flex gap-2">
+            <input type="date" id="balance-desde" class="form-control form-control-sm border-0 bg-transparent fw-bold">
+            <span class="text-muted align-self-center">hasta</span>
+            <input type="date" id="balance-hasta" class="form-control form-control-sm border-0 bg-transparent fw-bold">
+            <button class="btn btn-primary btn-sm px-3 fw-bold shadow-sm" onclick="cargarBalance()">
+                <i class="bi bi-arrow-repeat me-1"></i> ACTUALIZAR
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <!-- 💰 LIQUIDEZ ACTUAL -->
+        <div class="col-lg-4">
+            <div class="glass-card h-100 shadow-sm overflow-hidden">
+                <div class="p-3 bg-primary text-white">
+                    <h6 class="m-0 fw-bold"><i class="bi bi-wallet2 me-2"></i> LIQUIDEZ (SALDO REAL)</h6>
+                </div>
+                <div class="p-4">
+                    <div id="lista-cuentas">
+                        <!-- Cargado por JS -->
+                    </div>
+                    <hr class="my-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-secondary">TOTAL DISPONIBLE</span>
+                        <span class="h4 fw-extrabold text-primary m-0" id="total-liquidez">$0.00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 📉 CARTERA (CUENTAS POR COBRAR) -->
+        <div class="col-lg-4">
+            <div class="glass-card h-100 shadow-sm overflow-hidden">
+                <div class="p-3 bg-info text-white">
+                    <h6 class="m-0 fw-bold"><i class="bi bi-person-holding-hand me-2"></i> CARTERA PENDIENTE</h6>
+                </div>
+                <div class="p-0">
+                    <div class="table-responsive" style="max-height: 200px;">
+                        <table class="table table-hover align-middle mb-0 small">
+                            <tbody id="lista-cartera">
+                                <!-- Cargado por JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-3 bg-light border-top d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-secondary">TOTAL POR COBRAR</span>
+                        <span class="h5 fw-bold text-info m-0" id="total-cartera">$0.00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🎯 GANANCIA NETA DEL PERIODO -->
+        <div class="col-lg-4">
+            <div class="glass-card h-100 shadow-sm overflow-hidden border-start border-5 border-warning">
+                <div class="p-4 text-center d-flex flex-column justify-content-center h-100">
+                    <small class="text-muted fw-bold d-block mb-2">GANANCIA NETA ESTIMADA</small>
+                    <h1 class="fw-extrabold text-dark mb-2" id="kpi-ganancia-neta">$0.00</h1>
+                    <div id="ganancia-status"></div>
+                    <p class="text-muted small mt-3 mb-0">Calculado como Ingresos totales menos Egresos totales en el periodo seleccionado.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📊 DESGLOSE DETALLADO -->
+    <div class="row g-4">
+        <!-- INGRESOS -->
+        <div class="col-lg-6">
+            <div class="glass-card shadow-sm overflow-hidden">
+                <div class="p-3 bg-success-subtle border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold text-success-emphasis">DESGLOSE DE INGRESOS</h6>
+                    <span class="h5 fw-bold m-0 text-success" id="subtotal-ingresos">$0.00</span>
+                </div>
+                <div class="p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light small">
+                            <tr>
+                                <th class="ps-4">Categoría</th>
+                                <th class="text-end pe-4">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-ingresos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- EGRESOS -->
+        <div class="col-lg-6">
+            <div class="glass-card shadow-sm overflow-hidden">
+                <div class="p-3 bg-danger-subtle border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold text-danger-emphasis">DESGLOSE DE EGRESOS</h6>
+                    <span class="h5 fw-bold m-0 text-danger" id="subtotal-egresos">$0.00</span>
+                </div>
+                <div class="p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light small">
+                            <tr>
+                                <th class="ps-4">Categoría</th>
+                                <th class="text-end pe-4">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-egresos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- RENTABILIDAD POR PRODUCTO -->
+        <div class="col-12">
+            <div class="glass-card shadow-sm overflow-hidden">
+                <div class="p-3 bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold">RENTABILIDAD REAL POR PRODUCTO (Ventas vs Costos)</h6>
+                    <span class="badge bg-warning text-dark px-3 py-2" id="utilidad-bruta-total">Utilidad Bruta: $0.00</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">Producto</th>
+                                <th class="text-center">Cant. Vendida</th>
+                                <th class="text-end">Total Venta</th>
+                                <th class="text-end">Total Costo</th>
+                                <th class="text-end pe-4">Ganancia Real</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-rentabilidad">
+                            <tr><td colspan="5" class="text-center py-5 text-muted">No hay datos de ventas en este periodo</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script type="module">
+    import CoreAPI from '/js/core.js';
+    const api = new CoreAPI();
+
+    // Inicializar fechas (mes actual)
+    const hoy = new Date();
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    document.getElementById('balance-desde').value = inicioMes.toISOString().split('T')[0];
+    document.getElementById('balance-hasta').value = hoy.toISOString().split('T')[0];
+
+    const fmt = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(v);
+
+    async function cargarBalance() {
+        const desde = document.getElementById('balance-desde').value;
+        const hasta = document.getElementById('balance-hasta').value;
+        const params = `?desde=${desde}&hasta=${hasta}`;
+
+        try {
+            const data = await api.get(`/informes/balance-completo${params}`);
+            const rent = await api.get(`/informes/rentabilidad-productos${params}`);
+            
+            renderLiquidez(data.liquidez);
+            renderCartera(data.cartera);
+            renderResultados(data.resultados);
+            renderRentabilidad(rent, data.resultados.utilidad_bruta);
+        } catch (err) { console.error(err); }
+    }
+
+    function renderLiquidez(liquidez) {
+        const container = document.getElementById('lista-cuentas');
+        container.innerHTML = liquidez.cuentas.map(c => `
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted small fw-bold">${c.nombre}</span>
+                <span class="fw-bold">${fmt(c.saldo)}</span>
+            </div>
+        `).join('');
+        document.getElementById('total-liquidez').innerText = fmt(liquidez.total_efectivo);
+    }
+
+    function renderCartera(cartera) {
+        const body = document.getElementById('lista-cartera');
+        if (cartera.items.length === 0) {
+            body.innerHTML = '<tr><td class="text-center py-4 text-muted">Sin cuentas pendientes</td></tr>';
+        } else {
+            body.innerHTML = cartera.items.map(i => `
+                <tr>
+                    <td class="ps-3">
+                        <div class="fw-bold">${i.entidad}</div>
+                        <div class="text-muted" style="font-size: 0.65rem;">Desde: ${i.fecha}</div>
+                    </td>
+                    <td class="text-end pe-3 fw-bold text-danger">${fmt(i.saldo)}</td>
+                </tr>
+            `).join('');
+        }
+        document.getElementById('total-cartera').innerText = fmt(cartera.total);
+    }
+
+    function renderResultados(res) {
+        document.getElementById('kpi-ganancia-neta').innerText = fmt(res.ganancia_neta);
+        document.getElementById('subtotal-ingresos').innerText = fmt(res.ingresos.total);
+        document.getElementById('subtotal-egresos').innerText = fmt(res.egresos.total);
+
+        const tableIngresos = document.getElementById('table-ingresos');
+        const itemsIng = Object.entries(res.ingresos.desglose);
+        tableIngresos.innerHTML = itemsIng.length ? itemsIng.map(([cat, monto]) => `
+            <tr><td class="ps-4">${cat}</td><td class="text-end pe-4 fw-bold text-success">+ ${fmt(monto)}</td></tr>
+        `).join('') : '<tr><td colspan="2" class="text-center py-3 text-muted">Sin ingresos</td></tr>';
+
+        const tableEgresos = document.getElementById('table-egresos');
+        const itemsEgr = Object.entries(res.egresos.desglose);
+        tableEgresos.innerHTML = itemsEgr.length ? itemsEgr.map(([cat, monto]) => `
+            <tr><td class="ps-4">${cat}</td><td class="text-end pe-4 fw-bold text-danger">- ${fmt(monto)}</td></tr>
+        `).join('') : '<tr><td colspan="2" class="text-center py-3 text-muted">Sin egresos</td></tr>';
+
+        const status = document.getElementById('ganancia-status');
+        if (res.ganancia_neta >= 0) {
+            status.innerHTML = '<span class="badge bg-success-subtle text-success px-3 py-2"><i class="bi bi-caret-up-fill"></i> SALDO POSITIVO</span>';
+        } else {
+            status.innerHTML = '<span class="badge bg-danger-subtle text-danger px-3 py-2"><i class="bi bi-caret-down-fill"></i> DÉFICIT FINANCIERO</span>';
+        }
+    }
+
+    function renderRentabilidad(data, utilidadTotal) {
+        const body = document.getElementById('table-rentabilidad');
+        document.getElementById('utilidad-bruta-total').innerText = `Utilidad Bruta (Ventas - Costos): ${fmt(utilidadTotal)}`;
+
+        if (data.length === 0) {
+            body.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">No hay datos</td></tr>';
+            return;
+        }
+
+        body.innerHTML = data.map(i => `
+            <tr>
+                <td class="ps-4 fw-bold">${i.nombre}</td>
+                <td class="text-center">${i.cantidad}</td>
+                <td class="text-end text-muted">${fmt(i.total_venta)}</td>
+                <td class="text-end text-muted">${fmt(i.total_costo)}</td>
+                <td class="text-end pe-4 fw-bold text-primary">${fmt(i.ganancia)}</td>
+            </tr>
+        `).join('');
+    }
+
+    window.cargarBalance = cargarBalance;
+    cargarBalance();
+</script>
+{% endblock %}

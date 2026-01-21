@@ -30,9 +30,47 @@ class Gasto
     #[ORM\JoinColumn(nullable: false)]
     private CategoriaFinanciera $categoriaFinanciera;
 
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: false)]
+    private CuentaFinanciera $cuentaFinanciera;
+
     #[ORM\Column(length: 150, nullable: true)]
     private ?string $proveedor = null;
 
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $observaciones = null;
+
+    #[ORM\Column]
+    private bool $isCerrado = false;
+
+    public function __construct(
+        string $concepto,
+        float $monto,
+        CategoriaFinanciera $categoria,
+        CuentaFinanciera $cuenta,
+        ?string $proveedor = null,
+        ?string $observaciones = null
+    ) {
+        $this->concepto = $concepto;
+        $this->monto = $monto;
+        $this->categoriaFinanciera = $categoria;
+        $this->cuentaFinanciera = $cuenta;
+        $this->proveedor = $proveedor;
+        $this->observaciones = $observaciones;
+        $this->fechaGasto = new \DateTime();
+        $this->isCerrado = false;
+    }
+
+    public function getCuentaFinanciera(): CuentaFinanciera { return $this->cuentaFinanciera; }
+
+    public function cerrar(): void { $this->isCerrado = true; }
+    public function isCerrado(): bool { return $this->isCerrado; }
+
+    public function getId(): ?int { return $this->id; }
+    public function getConcepto(): string { return $this->concepto; }
+    public function getMonto(): float { return $this->monto; }
+    public function getFechaGasto(): \DateTimeInterface { return $this->fechaGasto; }
+    public function getCategoriaFinanciera(): CategoriaFinanciera { return $this->categoriaFinanciera; }
+    public function getProveedor(): ?string { return $this->proveedor; }
+    public function getObservaciones(): ?string { return $this->observaciones; }
 }

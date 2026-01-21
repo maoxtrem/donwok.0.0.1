@@ -31,19 +31,159 @@
         </table>
     </div>
 </div>
+
+<!-- Modal de Pago -->
+<div class="modal fade" id="modalPago" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Finalizar Facturación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <small class="text-muted d-block small fw-bold">VALOR FACTURA</small>
+                    <h3 class="fw-extrabold text-primary m-0" id="pago-total-display">$0.00</h3>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-secondary">TRANSFERENCIA (NEQUI/TRANSF.)</label>
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-phone text-info"></i></span>
+                        <input type="number" id="input-nequi" class="form-control border-start-0 ps-0 fw-bold" step="0.01" value="0">
+                    </div>
+                    <small class="text-muted" style="font-size: 0.7rem;">Si es todo en efectivo, dejar en 0.</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-secondary">EFECTIVO (A REGISTRAR)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-cash-stack text-success"></i></span>
+                        <input type="number" id="input-efectivo" class="form-control border-start-0 ps-0 fw-bold bg-light" readonly value="0">
+                    </div>
+                </div>
+
+                <hr class="my-4 opacity-10">
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-primary">EFECTIVO RECIBIDO (CLIENTE)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-person-down text-primary"></i></span>
+                        <input type="number" id="input-recibido" class="form-control border-start-0 ps-0 fw-bold" step="0.01" placeholder="¿Cuánto entregó?">
+                    </div>
+                </div>
+
+                <div class="p-3 bg-warning-subtle rounded-3 text-center mb-3 d-none" id="container-cambio">
+                    <small class="text-warning-emphasis d-block fw-bold small">CAMBIO A DEVOLVER</small>
+                    <h4 class="fw-bold text-dark m-0" id="display-cambio">$0.00</h4>
+                </div>
+
+                <div id="pago-error" class="alert alert-danger py-2 small d-none">
+                    El valor de transferencia supera el total.
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-primary w-100 py-3 fw-bold shadow" id="btn-confirmar-pago" style="border-radius: 12px;">
+                    GENERAR FACTURA
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block javascripts %}
 <script type="module">
     import CoreAPI from '/js/core.js';
     const api = new CoreAPI();
+    let selectedPedido = null;
+    const modalPagoElement = document.getElementById('modalPago');
+    const modalPago = new bootstrap.Modal(modalPagoElement);
+
+    // Lógica de cálculos del modal
+    const inputNequi = document.getElementById('input-nequi');
+    const inputEfectivo = document.getElementById('input-efectivo');
+    const inputRecibido = document.getElementById('input-recibido');
+    const containerCambio = document.getElementById('container-cambio');
+    const displayCambio = document.getElementById('display-cambio');
+    const errorPago = document.getElementById('pago-error');
+
+    function calcularDistribucion() {
+        const row = document.getElementById(`row-${selectedPedido}`);
+        if (!row) return;
+        const total = parseFloat(row.dataset.total);
+        let nequi = parseFloat(inputNequi.value) || 0;
+
+        if (nequi > total) {
+            nequi = total;
+            inputNequi.value = total.toFixed(2);
+            errorPago.classList.remove('d-none');
+        } else {
+            errorPago.classList.add('d-none');
+        }
+
+        const efectivo = total - nequi;
+        inputEfectivo.value = efectivo.toFixed(2);
+        
+        calcularCambio();
+    }
+
+    function calcularCambio() {
+        const efectivoARegistrar = parseFloat(inputEfectivo.value) || 0;
+        const recibido = parseFloat(inputRecibido.value) || 0;
+
+        if (recibido > efectivoARegistrar) {
+            const cambio = recibido - efectivoARegistrar;
+            displayCambio.innerText = `$${cambio.toFixed(2)}`;
+            containerCambio.classList.remove('d-none');
+        } else {
+            containerCambio.classList.add('d-none');
+        }
+    }
+
+    inputNequi.addEventListener('input', calcularDistribucion);
+    inputRecibido.addEventListener('input', calcularCambio);
 
     function updateWSStatus(text, colorClass) {
         const container = document.getElementById('sse-status-badge');
         if (container) container.innerHTML = `<span class="badge ${colorClass} animate-pulse">${text}</span>`;
     }
 
-    // Funciones globales
+    window.facturarPedido = (id) => {
+        const row = document.getElementById(`row-${id}`);
+        const total = parseFloat(row.dataset.total);
+        selectedPedido = id;
+
+        document.getElementById('pago-total-display').innerText = `$${total.toFixed(2)}`;
+        inputNequi.value = "0.00";
+        inputRecibido.value = "";
+        errorPago.classList.add('d-none');
+        containerCambio.classList.add('d-none');
+        
+        calcularDistribucion();
+        modalPago.show();
+    };
+
+    document.getElementById('btn-confirmar-pago').addEventListener('click', async () => {
+        const efectivo = parseFloat(inputEfectivo.value) || 0;
+        const nequi = parseFloat(inputNequi.value) || 0;
+        
+        const btn = document.getElementById('btn-confirmar-pago');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> PROCESANDO...';
+
+        try {
+            await api.post(`/pedidos/${selectedPedido}/facturar`, { efectivo, nequi });
+            modalPago.hide();
+            removeOrderRow(selectedPedido);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'GENERAR FACTURA';
+        }
+    });
+
     window.terminarPedido = async (id) => {
         const btn = document.getElementById(`btn-action-${id}`);
         if (!btn) return;
@@ -75,41 +215,6 @@
                 icon: 'error',
                 title: 'Error',
                 text: err.message || 'No se pudo terminar el pedido.'
-            });
-        }
-    };
-
-    window.facturarPedido = async (id) => {
-        const btn = document.getElementById(`btn-action-${id}`);
-        if (!btn) return;
-        btn.disabled = true;
-        const originalText = btn.innerText;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-        
-        try {
-            const res = await api.post(`/pedidos/${id}/facturar`);
-            
-            // 🟢 Notificación de Éxito
-            Swal.fire({
-                icon: 'success',
-                title: '¡Facturado!',
-                text: `Factura ${res.pedido?.numeroFactura || ''} generada correctamente.`,
-                timer: 2000,
-                showConfirmButton: false,
-                toast: true,
-                position: 'top-end'
-            });
-
-            removeOrderRow(id);
-        } catch (err) { 
-            btn.disabled = false;
-            btn.innerText = originalText;
-            
-            // 🔴 Notificación de Error
-            Swal.fire({
-                icon: 'error',
-                title: 'Error al facturar',
-                text: err.message || 'Hubo un problema al procesar la factura.'
             });
         }
     };
@@ -227,7 +332,7 @@
         const labelNro = p.numeroFactura ? p.numeroFactura : `#${p.id}`;
 
         return `
-            <tr id="row-${p.id}">
+            <tr id="row-${p.id}" data-total="${p.total}">
                 <td class="ps-4 fw-bold text-primary">${labelNro}</td>
                 <td class="small text-muted">${items}</td>
                 <td class="text-center fw-bold">$${parseFloat(p.total).toFixed(2)}</td>

@@ -27,6 +27,28 @@ class PagoPrestamo
     #[ORM\Column(type: 'date')]
     private \DateTimeInterface $fechaPago;
 
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: false)]
+    private CuentaFinanciera $cuentaFinanciera;
+
+    #[ORM\Column]
+    private bool $isCerrado = false;
+
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $observaciones = null;
+
+    public function __construct(Prestamo $prestamo, float $monto, CuentaFinanciera $cuenta, ?string $obs = null)
+    {
+        $this->prestamo = $prestamo;
+        $this->monto = $monto;
+        $this->cuentaFinanciera = $cuenta;
+        $this->observaciones = $obs;
+        $this->fechaPago = new \DateTime();
+        $this->isCerrado = false;
+    }
+
+    public function cerrar(): void { $this->isCerrado = true; }
+    public function getMonto(): float { return $this->monto; }
+    public function getCuentaFinanciera(): CuentaFinanciera { return $this->cuentaFinanciera; }
+    public function getPrestamo(): Prestamo { return $this->prestamo; }
 }

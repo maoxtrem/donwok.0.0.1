@@ -3,17 +3,40 @@
 namespace App\Infrastructure\Doctrine\Repository;
 
 use App\Domain\Entity\Gasto;
+use App\Domain\Repository\GastoRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
  * @extends ServiceEntityRepository<Gasto>
  */
-class GastoRepository extends ServiceEntityRepository
+class GastoRepository extends ServiceEntityRepository implements GastoRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Gasto::class);
+    }
+
+    public function guardar(Gasto $gasto): void
+    {
+        $this->getEntityManager()->persist($gasto);
+        $this->getEntityManager()->flush();
+    }
+
+    public function buscarPorId(int $id): ?Gasto
+    {
+        return $this->find($id);
+    }
+
+    public function eliminar(Gasto $gasto): void
+    {
+        $this->getEntityManager()->remove($gasto);
+        $this->getEntityManager()->flush();
+    }
+
+    public function findPendientesCierre(): array
+    {
+        return $this->findBy(['isCerrado' => false]);
     }
 
     //    /**

@@ -65,7 +65,7 @@ class PedidoController extends AbstractController
     }
 
     #[Route('/{id}/facturar', name: 'app_pedidos_facturar', methods: ['POST'])]
-    public function facturar(int $id, FacturaRepository $repo): JsonResponse
+    public function facturar(int $id, Request $request, FacturaRepository $repo): JsonResponse
     {
         $pedido = $repo->find($id);
         if (!$pedido) return new JsonResponse(['message' => 'No encontrado'], 404);
@@ -74,19 +74,17 @@ class PedidoController extends AbstractController
             return new JsonResponse(['message' => 'Este pedido ya fue facturado anteriormente']);
         }
 
+        $data = json_decode($request->getContent(), true) ?? [];
+        $efectivo = (float)($data['efectivo'] ?? 0);
+        $nequi = (float)($data['nequi'] ?? 0);
+
         try {
             $proximoNumero = $repo->getNextInvoiceNumber();
-            $pedido->facturar($proximoNumero);
+            $pedido->facturar($proximoNumero, $efectivo, $nequi);
             $this->em->flush();
             
             $this->publishUpdate($pedido, 'ORDER_INVOICED');
             return new JsonResponse(['message' => 'Facturado con éxito: ' . $proximoNumero, 'pedido' => $pedido->toArray()]);
-        } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException $e) {
-            $proximoNumero = $repo->getNextInvoiceNumber();
-            $pedido->facturar($proximoNumero);
-            $this->em->flush();
-            $this->publishUpdate($pedido, 'ORDER_INVOICED');
-            return new JsonResponse(['message' => 'Facturado tras colisión: ' . $proximoNumero, 'pedido' => $pedido->toArray()]);
         } catch (\Exception $e) { 
             return new JsonResponse(['message' => $e->getMessage()], 400); 
         }

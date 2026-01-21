@@ -1,0 +1,140 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gestión de Préstamos - DonWok{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold m-0">Préstamos y Cartera</h2>
+            <p class="text-muted">Gestión de préstamos otorgados y recuperación de pagos</p>
+        </div>
+    </div>
+
+    <div class="glass-card shadow-sm overflow-hidden">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="bg-light">
+                <tr>
+                    <th class="ps-4">Entidad / Persona</th>
+                    <th class="text-center">Monto Inicial</th>
+                    <th class="text-center">Saldo Pendiente</th>
+                    <th class="text-center">Estado</th>
+                    <th class="pe-4 text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="prestamos-list">
+                <tr><td colspan="5" class="text-center py-5 text-muted">Cargando préstamos...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Abono -->
+<div class="modal fade" id="modalAbono" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Registrar Abono</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Monto del Abono</label>
+                    <input type="number" id="abono-monto" class="form-control" step="0.01" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Recibir en Cuenta</label>
+                    <select class="form-select" id="abono-cuenta"></select>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-success w-100 py-2 fw-bold" id="btn-confirmar-abono">
+                    CONFIRMAR INGRESO
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script type="module">
+    import CoreAPI from '/js/core.js';
+    const api = new CoreAPI();
+    let selectedPrestamo = null;
+    let allPrestamos = [];
+    const modalAbono = new bootstrap.Modal(document.getElementById('modalAbono'));
+
+    async function init() {
+        try {
+            const [prestamos, cuentas] = await Promise.all([
+                api.get('/caja/prestamos'),
+                api.get('/caja/cuentas')
+            ]);
+            allPrestamos = prestamos;
+            renderPrestamos(prestamos);
+            renderCuentas(cuentas);
+        } catch (err) { console.error(err); }
+    }
+
+    function renderPrestamos(data) {
+        const body = document.getElementById('prestamos-list');
+        if (data.length === 0) {
+            body.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">No hay préstamos activos</td></tr>';
+            return;
+        }
+
+        body.innerHTML = data.map(p => `
+            <tr>
+                <td class="ps-4 fw-bold text-dark">${p.entidad}</td>
+                <td class="text-center text-muted">$${parseFloat(p.montoTotal).toFixed(2)}</td>
+                <td class="text-center fw-bold text-primary">$${parseFloat(p.saldoPendiente).toFixed(2)}</td>
+                <td class="text-center"><span class="badge bg-warning-subtle text-warning border px-3">${p.estado}</span></td>
+                <td class="pe-4 text-end">
+                    <button class="btn btn-success btn-sm px-3 fw-bold" onclick="window.abrirModalAbono(${p.id})">
+                        ABONAR
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function renderCuentas(cuentas) {
+        document.getElementById('abono-cuenta').innerHTML = cuentas.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+    }
+
+    window.abrirModalAbono = (id) => {
+        selectedPrestamo = allPrestamos.find(p => p.id === id);
+        if (!selectedPrestamo) return;
+
+        const inputMonto = document.getElementById('abono-monto');
+        inputMonto.value = parseFloat(selectedPrestamo.saldoPendiente).toFixed(2);
+        inputMonto.max = selectedPrestamo.saldoPendiente;
+        
+        modalAbono.show();
+    };
+
+    document.getElementById('btn-confirmar-abono').addEventListener('click', async () => {
+        const monto = parseFloat(document.getElementById('abono-monto').value) || 0;
+        const cuenta_id = document.getElementById('abono-cuenta').value;
+
+        if (monto > parseFloat(selectedPrestamo.saldoPendiente) + 0.01) {
+            Swal.fire('Error', 'El abono no puede superar el saldo pendiente ($' + selectedPrestamo.saldoPendiente + ')', 'error');
+            return;
+        }
+
+        if (monto <= 0) {
+            Swal.fire('Error', 'Ingrese un monto válido', 'error');
+            return;
+        }
+
+        try {
+            await api.post(`/caja/prestamos/${selectedPrestamo.id}/abono`, { monto, cuenta_id });
+            modalAbono.hide();
+            init();
+        } catch (err) { console.error(err); }
+    });
+
+    init();
+</script>
+{% endblock %}

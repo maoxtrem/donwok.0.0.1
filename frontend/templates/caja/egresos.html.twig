@@ -1,0 +1,153 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gestión de Egresos - DonWok{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold m-0">Registro de Egresos</h2>
+            <p class="text-muted">Control de salidas de dinero, inversiones y préstamos</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="glass-card p-4 shadow-sm">
+                <h5 class="fw-bold mb-4">Nuevo Registro</h5>
+                <form id="form-egreso">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Categoría</label>
+                        <select class="form-select" id="categoria_id" required onchange="toggleFields()"></select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Monto</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" id="monto" class="form-control" step="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Cuenta de Origen</label>
+                        <select class="form-select" id="cuenta_id" required></select>
+                    </div>
+
+                    <div class="mb-3 d-none" id="field-entidad">
+                        <label class="form-label small fw-bold">Entidad / Persona (Préstamo)</label>
+                        <input type="text" id="entidad" class="form-control" placeholder="A quién se le presta">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Descripción / Concepto</label>
+                        <textarea id="descripcion" class="form-control" rows="3" placeholder="Detalle del egreso..." required></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-danger w-100 py-2 fw-bold shadow-sm">
+                        <i class="bi bi-dash-circle me-2"></i> REGISTRAR SALIDA
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="glass-card shadow-sm overflow-hidden">
+                <div class="p-3 bg-light border-bottom">
+                    <h6 class="m-0 fw-bold">Últimos Movimientos de Egreso</h6>
+                </div>
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light small">
+                        <tr>
+                            <th class="ps-4">Fecha</th>
+                            <th>Categoría</th>
+                            <th>Descripción</th>
+                            <th class="pe-4 text-end">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody id="egresos-list"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script type="module">
+    import CoreAPI from '/js/core.js';
+    const api = new CoreAPI();
+
+    let currentCategories = [];
+
+    async function init() {
+        try {
+            const [cats, cuentas, movs] = await Promise.all([
+                api.get('/caja/categorias'),
+                api.get('/caja/cuentas'),
+                api.get('/caja/movimientos')
+            ]);
+
+            currentCategories = cats.filter(c => c.tipo !== 'INGRESO');
+            renderSelect('categoria_id', currentCategories);
+            renderSelect('cuenta_id', cuentas);
+            renderEgresos(movs.filter(m => m.tipo === 'EGRESO'));
+            toggleFields();
+        } catch (err) { console.error(err); }
+    }
+
+    function renderSelect(id, data) {
+        const el = document.getElementById(id);
+        el.innerHTML = data.map(i => `<option value="${i.id}">${i.nombre}</option>`).join('');
+    }
+
+    function renderEgresos(data) {
+        const body = document.getElementById('egresos-list');
+        body.innerHTML = data.map(m => `
+            <tr>
+                <td class="ps-4 small text-muted">${m.fecha}</td>
+                <td class="fw-bold">${m.categoria}</td>
+                <td class="small">${m.descripcion}</td>
+                <td class="pe-4 text-end text-danger fw-bold">$${parseFloat(m.monto).toFixed(2)}</td>
+            </tr>
+        `).join('');
+    }
+
+    window.toggleFields = () => {
+        const catId = parseInt(document.getElementById('categoria_id').value);
+        const category = currentCategories.find(c => c.id === catId);
+        const fieldEntidad = document.getElementById('field-entidad');
+        
+        if (category && category.nombre.includes('Préstamo')) {
+            fieldEntidad.classList.remove('d-none');
+            document.getElementById('entidad').required = true;
+        } else {
+            fieldEntidad.classList.add('d-none');
+            document.getElementById('entidad').required = false;
+        }
+    };
+
+    document.getElementById('form-egreso').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const catId = parseInt(document.getElementById('categoria_id').value);
+        const category = currentCategories.find(c => c.id === catId);
+
+        const payload = {
+            categoria_id: catId,
+            monto: document.getElementById('monto').value,
+            cuenta_id: document.getElementById('cuenta_id').value,
+            entidad: document.getElementById('entidad').value,
+            descripcion: document.getElementById('descripcion').value,
+            // El handler ahora inferirá el tipo basado en la categoría
+            tipo_egreso: category.nombre.includes('Préstamo') ? 'PRESTAMO' : 'GASTO'
+        };
+
+        try {
+            await api.post('/caja/egresos', payload);
+            location.reload();
+        } catch (err) { console.error(err); }
+    });
+
+    init();
+</script>
+{% endblock %}

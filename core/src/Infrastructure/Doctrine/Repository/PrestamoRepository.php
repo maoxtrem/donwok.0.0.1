@@ -3,17 +3,45 @@
 namespace App\Infrastructure\Doctrine\Repository;
 
 use App\Domain\Entity\Prestamo;
+use App\Domain\Repository\PrestamoRepositoryInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
  * @extends ServiceEntityRepository<Prestamo>
  */
-class PrestamoRepository extends ServiceEntityRepository
+class PrestamoRepository extends ServiceEntityRepository implements PrestamoRepositoryInterface
 {
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Prestamo::class);
+    }
+
+    public function guardar(Prestamo $prestamo): void
+    {
+        $this->getEntityManager()->persist($prestamo);
+        $this->getEntityManager()->flush();
+    }
+
+    public function buscarPorId(int $id): ?Prestamo
+    {
+        return $this->find($id);
+    }
+
+    public function buscarActivos(): array
+    {
+        return $this->findBy(['estado' => 'PENDIENTE'], ['fechaInicio' => 'DESC']);
+    }
+
+    public function eliminar(Prestamo $prestamo): void
+    {
+        $this->getEntityManager()->remove($prestamo);
+        $this->getEntityManager()->flush();
+    }
+
+    public function findPendientesCierre(): array
+    {
+        return $this->findBy(['isCerrado' => false, 'tipo' => 'OTORGADO']);
     }
 
     //    /**
