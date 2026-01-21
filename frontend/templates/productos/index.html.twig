@@ -4,38 +4,39 @@
 
 {% block body %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
             <h2 class="fw-bold mb-0 text-dark">Inventario de Productos</h2>
-            <p class="text-muted">Gestiona el catálogo de productos desde el Core Service</p>
+            <p class="text-muted mb-0">Control de catálogo y precios de venta</p>
         </div>
-        <button class="btn btn-primary d-flex align-items-center gap-2 px-4 py-2 shadow-sm" 
-                style="border-radius: 10px;" onclick="openModal()">
-            <i class="bi bi-plus-lg"></i> Nuevo Producto
+        <button class="dw-btn-primary text-white d-flex align-items-center gap-2 shadow-sm" onclick="openModal()">
+            <i class="bi bi-plus-lg"></i> NUEVO PRODUCTO
         </button>
     </div>
 
-    <div class="glass-card shadow-sm overflow-hidden">
-        <table class="table table-hover mb-0 align-middle">
-            <thead class="bg-light">
-                <tr>
-                    <th class="ps-4 py-3 text-secondary small text-uppercase">Producto</th>
-                    <th class="py-3 text-secondary small text-uppercase text-center">Costo</th>
-                    <th class="py-3 text-secondary small text-uppercase text-center">Precio Venta</th>
-                    <th class="py-3 text-secondary small text-uppercase text-center">Estado</th>
-                    <th class="pe-4 py-3 text-secondary small text-uppercase text-end">Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="productsTableBody">
-                {# Cargado por JS #}
-                <tr>
-                    <td colspan="5" class="text-center py-5">
-                        <div class="spinner-border text-primary" role="status"></div>
-                        <div class="mt-2 text-muted">Cargando inventario...</div>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+    <div class="dw-card shadow-sm overflow-hidden border-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="bg-light border-bottom">
+                    <tr>
+                        <th class="ps-4 py-3 text-muted small text-uppercase fw-bold">Producto</th>
+                        <th class="py-3 text-muted small text-uppercase fw-bold text-center">Costo</th>
+                        <th class="py-3 text-muted small text-uppercase fw-bold text-center">Precio Venta</th>
+                        <th class="py-3 text-muted small text-uppercase fw-bold text-center">Estado</th>
+                        <th class="pe-4 py-3 text-muted small text-uppercase fw-bold text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="productsTableBody">
+                    {# Cargado por JS #}
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <div class="mt-2 text-muted">Cargando inventario...</div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 

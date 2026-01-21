@@ -4,17 +4,17 @@
 
 {% block body %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h2 class="fw-bold m-0">Balance General</h2>
-            <p class="text-muted">Estado integral de liquidez, rentabilidad y cartera</p>
+            <h2 class="fw-bold m-0 text-dark">Balance General</h2>
+            <p class="text-muted mb-0">Estado integral de liquidez, rentabilidad y patrimonio</p>
         </div>
-        <div class="glass-card p-2 d-flex gap-2">
-            <input type="date" id="balance-desde" class="form-control form-control-sm border-0 bg-transparent fw-bold">
-            <span class="text-muted align-self-center">hasta</span>
-            <input type="date" id="balance-hasta" class="form-control form-control-sm border-0 bg-transparent fw-bold">
-            <button class="btn btn-primary btn-sm px-3 fw-bold shadow-sm" onclick="cargarBalance()">
-                <i class="bi bi-arrow-repeat me-1"></i> ACTUALIZAR
+        <div class="dw-card p-2 d-flex gap-2 align-items-center border-0">
+            <input type="date" id="balance-desde" class="form-control form-control-sm border-0 bg-transparent fw-bold" style="width: 130px;">
+            <span class="text-muted small fw-bold">AL</span>
+            <input type="date" id="balance-hasta" class="form-control form-control-sm border-0 bg-transparent fw-bold" style="width: 130px;">
+            <button class="dw-btn-primary text-white btn-sm px-3 shadow-sm" onclick="cargarBalance()">
+                <i class="bi bi-arrow-repeat"></i>
             </button>
         </div>
     </div>
@@ -22,18 +22,16 @@
     <div class="row g-4 mb-4">
         <!-- 💰 LIQUIDEZ ACTUAL -->
         <div class="col-lg-4">
-            <div class="glass-card h-100 shadow-sm overflow-hidden">
+            <div class="dw-card h-100 shadow-sm overflow-hidden border-0">
                 <div class="p-3 bg-primary text-white">
-                    <h6 class="m-0 fw-bold"><i class="bi bi-wallet2 me-2"></i> LIQUIDEZ (SALDO REAL)</h6>
+                    <h6 class="m-0 fw-bold small text-uppercase" style="letter-spacing: 0.5px;"><i class="bi bi-wallet2 me-2"></i> Liquidez Disponible</h6>
                 </div>
                 <div class="p-4">
-                    <div id="lista-cuentas">
-                        <!-- Cargado por JS -->
-                    </div>
-                    <hr class="my-3">
+                    <div id="lista-cuentas"></div>
+                    <hr class="my-3 opacity-10">
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-secondary">TOTAL DISPONIBLE</span>
-                        <span class="h4 fw-extrabold text-primary m-0" id="total-liquidez">$0.00</span>
+                        <span class="fw-bold text-muted small">TOTAL EFECTIVO</span>
+                        <span class="h4 fw-bold text-primary m-0" id="total-liquidez">$0.00</span>
                     </div>
                 </div>
             </div>
@@ -41,20 +39,18 @@
 
         <!-- 📉 CARTERA (CUENTAS POR COBRAR) -->
         <div class="col-lg-4">
-            <div class="glass-card h-100 shadow-sm overflow-hidden">
+            <div class="dw-card h-100 shadow-sm overflow-hidden border-0">
                 <div class="p-3 bg-info text-white">
-                    <h6 class="m-0 fw-bold"><i class="bi bi-person-holding-hand me-2"></i> CARTERA PENDIENTE</h6>
+                    <h6 class="m-0 fw-bold small text-uppercase" style="letter-spacing: 0.5px;"><i class="bi bi-person-badge me-2"></i> Cartera Pendiente</h6>
                 </div>
                 <div class="p-0">
-                    <div class="table-responsive" style="max-height: 200px;">
+                    <div class="table-responsive" style="max-height: 180px;">
                         <table class="table table-hover align-middle mb-0 small">
-                            <tbody id="lista-cartera">
-                                <!-- Cargado por JS -->
-                            </tbody>
+                            <tbody id="lista-cartera"></tbody>
                         </table>
                     </div>
                     <div class="p-3 bg-light border-top d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-secondary">TOTAL POR COBRAR</span>
+                        <span class="fw-bold text-muted small">TOTAL POR COBRAR</span>
                         <span class="h5 fw-bold text-info m-0" id="total-cartera">$0.00</span>
                     </div>
                 </div>
@@ -63,12 +59,11 @@
 
         <!-- 🎯 GANANCIA NETA DEL PERIODO -->
         <div class="col-lg-4">
-            <div class="glass-card h-100 shadow-sm overflow-hidden border-start border-5 border-warning">
+            <div class="dw-card h-100 shadow-sm overflow-hidden border-start border-5 border-warning border-0">
                 <div class="p-4 text-center d-flex flex-column justify-content-center h-100">
-                    <small class="text-muted fw-bold d-block mb-2">GANANCIA NETA ESTIMADA</small>
-                    <h1 class="fw-extrabold text-dark mb-2" id="kpi-ganancia-neta">$0.00</h1>
+                    <small class="text-muted fw-bold d-block mb-2 text-uppercase" style="letter-spacing: 0.5px;">Ganancia Neta Periodo</small>
+                    <h1 class="fw-bold text-dark mb-2" id="kpi-ganancia-neta" style="font-size: 2.5rem; letter-spacing: -1px;">$0.00</h1>
                     <div id="ganancia-status"></div>
-                    <p class="text-muted small mt-3 mb-0">Calculado como Ingresos totales menos Egresos totales en el periodo seleccionado.</p>
                 </div>
             </div>
         </div>
@@ -77,14 +72,14 @@
     <!-- 🏦 RESUMEN PATRIMONIAL -->
     <div class="row g-4 mb-4">
         <div class="col-12">
-            <div class="glass-card p-4 shadow-sm bg-dark text-white border-0">
+            <div class="dw-card p-4 shadow-sm bg-deep text-white border-0" style="background: var(--bg-deep) !important;">
                 <div class="row align-items-center">
                     <div class="col-md-8">
-                        <h4 class="fw-bold mb-1">PATRIMONIO NETO (VALOR DEL NEGOCIO)</h4>
-                        <p class="text-white-50 small mb-0">Ecuación: Liquidez Total + Cartera por Cobrar - Deudas por Pagar</p>
+                        <h4 class="fw-bold mb-1" style="letter-spacing: -0.5px;">VALOR REAL DEL NEGOCIO (Patrimonio Neto)</h4>
+                        <p class="text-white-50 small mb-0">Calculado como: (Liquidez + Cartera) - Deudas Pendientes</p>
                     </div>
-                    <div class="col-md-4 text-end">
-                        <h1 class="fw-extrabold m-0 text-warning" id="patrimonio-neto">$0.00</h1>
+                    <div class="col-md-4 text-center text-md-end">
+                        <h1 class="fw-bold m-0 text-warning" id="patrimonio-neto" style="font-size: clamp(1.8rem, 5vw, 3rem); letter-spacing: -1.5px;">$0.00</h1>
                     </div>
                 </div>
             </div>
@@ -95,19 +90,13 @@
     <div class="row g-4">
         <!-- INGRESOS -->
         <div class="col-lg-4">
-            <div class="glass-card shadow-sm overflow-hidden">
+            <div class="dw-card shadow-sm overflow-hidden border-0">
                 <div class="p-3 bg-success-subtle border-bottom d-flex justify-content-between align-items-center">
-                    <h6 class="m-0 fw-bold text-success-emphasis">DESGLOSE DE INGRESOS</h6>
-                    <span class="h5 fw-bold m-0 text-success" id="subtotal-ingresos">$0.00</span>
+                    <h6 class="m-0 fw-bold text-success-emphasis small text-uppercase">INGRESOS</h6>
+                    <span class="fw-bold text-success" id="subtotal-ingresos">$0.00</span>
                 </div>
-                <div class="p-0">
+                <div class="table-responsive">
                     <table class="table table-hover mb-0">
-                        <thead class="bg-light small">
-                            <tr>
-                                <th class="ps-4">Categoría</th>
-                                <th class="text-end pe-4">Monto</th>
-                            </tr>
-                        </thead>
                         <tbody id="table-ingresos"></tbody>
                     </table>
                 </div>
@@ -116,19 +105,13 @@
 
         <!-- EGRESOS -->
         <div class="col-lg-4">
-            <div class="glass-card shadow-sm overflow-hidden">
+            <div class="dw-card shadow-sm overflow-hidden border-0">
                 <div class="p-3 bg-danger-subtle border-bottom d-flex justify-content-between align-items-center">
-                    <h6 class="m-0 fw-bold text-danger-emphasis">DESGLOSE DE EGRESOS</h6>
-                    <span class="h5 fw-bold m-0 text-danger" id="subtotal-egresos">$0.00</span>
+                    <h6 class="m-0 fw-bold text-danger-emphasis small text-uppercase">EGRESOS</h6>
+                    <span class="fw-bold text-danger" id="subtotal-egresos">$0.00</span>
                 </div>
-                <div class="p-0">
+                <div class="table-responsive">
                     <table class="table table-hover mb-0">
-                        <thead class="bg-light small">
-                            <tr>
-                                <th class="ps-4">Categoría</th>
-                                <th class="text-end pe-4">Monto</th>
-                            </tr>
-                        </thead>
                         <tbody id="table-egresos"></tbody>
                     </table>
                 </div>
@@ -137,42 +120,38 @@
 
         <!-- PASIVOS (DEUDAS) -->
         <div class="col-lg-4">
-            <div class="glass-card shadow-sm overflow-hidden h-100">
-                <div class="p-3 bg-warning text-dark border-bottom d-flex justify-content-between align-items-center">
-                    <h6 class="m-0 fw-bold">PASIVOS (POR PAGAR)</h6>
-                    <span class="h5 fw-bold m-0" id="total-pasivos">$0.00</span>
+            <div class="dw-card shadow-sm overflow-hidden h-100 border-0">
+                <div class="p-3 bg-warning-subtle border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold text-warning-emphasis small text-uppercase">PASIVOS (DEUDAS)</h6>
+                    <span class="fw-bold text-warning-emphasis" id="total-pasivos">$0.00</span>
                 </div>
-                <div class="p-0">
-                    <div class="table-responsive" style="max-height: 250px;">
-                        <table class="table table-hover mb-0 small">
-                            <tbody id="table-pasivos"></tbody>
-                        </table>
-                    </div>
+                <div class="table-responsive" style="max-height: 250px;">
+                    <table class="table table-hover mb-0 small">
+                        <tbody id="table-pasivos"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
         <!-- RENTABILIDAD POR PRODUCTO -->
-        <div class="col-12">
-            <div class="glass-card shadow-sm overflow-hidden">
-                <div class="p-3 bg-dark text-white d-flex justify-content-between align-items-center">
-                    <h6 class="m-0 fw-bold">RENTABILIDAD REAL POR PRODUCTO (Ventas vs Costos)</h6>
-                    <span class="badge bg-warning text-dark px-3 py-2" id="utilidad-bruta-total">Utilidad Bruta: $0.00</span>
+        <div class="col-12 mb-5">
+            <div class="dw-card shadow-sm overflow-hidden border-0">
+                <div class="p-3 bg-deep text-white d-flex justify-content-between align-items-center" style="background: var(--bg-deep) !important;">
+                    <h6 class="m-0 fw-bold small text-uppercase" style="letter-spacing: 0.5px;">Rentabilidad por Producto</h6>
+                    <span class="badge bg-warning text-dark px-3 py-2 fw-bold" id="utilidad-bruta-total">Utilidad Bruta: $0.00</span>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
-                        <thead class="bg-light">
+                        <thead class="bg-light small">
                             <tr>
-                                <th class="ps-4">Producto</th>
-                                <th class="text-center">Cant. Vendida</th>
-                                <th class="text-end">Total Venta</th>
-                                <th class="text-end">Total Costo</th>
-                                <th class="text-end pe-4">Ganancia Real</th>
+                                <th class="ps-4 py-3 fw-bold text-muted">Producto</th>
+                                <th class="text-center py-3 fw-bold text-muted">Cant.</th>
+                                <th class="text-end py-3 fw-bold text-muted">Ventas</th>
+                                <th class="text-end py-3 fw-bold text-muted">Costos</th>
+                                <th class="text-end pe-4 py-3 fw-bold text-muted">Ganancia</th>
                             </tr>
                         </thead>
-                        <tbody id="table-rentabilidad">
-                            <tr><td colspan="5" class="text-center py-5 text-muted">No hay datos de ventas en este periodo</td></tr>
-                        </tbody>
+                        <tbody id="table-rentabilidad"></tbody>
                     </table>
                 </div>
             </div>

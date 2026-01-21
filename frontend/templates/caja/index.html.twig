@@ -4,17 +4,17 @@
 
 {% block body %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h2 class="fw-bold m-0">Caja Diaria</h2>
-            <p class="text-muted">Movimientos pendientes de consolidación</p>
+            <h2 class="fw-bold m-0 text-dark">Arqueo Diario</h2>
+            <p class="text-muted mb-0">Movimientos pendientes de consolidación</p>
         </div>
-        <div class="d-flex gap-3">
-            <div class="glass-card px-4 py-2 text-center border-start border-4 border-primary">
-                <small class="text-muted fw-bold d-block">SALDO ESTIMADO</small>
-                <h4 class="fw-extrabold m-0 text-primary" id="balance-total">$0.00</h4>
+        <div class="d-flex flex-wrap gap-3 align-items-center">
+            <div class="dw-card px-4 py-2 text-center border-start border-4 border-primary">
+                <small class="text-muted fw-bold d-block" style="font-size: 0.65rem; letter-spacing: 0.5px;">SALDO ESTIMADO</small>
+                <h4 class="fw-bold m-0 text-primary" id="balance-total">$0.00</h4>
             </div>
-            <button id="btn-cerrar-caja" class="btn btn-primary fw-bold px-4 shadow-sm" onclick="realizarCierreCaja()">
+            <button id="btn-cerrar-caja" class="dw-btn-primary text-white fw-bold shadow-sm" onclick="realizarCierreCaja()">
                 <i class="bi bi-safe-fill me-2"></i> REALIZAR CIERRE DE CAJA
             </button>
         </div>
@@ -23,46 +23,50 @@
     <div class="row g-4">
         <!-- SECCIÓN INGRESOS -->
         <div class="col-lg-7">
-            <div class="glass-card shadow-sm overflow-hidden h-100">
-                <div class="p-3 bg-success-subtle border-bottom d-flex justify-content-between">
-                    <h6 class="m-0 fw-bold text-success-emphasis"><i class="bi bi-plus-circle me-2"></i> INGRESOS (VENTAS)</h6>
-                    <span class="badge bg-success" id="total-ingresos-badge">$0.00</span>
+            <div class="dw-card shadow-sm overflow-hidden h-100 border-0">
+                <div class="p-3 bg-success text-white d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold"><i class="bi bi-plus-circle me-2"></i> INGRESOS (VENTAS / CRÉDITOS)</h6>
+                    <span class="badge bg-white text-success fw-bold" id="total-ingresos-badge" style="font-size: 0.9rem;">$0.00</span>
                 </div>
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="bg-light small">
-                        <tr>
-                            <th class="ps-4">Nro. Factura</th>
-                            <th>Fecha</th>
-                            <th class="text-end">Total</th>
-                            <th class="pe-4 text-center">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="facturas-emitidas-list">
-                        <tr><td colspan="4" class="text-center py-5 text-muted">Cargando facturas...</td></tr>
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light small">
+                            <tr>
+                                <th class="ps-4 py-3 text-muted fw-bold">Detalle</th>
+                                <th class="py-3 text-muted fw-bold">Fecha</th>
+                                <th class="text-end py-3 text-muted fw-bold">Total</th>
+                                <th class="pe-4 text-center py-3 text-muted fw-bold">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="facturas-emitidas-list">
+                            <tr><td colspan="4" class="text-center py-5 text-muted">Cargando ingresos...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
         <!-- SECCIÓN EGRESOS -->
         <div class="col-lg-5">
-            <div class="glass-card shadow-sm overflow-hidden h-100">
-                <div class="p-3 bg-danger-subtle border-bottom d-flex justify-content-between">
-                    <h6 class="m-0 fw-bold text-danger-emphasis"><i class="bi bi-dash-circle me-2"></i> EGRESOS (GASTOS/PRÉSTAMOS)</h6>
-                    <span class="badge bg-danger" id="total-egresos-badge">$0.00</span>
+            <div class="dw-card shadow-sm overflow-hidden h-100 border-0">
+                <div class="p-3 bg-danger text-white d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold"><i class="bi bi-dash-circle me-2"></i> EGRESOS (GASTOS / PAGOS)</h6>
+                    <span class="badge bg-white text-danger fw-bold" id="total-egresos-badge" style="font-size: 0.9rem;">$0.00</span>
                 </div>
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="bg-light small">
-                        <tr>
-                            <th class="ps-4">Concepto</th>
-                            <th class="text-end">Monto</th>
-                            <th class="pe-4 text-center"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="egresos-pendientes-list">
-                        <tr><td colspan="3" class="text-center py-5 text-muted">Cargando egresos...</td></tr>
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light small">
+                            <tr>
+                                <th class="ps-4 py-3 text-muted fw-bold">Concepto</th>
+                                <th class="text-end py-3 text-muted fw-bold">Monto</th>
+                                <th class="pe-4 text-center py-3 text-muted fw-bold"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="egresos-pendientes-list">
+                            <tr><td colspan="3" class="text-center py-5 text-muted">Cargando egresos...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

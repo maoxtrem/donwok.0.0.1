@@ -237,17 +237,31 @@ class CajaController extends AbstractController
     }
 
     #[Route('/movimientos', name: 'app_caja_movimientos', methods: ['GET'])]
-    public function movimientos(MovimientoFinancieroRepositoryInterface $repo): JsonResponse
+    public function movimientos(Request $request, MovimientoFinancieroRepositoryInterface $repo): JsonResponse
     {
-        $movimientos = $repo->buscarRecientes(50);
-        return new JsonResponse(array_map(fn($m) => [
-            'id' => $m->getId(),
-            'tipo' => $m->getTipoMovimiento(),
-            'monto' => $m->getMonto(),
-            'fecha' => $m->getFechaMovimiento()->format('Y-m-d H:i:s'),
-            'descripcion' => $m->getDescripcion(),
-            'categoria' => $m->getCategoriaFinanciera()->getNombre(),
-            'cuenta' => $m->getCuentaFinanciera()->getNombre()
-        ], $movimientos));
+        $pagina = (int)$request->query->get('pagina', 1);
+        $limite = (int)$request->query->get('limite', 20);
+        $desdeStr = $request->query->get('desde');
+        $hastaStr = $request->query->get('hasta');
+
+        $desde = $desdeStr ? new \DateTime($desdeStr) : null;
+        $hasta = $hastaStr ? new \DateTime($hastaStr) : null;
+
+        $resultado = $repo->buscarPaginados($pagina, $limite, $desde, $hasta);
+
+        return new JsonResponse([
+            'items' => array_map(fn($m) => [
+                'id' => $m->getId(),
+                'tipo' => $m->getTipoMovimiento(),
+                'monto' => $m->getMonto(),
+                'fecha' => $m->getFechaMovimiento()->format('Y-m-d H:i:s'),
+                'descripcion' => $m->getDescripcion(),
+                'categoria' => $m->getCategoriaFinanciera()->getNombre(),
+                'cuenta' => $m->getCuentaFinanciera()->getNombre()
+            ], $resultado['items']),
+            'total' => $resultado['total'],
+            'pagina' => $pagina,
+            'limite' => $limite
+        ]);
     }
 }

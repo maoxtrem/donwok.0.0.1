@@ -28,6 +28,37 @@ class MovimientoFinancieroRepository extends ServiceEntityRepository implements 
         return $this->findBy([], ['fechaMovimiento' => 'DESC'], $limite);
     }
 
+    public function buscarPaginados(int $pagina, int $limite, ?\DateTimeInterface $desde = null, ?\DateTimeInterface $hasta = null): array
+    {
+        $qb = $this->createQueryBuilder('m')
+            ->orderBy('m.fechaMovimiento', 'DESC')
+            ->addOrderBy('m.id', 'DESC');
+
+        if ($desde) {
+            $qb->andWhere('m.fechaMovimiento >= :desde')
+               ->setParameter('desde', $desde->setTime(0, 0, 0));
+        }
+
+        if ($hasta) {
+            $qb->andWhere('m.fechaMovimiento <= :hasta')
+               ->setParameter('hasta', $hasta->setTime(23, 59, 59));
+        }
+
+        // Clonar para contar el total antes de aplicar offset/limit
+        $countQb = clone $qb;
+        $total = (int) $countQb->select('COUNT(m.id)')->getQuery()->getSingleScalarResult();
+
+        $items = $qb->setFirstResult(($pagina - 1) * $limite)
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
+
+        return [
+            'items' => $items,
+            'total' => $total
+        ];
+    }
+
     public function obtenerTotalesPorPeriodo(\DateTimeInterface $desde, \DateTimeInterface $hasta): array
     {
         $fechaDesde = (clone $desde)->setTime(0, 0, 0)->format('Y-m-d H:i:s');

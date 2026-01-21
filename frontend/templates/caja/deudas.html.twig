@@ -4,55 +4,54 @@
 
 {% block body %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h2 class="fw-bold m-0">Cuentas por Pagar</h2>
-            <p class="text-muted">Gestión de obligaciones, inversiones a crédito y préstamos recibidos</p>
+            <h2 class="fw-bold m-0 text-dark">Cuentas por Pagar</h2>
+            <p class="text-muted mb-0">Gestión de obligaciones, inversiones y créditos</p>
         </div>
     </div>
 
-    <div class="row">
+    <div class="row g-4">
         <!-- FORMULARIO DE REGISTRO (Izquierda) -->
         <div class="col-md-4">
-            <div class="glass-card p-4 shadow-sm">
+            <div class="dw-card p-4 shadow-sm border-0">
                 <h5 class="fw-bold mb-4">Nueva Obligación</h5>
                 <form id="form-deuda">
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Naturaleza de la Deuda</label>
-                        <select class="form-select" id="categoria_id" required>
+                        <select class="form-select border-0 bg-light" id="categoria_id" required>
                             <option value="" disabled selected>Seleccione tipo...</option>
-                            <!-- Cargado por JS -->
                         </select>
-                        <small class="text-muted" style="font-size: 0.7rem;">
-                            <b>Inversión/Gasto:</b> No entra dinero hoy.<br>
-                            <b>Crédito Recibido:</b> El dinero entra a la cuenta hoy.
-                        </small>
+                        <div class="mt-2 p-2 bg-light rounded-3" style="font-size: 0.7rem; border: 1px dashed var(--card-border);">
+                            <i class="bi bi-info-circle me-1"></i> <b>Crédito:</b> Entra dinero hoy.<br>
+                            <i class="bi bi-info-circle me-1"></i> <b>Inversión/Gasto:</b> Deuda futura.
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Entidad / Proveedor</label>
-                        <input type="text" id="entidad" class="form-control" required placeholder="Ej: Banco BBVA, Proveedor Carnes...">
+                        <input type="text" id="entidad" class="form-control border-0 bg-light" required placeholder="Banco, Proveedor...">
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Monto de la Obligación</label>
                         <div class="input-group">
-                            <span class="input-group-text">$</span>
-                            <input type="number" id="monto" class="form-control" step="0.01" required>
+                            <span class="input-group-text border-0 bg-light fw-bold text-primary">$</span>
+                            <input type="number" id="monto" class="form-control border-0 bg-light fw-bold" step="0.01" required>
                         </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Cuenta de Referencia</label>
-                        <select class="form-select" id="cuenta_id" required></select>
+                        <select class="form-select border-0 bg-light" id="cuenta_id" required></select>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Observaciones</label>
-                        <textarea id="observaciones" class="form-control" rows="2" placeholder="Detalle de la deuda..."></textarea>
+                        <textarea id="observaciones" class="form-control border-0 bg-light" rows="2" placeholder="Detalle..."></textarea>
                     </div>
 
-                    <button type="submit" class="btn btn-warning w-100 py-2 fw-bold shadow-sm">
+                    <button type="submit" class="dw-btn-primary text-white w-100 py-3 shadow-sm">
                         <i class="bi bi-file-earmark-plus me-2"></i> REGISTRAR OBLIGACIÓN
                     </button>
                 </form>
@@ -61,18 +60,18 @@
 
         <!-- LISTADO DE DEUDAS (Derecha) -->
         <div class="col-md-8">
-            <div class="glass-card shadow-sm overflow-hidden">
+            <div class="dw-card shadow-sm overflow-hidden border-0">
                 <div class="p-3 bg-light border-bottom">
-                    <h6 class="m-0 fw-bold">Obligaciones Pendientes</h6>
+                    <h6 class="m-0 fw-bold text-muted small text-uppercase" style="letter-spacing: 0.5px;">Obligaciones Pendientes</h6>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="bg-light small">
                             <tr>
-                                <th class="ps-4">Entidad / Tipo</th>
-                                <th class="text-center">Monto Inicial</th>
-                                <th class="text-center">Saldo Pendiente</th>
-                                <th class="pe-4 text-end">Acción</th>
+                                <th class="ps-4 py-3 text-muted fw-bold">Entidad / Tipo</th>
+                                <th class="text-center py-3 text-muted fw-bold">Monto Inicial</th>
+                                <th class="text-center py-3 text-muted fw-bold">Saldo Pendiente</th>
+                                <th class="pe-4 text-end py-3 text-muted fw-bold">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="deudas-list">

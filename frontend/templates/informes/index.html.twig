@@ -4,69 +4,69 @@
 
 {% block body %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h2 class="fw-bold m-0">Análisis de Negocio</h2>
-            <p class="text-muted">Rendimiento financiero y crecimiento en tiempo real</p>
+            <h2 class="fw-bold m-0 text-dark">Análisis de Negocio</h2>
+            <p class="text-muted mb-0">Rendimiento financiero y crecimiento en tiempo real</p>
         </div>
-        <div class="glass-card p-2 d-flex gap-2">
-            <input type="date" id="fecha-desde" class="form-control form-control-sm border-0 bg-transparent fw-bold">
-            <span class="text-muted align-self-center">hasta</span>
-            <input type="date" id="fecha-hasta" class="form-control form-control-sm border-0 bg-transparent fw-bold">
-            <button class="btn btn-primary btn-sm px-3 fw-bold" onclick="cargarInformes()">
-                <i class="bi bi-filter me-1"></i> FILTRAR
+        <div class="dw-card p-2 d-flex gap-2 align-items-center border-0">
+            <input type="date" id="fecha-desde" class="form-control form-control-sm border-0 bg-transparent fw-bold" style="width: 130px;">
+            <span class="text-muted small fw-bold">AL</span>
+            <input type="date" id="fecha-hasta" class="form-control form-control-sm border-0 bg-transparent fw-bold" style="width: 130px;">
+            <button class="dw-btn-primary text-white btn-sm px-3 shadow-sm" onclick="cargarInformes()">
+                <i class="bi bi-filter"></i>
             </button>
         </div>
     </div>
 
     <!-- TARJETAS DE INDICADORES (KPIs) -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="glass-card p-3 border-start border-4 border-success h-100">
-                <small class="text-muted fw-bold d-block mb-1">TOTAL INGRESOS</small>
+    <div class="row g-4 mb-4">
+        <div class="col-sm-6 col-xl-3">
+            <div class="dw-card p-4 border-0 shadow-sm h-100 border-start border-5 border-success">
+                <small class="text-muted fw-bold d-block mb-2 text-uppercase" style="letter-spacing: 0.5px;">Total Ingresos</small>
                 <div class="d-flex justify-content-between align-items-end">
-                    <h3 class="fw-extrabold m-0 text-success" id="kpi-ingresos">$0.00</h3>
+                    <h2 class="fw-bold m-0 text-success" id="kpi-ingresos" style="font-size: clamp(1.4rem, 4vw, 2rem);">$0</h2>
                     <div id="crecimiento-badge" class="badge rounded-pill bg-success-subtle text-success small">
                         <i class="bi bi-arrow-up"></i> <span id="kpi-crecimiento">0%</span>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="glass-card p-3 border-start border-4 border-danger h-100">
-                <small class="text-muted fw-bold d-block mb-1">TOTAL EGRESOS</small>
-                <h3 class="fw-extrabold m-0 text-danger" id="kpi-egresos">$0.00</h3>
-                <small class="text-muted small">Incluye gastos e inversiones</small>
+        <div class="col-sm-6 col-xl-3">
+            <div class="dw-card p-4 border-0 shadow-sm h-100 border-start border-5 border-danger">
+                <small class="text-muted fw-bold d-block mb-2 text-uppercase" style="letter-spacing: 0.5px;">Total Egresos</small>
+                <h2 class="fw-bold m-0 text-danger" id="kpi-egresos" style="font-size: clamp(1.4rem, 4vw, 2rem);">$0</h2>
+                <small class="text-muted" style="font-size: 0.7rem;">Operativos e inversiones</small>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="glass-card p-3 border-start border-4 border-primary h-100">
-                <small class="text-muted fw-bold d-block mb-1">UTILIDAD BRUTA (Ventas-Costos)</small>
-                <h3 class="fw-extrabold m-0 text-primary" id="kpi-utilidad">$0.00</h3>
-                <div class="progress mt-2" style="height: 4px;">
-                    <div class="progress-bar bg-primary" id="utilidad-bar" style="width: 0%"></div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="dw-card p-4 border-0 shadow-sm h-100 border-start border-5 border-primary">
+                <small class="text-muted fw-bold d-block mb-2 text-uppercase" style="letter-spacing: 0.5px;">Utilidad Bruta</small>
+                <h2 class="fw-bold m-0 text-primary" id="kpi-utilidad" style="font-size: clamp(1.4rem, 4vw, 2rem);">$0</h2>
+                <div class="progress mt-3" style="height: 6px; border-radius: 10px; background: #f1f5f9;">
+                    <div class="progress-bar bg-primary" id="utilidad-bar" style="width: 0%; border-radius: 10px;"></div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="glass-card p-3 border-start border-4 border-info h-100">
-                <small class="text-muted fw-bold d-block mb-1">PROM. VENTA DIARIA</small>
-                <h3 class="fw-extrabold m-0 text-info" id="kpi-promedio">$0.00</h3>
-                <small class="text-muted small">Basado en periodo seleccionado</small>
+        <div class="col-sm-6 col-xl-3">
+            <div class="dw-card p-4 border-0 shadow-sm h-100 border-start border-5 border-info">
+                <small class="text-muted fw-bold d-block mb-2 text-uppercase" style="letter-spacing: 0.5px;">Prom. Venta Diaria</small>
+                <h2 class="fw-bold m-0 text-info" id="kpi-promedio" style="font-size: clamp(1.4rem, 4vw, 2rem);">$0</h2>
+                <small class="text-muted" style="font-size: 0.7rem;">Rendimiento por jornada</small>
             </div>
         </div>
     </div>
 
     <!-- GRÁFICAS -->
-    <div class="row g-4">
+    <div class="row g-4 mb-5">
         <!-- Gráfica Lineal: Tendencia -->
         <div class="col-lg-8">
-            <div class="glass-card p-4 shadow-sm h-100">
-                <div class="d-flex justify-content-between mb-4">
-                    <h6 class="fw-bold m-0"><i class="bi bi-graph-up me-2 text-primary"></i> Tendencia Financiera Diaria</h6>
-                    <div class="small text-muted">Ingresos vs Egresos</div>
+            <div class="dw-card p-4 shadow-sm h-100 border-0">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h6 class="fw-bold m-0 text-dark small text-uppercase" style="letter-spacing: 0.5px;">Tendencia Financiera Diaria</h6>
+                    <span class="badge bg-light text-muted border">Ingresos vs Egresos</span>
                 </div>
-                <div style="height: 350px;">
+                <div style="height: 380px;">
                     <canvas id="chart-tendencia"></canvas>
                 </div>
             </div>
@@ -74,9 +74,9 @@
 
         <!-- Gráfica de Barras: Rentabilidad por Producto -->
         <div class="col-lg-4">
-            <div class="glass-card p-4 shadow-sm h-100">
-                <h6 class="fw-bold mb-4"><i class="bi bi-pie-chart me-2 text-info"></i> Ganancia por Producto</h6>
-                <div style="height: 350px;">
+            <div class="dw-card p-4 shadow-sm h-100 border-0">
+                <h6 class="fw-bold mb-4 text-dark small text-uppercase" style="letter-spacing: 0.5px;">Ganancia por Producto (Top 10)</h6>
+                <div style="height: 380px;">
                     <canvas id="chart-rentabilidad"></canvas>
                 </div>
             </div>

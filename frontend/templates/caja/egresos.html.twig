@@ -4,47 +4,47 @@
 
 {% block body %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h2 class="fw-bold m-0">Egresos Inmediatos</h2>
-            <p class="text-muted">Registro de dinero que sale hoy mismo del efectivo o banco</p>
+            <h2 class="fw-bold m-0 text-dark">Egresos Inmediatos</h2>
+            <p class="text-muted mb-0">Registro de dinero que sale hoy mismo del efectivo o banco</p>
         </div>
     </div>
 
-    <div class="row">
+    <div class="row g-4">
         <div class="col-md-4">
-            <div class="glass-card p-4 shadow-sm">
+            <div class="dw-card p-4 shadow-sm border-0">
                 <h5 class="fw-bold mb-4">Nueva Salida de Dinero</h5>
                 <form id="form-egreso">
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Categoría del Gasto</label>
-                        <select class="form-select" id="categoria_id" required onchange="toggleFields()"></select>
+                        <select class="form-select border-0 bg-light" id="categoria_id" required onchange="toggleFields()"></select>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Monto a Retirar</label>
                         <div class="input-group">
-                            <span class="input-group-text">$</span>
-                            <input type="number" id="monto" class="form-control" step="0.01" required>
+                            <span class="input-group-text border-0 bg-light fw-bold text-primary">$</span>
+                            <input type="number" id="monto" class="form-control border-0 bg-light fw-bold" step="0.01" required>
                         </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Sacar Dinero de (Cuenta)</label>
-                        <select class="form-select" id="cuenta_id" required></select>
+                        <select class="form-select border-0 bg-light" id="cuenta_id" required></select>
                     </div>
 
                     <div class="mb-3 d-none" id="field-entidad">
                         <label class="form-label small fw-bold">Entidad / Persona (Préstamo)</label>
-                        <input type="text" id="entidad" class="form-control" placeholder="A quién se le presta">
+                        <input type="text" id="entidad" class="form-control border-0 bg-light" placeholder="A quién se le presta">
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Descripción / Concepto</label>
-                        <textarea id="descripcion" class="form-control" rows="3" placeholder="Ej: Pago de almuerzo, compra de suministros..." required></textarea>
+                        <textarea id="descripcion" class="form-control border-0 bg-light" rows="3" placeholder="Ej: Pago de almuerzo, compra de suministros..." required></textarea>
                     </div>
 
-                    <button type="submit" class="btn btn-danger w-100 py-2 fw-bold shadow-sm">
+                    <button type="submit" class="dw-btn-primary text-white w-100 py-3 shadow-sm">
                         <i class="bi bi-cash-stack me-2"></i> REGISTRAR SALIDA AHORA
                     </button>
                 </form>
@@ -52,20 +52,22 @@
         </div>
 
         <div class="col-md-8">
-            <div class="glass-card shadow-sm overflow-hidden">
+            <div class="dw-card shadow-sm overflow-hidden border-0">
                 <div class="p-3 bg-light border-bottom">
-                    <h6 class="m-0 fw-bold">Egresos en Cola (Pendientes de Cierre)</h6>
+                    <h6 class="m-0 fw-bold text-muted small text-uppercase" style="letter-spacing: 0.5px;">Egresos en Cola (Pendientes de Cierre)</h6>
                 </div>
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="bg-light small">
-                        <tr>
-                            <th class="ps-4">Categoría / Cuenta</th>
-                            <th>Descripción</th>
-                            <th class="pe-4 text-end">Monto</th>
-                        </tr>
-                    </thead>
-                    <tbody id="egresos-list"></tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light small">
+                            <tr>
+                                <th class="ps-4 py-3 text-muted fw-bold">Categoría / Cuenta</th>
+                                <th class="py-3 text-muted fw-bold">Descripción</th>
+                                <th class="pe-4 text-end py-3 text-muted fw-bold">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="egresos-list"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

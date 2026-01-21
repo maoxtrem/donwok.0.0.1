@@ -36,6 +36,7 @@
             .sidebar {
                 width: var(--sidebar-width);
                 height: 100vh;
+                height: 100dvh;
                 position: fixed;
                 top: 0;
                 left: 0;
@@ -44,14 +45,36 @@
                 z-index: 1050;
                 display: flex;
                 flex-direction: column;
-                transition: transform 0.3s ease;
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 box-shadow: 4px 0 15px rgba(0,0,0,0.1);
             }
 
             .sidebar-header {
-                padding: 2.5rem 1.5rem;
-                background: linear-gradient(to bottom, rgba(255,255,255,0.05), transparent);
+                padding: 2rem 1.5rem;
+                background: linear-gradient(to bottom, rgba(255,255,255,0.03), transparent);
                 border-bottom: 1px solid rgba(255,255,255,0.05);
+                flex-shrink: 0;
+            }
+
+            @media (max-height: 720px) {
+                .sidebar-header { padding: 1.2rem 1rem; }
+                .nav-link { padding: 0.6rem 1.2rem; font-size: 0.85rem; }
+                .nav-section-title { padding-top: 0.8rem; padding-bottom: 0.2rem; }
+                .sidebar-footer { padding: 1rem !important; }
+            }
+
+            .sidebar-menu {
+                overflow-y: auto;
+                flex-grow: 1;
+                scrollbar-width: thin;
+                scrollbar-color: rgba(255,255,255,0.1) transparent;
+            }
+
+            .sidebar-footer {
+                padding: 1.5rem;
+                border-top: 1px solid rgba(255,255,255,0.05);
+                flex-shrink: 0;
+                background: var(--bg-deep);
             }
 
             .nav-link {
@@ -89,12 +112,27 @@
                 font-weight: 700;
             }
 
+            /* Custom Scrollbar para Sidebar */
+            .custom-scrollbar::-webkit-scrollbar {
+                width: 3px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: transparent;
+                border-radius: 10px;
+            }
+            .sidebar:hover .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: rgba(255,255,255,0.1);
+            }
+
             /* --- CONTENIDO --- */
             .main-content {
                 margin-left: var(--sidebar-width);
                 padding: 2rem;
                 min-height: 100vh;
-                transition: margin-left 0.3s ease;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
             /* --- COMPONENTES DW --- */
@@ -103,7 +141,11 @@
                 border-radius: 16px;
                 border: 1px solid var(--card-border);
                 box-shadow: var(--card-shadow);
-                transition: transform 0.2s ease;
+                transition: all 0.2s ease;
+            }
+
+            .dw-card:hover {
+                box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05);
             }
 
             .dw-btn-primary {
@@ -113,6 +155,11 @@
                 padding: 0.6rem 1.5rem;
                 font-weight: 600;
                 transition: all 0.2s;
+                color: white !important;
+                text-decoration: none;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
             }
 
             .dw-btn-primary:hover {
@@ -123,29 +170,32 @@
 
             /* --- RESPONSIVE --- */
             @media (max-width: 992px) {
-                .sidebar { transform: translateX(-100%); }
+                .sidebar { transform: translateX(-100%); width: 100%; max-width: var(--sidebar-width); }
                 .sidebar.show { transform: translateX(0); }
-                .main-content { margin-left: 0; padding: 1.5rem; }
+                .main-content { margin-left: 0 !important; padding: 1.25rem; padding-top: 4.5rem; }
                 .mobile-toggle { display: flex !important; }
             }
 
             .mobile-toggle {
                 display: none;
                 position: fixed;
-                bottom: 1.5rem;
-                left: 1.5rem;
-                width: 56px;
-                height: 56px;
-                border-radius: 50%;
-                background: var(--accent-blue);
-                color: white;
+                top: 1rem;
+                left: 1rem;
+                width: 42px;
+                height: 42px;
+                border-radius: 10px;
+                background: white;
+                color: var(--bg-deep);
                 align-items: center;
                 justify-content: center;
                 z-index: 1100;
-                box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
-                border: none;
-                font-size: 1.5rem;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+                border: 1px solid var(--card-border);
+                font-size: 1.2rem;
+                transition: all 0.2s;
             }
+
+            .mobile-toggle:active { transform: scale(0.9); }
 
             /* Estilos para login y monitor */
             .login-page .sidebar, .monitor-page .sidebar { display: none !important; }
@@ -156,7 +206,9 @@
     </head>
     <body class="{% block body_class %}{% endblock %}">
         
+        {% if block('body_class') != 'login-page' and block('body_class') != 'monitor-page' %}
         <button class="mobile-toggle" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
+        {% endif %}
 
         {% if app.request.get('_route') != 'app_pedidos_monitor' and block('body_class') != 'login-page' %}
         <nav class="sidebar" id="mainSidebar">
@@ -176,6 +228,9 @@
                 <div class="nav-section-title">Principal</div>
                 <a href="/dashboard" class="nav-link">
                     <i class="bi bi-grid-1x2-fill"></i> Dashboard
+                </a>
+                <a href="/informes" class="nav-link">
+                    <i class="bi bi-bar-chart-line-fill text-primary"></i> Informes y Analítica
                 </a>
                 <a href="/ventas" class="nav-link">
                     <i class="bi bi-phone-vibrate-fill text-info"></i> Punto de Venta
@@ -213,7 +268,7 @@
                 </a>
             </div>
 
-            <div class="p-4 border-top border-white-5">
+            <div class="sidebar-footer">
                 <a href="javascript:void(0)" class="nav-link btn-logout-sidebar rounded-3 text-center" id="btnLogoutAction" 
                    style="background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2);">
                     <i class="bi bi-box-arrow-left"></i> 
@@ -249,9 +304,6 @@
                 btnLogout.addEventListener('click', () => api.logout());
             }
         </script>
-        {% block javascripts %}{% endblock %}
-    </body>
-</html>
         {% block javascripts %}{% endblock %}
     </body>
 </html>

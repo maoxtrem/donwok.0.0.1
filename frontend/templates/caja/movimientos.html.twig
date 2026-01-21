@@ -4,33 +4,67 @@
 
 {% block body %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h2 class="fw-bold m-0">Movimientos Financieros</h2>
-            <p class="text-muted">Historial de cierres e ingresos</p>
+            <h2 class="fw-bold m-0 text-dark">Libro Mayor</h2>
+            <p class="text-muted mb-0">Historial consolidado de movimientos financieros</p>
         </div>
-        <div>
-            <a href="/caja" class="btn btn-outline-secondary fw-bold px-4 shadow-sm">
-                <i class="bi bi-arrow-left me-2"></i> VOLVER A CAJA
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <div class="dw-card p-2 d-flex gap-2 align-items-center border-0">
+                <input type="date" id="filtro-desde" class="form-control form-control-sm border-0 bg-transparent fw-bold" style="width: 130px;">
+                <span class="text-muted small fw-bold">AL</span>
+                <input type="date" id="filtro-hasta" class="form-control form-control-sm border-0 bg-transparent fw-bold" style="width: 130px;">
+                <button class="dw-btn-primary text-white btn-sm px-3 shadow-sm" onclick="buscarMovimientos()">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+            <a href="/caja" class="dw-card px-4 py-2 text-decoration-none text-muted fw-bold shadow-sm d-inline-block border-0">
+                <i class="bi bi-arrow-left me-2"></i> VOLVER AL ARQUEO
             </a>
         </div>
     </div>
 
-    <div class="glass-card shadow-sm overflow-hidden">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="bg-light text-secondary">
-                <tr>
-                    <th class="ps-4">Fecha</th>
-                    <th>Categoría / Cuenta</th>
-                    <th>Descripción</th>
-                    <th class="text-center">Tipo</th>
-                    <th class="pe-4 text-end">Monto</th>
-                </tr>
-            </thead>
-            <tbody id="movimientos-list">
-                <tr><td colspan="5" class="text-center py-5 text-muted">Cargando movimientos...</td></tr>
-            </tbody>
-        </table>
+    <div class="dw-card shadow-sm overflow-hidden border-0 mb-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4 py-3 text-muted fw-bold small text-uppercase">Fecha / Hora</th>
+                        <th class="py-3 text-muted fw-bold small text-uppercase">Categoría / Cuenta</th>
+                        <th class="py-3 text-muted fw-bold small text-uppercase">Descripción</th>
+                        <th class="text-center py-3 text-muted fw-bold small text-uppercase">Tipo</th>
+                        <th class="pe-4 text-end py-3 text-muted fw-bold small text-uppercase">Monto</th>
+                    </tr>
+                </thead>
+                <tbody id="movimientos-list">
+                    <tr><td colspan="5" class="text-center py-5 text-muted">Cargando movimientos...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Paginación -->
+    <div class="d-flex justify-content-between align-items-center px-2">
+        <div class="text-muted small">
+            Mostrando <b id="range-start">0</b> - <b id="range-end">0</b> de <b id="total-count">0</b> registros
+        </div>
+        <nav>
+            <ul class="pagination pagination-sm mb-0 gap-1">
+                <li class="page-item" id="page-prev-li">
+                    <button class="page-link border-0 rounded-3 px-3 shadow-sm" id="btn-prev" onclick="cambiarPagina(-1)">
+                        <i class="bi bi-chevron-left"></i> Anterior
+                    </button>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link border-0 bg-transparent text-dark fw-bold">Página <span id="current-page">1</span></span>
+                </li>
+                <li class="page-item" id="page-next-li">
+                    <button class="page-link border-0 rounded-3 px-3 shadow-sm" id="btn-next" onclick="cambiarPagina(1)">
+                        Siguiente <i class="bi bi-chevron-right"></i>
+                    </button>
+                </li>
+            </ul>
+        </nav>
     </div>
 </div>
 {% endblock %}
@@ -40,45 +74,94 @@
     import CoreAPI from '/js/core.js';
     const api = new CoreAPI();
 
+    let paginaActual = 1;
+    const limite = 20;
+    let totalRegistros = 0;
+
+    // Inicializar fechas (hoy)
+    const hoy = new Date().toISOString().split('T')[0];
+    // document.getElementById('filtro-hasta').value = hoy; // Opcional: dejar vacio para ver todo
+
     async function cargarMovimientos() {
+        const desde = document.getElementById('filtro-desde').value;
+        const hasta = document.getElementById('filtro-hasta').value;
+        let url = `/caja/movimientos?pagina=${paginaActual}&limite=${limite}`;
+        if (desde) url += `&desde=${desde}`;
+        if (hasta) url += `&hasta=${hasta}`;
+
         try {
-            const movimientos = await api.get('/caja/movimientos');
-            renderMovimientos(movimientos);
+            const data = await api.get(url);
+            totalRegistros = data.total;
+            renderMovimientos(data.items);
+            actualizarPaginacion(data.pagina);
         } catch (err) {
             console.error(err);
             Swal.fire('Error', 'No se pudieron cargar los movimientos', 'error');
         }
     }
 
-    function renderMovimientos(movimientos) {
+    function renderMovimientos(items) {
         const body = document.getElementById('movimientos-list');
         
-        if (!movimientos || movimientos.length === 0) {
+        if (!items || items.length === 0) {
             body.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">No se han registrado movimientos</td></tr>';
             return;
         }
 
-        body.innerHTML = movimientos.map(m => {
+        body.innerHTML = items.map(m => {
             const badgeClass = m.tipo === 'INGRESO' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger';
+            const colorClass = m.tipo === 'INGRESO' ? 'text-success' : 'text-danger';
+            const prefix = m.tipo === 'INGRESO' ? '+' : '-';
+            
+            const [fecha, hora] = m.fecha.split(' ');
+
             return `
                 <tr>
                     <td class="ps-4">
-                        <div class="fw-bold">${m.fecha.split(' ')[0]}</div>
-                        <div class="text-muted small">${m.fecha.split(' ')[1]}</div>
+                        <div class="fw-bold text-dark">${fecha}</div>
+                        <div class="text-muted small" style="font-size: 0.7rem;">${hora}</div>
                     </td>
                     <td>
-                        <div class="fw-bold text-dark">${m.categoria}</div>
-                        <div class="text-muted small">${m.cuenta}</div>
+                        <div class="fw-bold small text-dark">${m.categoria}</div>
+                        <div class="text-muted" style="font-size: 0.7rem;">${m.cuenta}</div>
                     </td>
-                    <td class="text-muted">${m.descripcion || '-'}</td>
-                    <td class="text-center"><span class="badge ${badgeClass} border px-3 py-2">${m.tipo}</span></td>
-                    <td class="pe-4 text-end fw-bold h6 m-0 ${m.tipo === 'INGRESO' ? 'text-success' : 'text-danger'}">
-                        ${m.tipo === 'INGRESO' ? '+' : '-'}$${parseFloat(m.monto).toFixed(2)}
+                    <td class="small text-muted">${m.descripcion || '-'}</td>
+                    <td class="text-center"><span class="badge ${badgeClass} border px-3 py-2 fw-bold" style="font-size: 0.65rem;">${m.tipo}</span></td>
+                    <td class="pe-4 text-end fw-bold ${colorClass}">
+                        ${prefix} $${parseFloat(m.monto).toLocaleString('es-CO', { minimumFractionDigits: 2 })}
                     </td>
                 </tr>
             `;
         }).join('');
     }
+
+    function actualizarPaginacion(pagina) {
+        paginaActual = pagina;
+        document.getElementById('current-page').innerText = paginaActual;
+        document.getElementById('total-count').innerText = totalRegistros;
+        
+        const start = totalRegistros === 0 ? 0 : (paginaActual - 1) * limite + 1;
+        const end = Math.min(paginaActual * limite, totalRegistros);
+        
+        document.getElementById('range-start').innerText = start;
+        document.getElementById('range-end').innerText = end;
+
+        document.getElementById('btn-prev').disabled = (paginaActual <= 1);
+        document.getElementById('page-prev-li').classList.toggle('opacity-50', paginaActual <= 1);
+        
+        document.getElementById('btn-next').disabled = (end >= totalRegistros);
+        document.getElementById('page-next-li').classList.toggle('opacity-50', end >= totalRegistros);
+    }
+
+    window.cambiarPagina = (delta) => {
+        paginaActual += delta;
+        cargarMovimientos();
+    };
+
+    window.buscarMovimientos = () => {
+        paginaActual = 1;
+        cargarMovimientos();
+    };
 
     cargarMovimientos();
 </script>

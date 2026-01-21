@@ -4,79 +4,103 @@
 
 {% block body %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-5">
         <div>
-            <h2 class="fw-bold text-dark m-0">Panel de Control</h2>
-            <p class="text-muted">Resumen financiero consolidado al día de hoy</p>
+            <h2 class="fw-bold text-dark m-0" style="letter-spacing: -0.5px;">Panel de Control</h2>
+            <p class="text-muted mb-0">Resumen financiero consolidado al día de hoy</p>
         </div>
-        <a href="/informes/balance" class="btn btn-primary fw-bold px-4 py-2 shadow-sm">
-            <i class="bi bi-file-earmark-bar-graph me-2"></i> BALANCE GENERAL
+        <a href="/informes/balance" class="dw-btn-primary text-white text-decoration-none shadow-sm">
+            <i class="bi bi-file-earmark-bar-graph me-2"></i> VER BALANCE GENERAL
         </a>
     </div>
 
     <div class="row g-4 mb-5" id="dashboard-stats">
-        <div class="col-md-3">
-            <div class="glass-card p-4 border-start border-5 border-success shadow-sm h-100">
-                <small class="text-muted fw-bold d-block mb-1">EFECTIVO EN CAJA</small>
-                <h3 class="fw-extrabold m-0 text-success" id="dash-efectivo">$0.00</h3>
-                <div class="small text-muted border-top pt-2 mt-3">Caja Principal</div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="dw-card p-4 h-100 position-relative overflow-hidden">
+                <div class="position-absolute top-0 end-0 p-3 opacity-10">
+                    <i class="bi bi-cash-stack h1 mb-0"></i>
+                </div>
+                <small class="text-muted fw-bold d-block mb-2">EFECTIVO EN CAJA</small>
+                <h2 class="fw-bold m-0 text-success" id="dash-efectivo" style="font-size: 1.8rem;">$0.00</h2>
+                <div class="small text-muted mt-3 d-flex align-items-center gap-2">
+                    <span class="p-1 bg-success rounded-circle"></span> Caja Principal
+                </div>
             </div>
         </div>
         
-        <div class="col-md-3">
-            <div class="glass-card p-4 border-start border-5 border-info shadow-sm h-100">
-                <small class="text-muted fw-bold d-block mb-1">BANCO (NEQUI)</small>
-                <h3 class="fw-extrabold m-0 text-info" id="dash-banco">$0.00</h3>
-                <div class="small text-muted border-top pt-2 mt-3">Cuenta Nequi</div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="dw-card p-4 h-100 position-relative overflow-hidden">
+                <div class="position-absolute top-0 end-0 p-3 opacity-10">
+                    <i class="bi bi-bank h1 mb-0"></i>
+                </div>
+                <small class="text-muted fw-bold d-block mb-2">BANCO (NEQUI)</small>
+                <h2 class="fw-bold m-0 text-info" id="dash-banco" style="font-size: 1.8rem;">$0.00</h2>
+                <div class="small text-muted mt-3 d-flex align-items-center gap-2">
+                    <span class="p-1 bg-info rounded-circle"></span> Cuenta Nequi
+                </div>
             </div>
         </div>
 
-        <div class="col-md-3">
-            <div class="glass-card p-4 border-start border-5 border-primary shadow-sm h-100">
-                <small class="text-muted fw-bold d-block mb-1">CARTERA (POR COBRAR)</small>
-                <h3 class="fw-extrabold m-0 text-primary" id="dash-cartera">$0.00</h3>
-                <div class="small text-muted border-top pt-2 mt-3">Préstamos otorgados</div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="dw-card p-4 h-100 position-relative overflow-hidden">
+                <div class="position-absolute top-0 end-0 p-3 opacity-10">
+                    <i class="bi bi-person-check h1 mb-0"></i>
+                </div>
+                <small class="text-muted fw-bold d-block mb-2">CARTERA (POR COBRAR)</small>
+                <h2 class="fw-bold m-0 text-primary" id="dash-cartera" style="font-size: 1.8rem;">$0.00</h2>
+                <div class="small text-muted mt-3 d-flex align-items-center gap-2">
+                    <span class="p-1 bg-primary rounded-circle"></span> Préstamos otorgados
+                </div>
             </div>
         </div>
 
-        <div class="col-md-3">
-            <div class="glass-card p-4 border-start border-5 border-danger shadow-sm h-100">
-                <small class="text-muted fw-bold d-block mb-1">DEUDAS (POR PAGAR)</small>
-                <h3 class="fw-extrabold m-0 text-danger" id="dash-deudas">$0.00</h3>
-                <div class="small text-muted border-top pt-2 mt-3">Obligaciones empresa</div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="dw-card p-4 h-100 position-relative overflow-hidden">
+                <div class="position-absolute top-0 end-0 p-3 opacity-10">
+                    <i class="bi bi-credit-card h1 mb-0"></i>
+                </div>
+                <small class="text-muted fw-bold d-block mb-2">DEUDAS (POR PAGAR)</small>
+                <h2 class="fw-bold m-0 text-danger" id="dash-deudas" style="font-size: 1.8rem;">$0.00</h2>
+                <div class="small text-muted mt-3 d-flex align-items-center gap-2">
+                    <span class="p-1 bg-danger rounded-circle"></span> Obligaciones empresa
+                </div>
             </div>
         </div>
     </div>
 
+    <h5 class="fw-bold mb-4 text-dark">Accesos Rápidos</h5>
     <div class="row g-4">
-        {# Accesos Rápidos #}
-        <div class="col-md-3">
-            <div class="glass-card p-4 text-center">
-                <i class="bi bi-cart3 h1 text-secondary mb-3"></i>
-                <h6 class="fw-bold">Punto de Venta</h6>
-                <a href="/ventas" class="btn btn-outline-secondary btn-sm w-100 mt-2">Ir al POS</a>
-            </div>
+        <div class="col-6 col-md-3">
+            <a href="/ventas" class="dw-card p-4 text-center text-decoration-none d-block">
+                <div class="bg-light p-3 rounded-circle d-inline-block mb-3">
+                    <i class="bi bi-cart3 h3 text-primary mb-0"></i>
+                </div>
+                <h6 class="fw-bold text-dark mb-0">Punto de Venta</h6>
+            </a>
         </div>
-        <div class="col-md-3">
-            <div class="glass-card p-4 text-center">
-                <i class="bi bi-safe h1 text-secondary mb-3"></i>
-                <h6 class="fw-bold">Caja Diaria</h6>
-                <a href="/caja" class="btn btn-outline-secondary btn-sm w-100 mt-2">Ver Cierre</a>
-            </div>
+        <div class="col-6 col-md-3">
+            <a href="/caja" class="dw-card p-4 text-center text-decoration-none d-block">
+                <div class="bg-light p-3 rounded-circle d-inline-block mb-3">
+                    <i class="bi bi-safe h3 text-primary mb-0"></i>
+                </div>
+                <h6 class="fw-bold text-dark mb-0">Arqueo Diario</h6>
+            </a>
         </div>
-        <div class="col-md-3">
-            <div class="glass-card p-4 text-center">
-                <i class="bi bi-arrow-down-circle h1 text-secondary mb-3"></i>
-                <h6 class="fw-bold">Egresos</h6>
-                <a href="/caja/egresos" class="btn btn-outline-secondary btn-sm w-100 mt-2">Registrar</a>
-            </div>
+        <div class="col-6 col-md-3">
+            <a href="/caja/egresos" class="dw-card p-4 text-center text-decoration-none d-block">
+                <div class="bg-light p-3 rounded-circle d-inline-block mb-3">
+                    <i class="bi bi-arrow-down-circle h3 text-danger mb-0"></i>
+                </div>
+                <h6 class="fw-bold text-dark mb-0">Egresos Inm.</h6>
+            </a>
         </div>
-        <div class="col-md-3">
-            <div class="glass-card p-4 text-center">
-                <i class="bi bi-box-seam h1 text-secondary mb-3"></i>
-                <h6 class="fw-bold">Productos</h6>
-                <a href="/productos" class="btn btn-outline-secondary btn-sm w-100 mt-2">Catálogo</a>
-            </div>
+        <div class="col-6 col-md-3">
+            <a href="/productos" class="dw-card p-4 text-center text-decoration-none d-block">
+                <div class="bg-light p-3 rounded-circle d-inline-block mb-3">
+                    <i class="bi bi-box-seam h3 text-dark mb-0"></i>
+                </div>
+                <h6 class="fw-bold text-dark mb-0">Inventario</h6>
+            </a>
         </div>
     </div>
 </div>

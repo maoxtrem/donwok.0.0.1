@@ -4,31 +4,33 @@
 
 {% block body %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h2 class="fw-bold m-0">Cola de Producción</h2>
-            <p class="text-muted">Gestión de estados en tiempo real</p>
+            <h2 class="fw-bold m-0 text-dark">Cola de Producción</h2>
+            <p class="text-muted mb-0">Gestión de estados en tiempo real</p>
         </div>
         <div id="sse-status-badge">
-            <span class="badge bg-secondary">Iniciando SSE...</span>
+            <span class="badge bg-secondary px-3 py-2 rounded-pill">Iniciando SSE...</span>
         </div>
     </div>
 
-    <div class="glass-card shadow-sm overflow-hidden">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="bg-light">
-                <tr>
-                    <th class="ps-4">Nro.</th>
-                    <th>Productos</th>
-                    <th class="text-center">Total</th>
-                    <th class="text-center">Estado</th>
-                    <th class="pe-4 text-end">Acción</th>
-                </tr>
-            </thead>
-            <tbody id="production-queue">
-                <tr><td colspan="5" class="text-center py-5 text-muted">Cargando cola...</td></tr>
-            </tbody>
-        </table>
+    <div class="dw-card shadow-sm overflow-hidden border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4 py-3 text-muted fw-bold small text-uppercase">Nro.</th>
+                        <th class="py-3 text-muted fw-bold small text-uppercase">Productos</th>
+                        <th class="text-center py-3 text-muted fw-bold small text-uppercase">Total</th>
+                        <th class="text-center py-3 text-muted fw-bold small text-uppercase">Estado</th>
+                        <th class="pe-4 text-end py-3 text-muted fw-bold small text-uppercase">Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="production-queue">
+                    <tr><td colspan="5" class="text-center py-5 text-muted">Cargando cola...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
