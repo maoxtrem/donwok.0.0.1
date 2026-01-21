@@ -30,11 +30,14 @@ class SeedFinanceCommand extends Command
         $repoCat = $this->em->getRepository(CategoriaFinanciera::class);
         $categorias = [
             ['Ventas Diarias', 'INGRESO', 'Consolidado de ventas por cierre de caja'],
-            ['Inversiones', 'EGRESO', 'Compra de activos o inversión de capital'],
-            ['Gastos Pasivos', 'EGRESO', 'Gastos fijos, servicios, etc.'],
+            ['Inversión', 'EGRESO', 'Compra de activos o inversión de capital'],
+            ['Gasto', 'EGRESO', 'Egresos operativos inmediatos'],
+            ['Gasto Pendiente', 'EGRESO', 'Gastos fijos o servicios por pagar'],
             ['Control de salidas', 'EGRESO', 'Salidas de dinero diversas'],
-            ['Préstamos Otorgados', 'EGRESO', 'Dinero prestado a terceros'],
-            ['Cobro de Préstamo', 'INGRESO', 'Recuperación de cartera']
+            ['Préstamo Otorgado', 'EGRESO', 'Dinero prestado a terceros'],
+            ['Cobro de Préstamo', 'INGRESO', 'Recuperación de cartera'],
+            ['Crédito', 'INGRESO', 'Entrada de capital por préstamos adquiridos'],
+            ['Pago de Obligaciones', 'EGRESO', 'Amortización de deudas y créditos']
         ];
 
         foreach ($categorias as [$nombre, $tipo, $desc]) {

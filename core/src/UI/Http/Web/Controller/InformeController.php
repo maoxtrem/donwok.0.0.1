@@ -56,9 +56,15 @@ class InformeController extends AbstractController
         $totalCostoReal = array_reduce($rentabilidad, fn($c, $i) => $c + $i['total_costo'], 0);
         $utilidadBruta = $totalVentasReal - $totalCostoReal;
 
-        // 4. Cartera (Préstamos Pendientes)
+        // 4. Cartera (Préstamos Pendientes - OTORGADOS)
         $prestamos = $this->prestamoRepo->buscarActivos();
         $totalCartera = array_reduce($prestamos, fn($c, $p) => $c + $p->getSaldoPendiente(), 0);
+
+        // 5. Pasivos (Deudas de la Empresa - RECIBIDOS)
+        $deudas = $this->prestamoRepo->buscarDeudasPendientes();
+        $totalPasivos = array_reduce($deudas, fn($c, $p) => $c + $p->getSaldoPendiente(), 0);
+
+        $totalLiquidez = array_reduce($cuentas, fn($c, $i) => $c + $i['saldo'], 0);
 
         return new JsonResponse([
             'periodo' => [
@@ -67,7 +73,7 @@ class InformeController extends AbstractController
             ],
             'liquidez' => [
                 'cuentas' => $cuentas,
-                'total_efectivo' => array_reduce($cuentas, fn($c, $i) => $c + $i['saldo'], 0)
+                'total_efectivo' => $totalLiquidez
             ],
             'cartera' => [
                 'items' => array_map(fn($p) => [
@@ -76,6 +82,17 @@ class InformeController extends AbstractController
                     'fecha' => $p->getFechaCreacion()->format('Y-m-d')
                 ], $prestamos),
                 'total' => $totalCartera
+            ],
+            'pasivos' => [
+                'items' => array_map(fn($p) => [
+                    'entidad' => $p->getEntidad(),
+                    'saldo' => $p->getSaldoPendiente(),
+                    'fecha' => $p->getFechaCreacion()->format('Y-m-d')
+                ], $deudas),
+                'total' => $totalPasivos
+            ],
+            'patrimonio' => [
+                'neto' => $totalLiquidez + $totalCartera - $totalPasivos
             ],
             'resultados' => [
                 'ingresos' => [

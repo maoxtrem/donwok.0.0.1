@@ -74,10 +74,27 @@
         </div>
     </div>
 
+    <!-- 🏦 RESUMEN PATRIMONIAL -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="glass-card p-4 shadow-sm bg-dark text-white border-0">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h4 class="fw-bold mb-1">PATRIMONIO NETO (VALOR DEL NEGOCIO)</h4>
+                        <p class="text-white-50 small mb-0">Ecuación: Liquidez Total + Cartera por Cobrar - Deudas por Pagar</p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <h1 class="fw-extrabold m-0 text-warning" id="patrimonio-neto">$0.00</h1>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 📊 DESGLOSE DETALLADO -->
     <div class="row g-4">
         <!-- INGRESOS -->
-        <div class="col-lg-6">
+        <div class="col-lg-4">
             <div class="glass-card shadow-sm overflow-hidden">
                 <div class="p-3 bg-success-subtle border-bottom d-flex justify-content-between align-items-center">
                     <h6 class="m-0 fw-bold text-success-emphasis">DESGLOSE DE INGRESOS</h6>
@@ -98,7 +115,7 @@
         </div>
 
         <!-- EGRESOS -->
-        <div class="col-lg-6">
+        <div class="col-lg-4">
             <div class="glass-card shadow-sm overflow-hidden">
                 <div class="p-3 bg-danger-subtle border-bottom d-flex justify-content-between align-items-center">
                     <h6 class="m-0 fw-bold text-danger-emphasis">DESGLOSE DE EGRESOS</h6>
@@ -114,6 +131,23 @@
                         </thead>
                         <tbody id="table-egresos"></tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASIVOS (DEUDAS) -->
+        <div class="col-lg-4">
+            <div class="glass-card shadow-sm overflow-hidden h-100">
+                <div class="p-3 bg-warning text-dark border-bottom d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold">PASIVOS (POR PAGAR)</h6>
+                    <span class="h5 fw-bold m-0" id="total-pasivos">$0.00</span>
+                </div>
+                <div class="p-0">
+                    <div class="table-responsive" style="max-height: 250px;">
+                        <table class="table table-hover mb-0 small">
+                            <tbody id="table-pasivos"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -171,6 +205,8 @@
             
             renderLiquidez(data.liquidez);
             renderCartera(data.cartera);
+            renderPasivos(data.pasivos);
+            renderPatrimonio(data.patrimonio.neto);
             renderResultados(data.resultados);
             renderRentabilidad(rent, data.resultados.utilidad_bruta);
         } catch (err) { console.error(err); }
@@ -203,6 +239,28 @@
             `).join('');
         }
         document.getElementById('total-cartera').innerText = fmt(cartera.total);
+    }
+
+    function renderPasivos(pasivos) {
+        document.getElementById('total-pasivos').innerText = fmt(pasivos.total);
+        const body = document.getElementById('table-pasivos');
+        if (pasivos.items.length === 0) {
+            body.innerHTML = '<tr><td class="text-center py-4 text-muted">Sin deudas pendientes</td></tr>';
+        } else {
+            body.innerHTML = pasivos.items.map(i => `
+                <tr>
+                    <td class="ps-3">
+                        <div class="fw-bold">${i.entidad}</div>
+                        <div class="text-muted" style="font-size: 0.65rem;">Fecha: ${i.fecha}</div>
+                    </td>
+                    <td class="text-end pe-3 fw-bold text-danger">${fmt(i.saldo)}</td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    function renderPatrimonio(neto) {
+        document.getElementById('patrimonio-neto').innerText = fmt(neto);
     }
 
     function renderResultados(res) {

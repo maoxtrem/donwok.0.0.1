@@ -13,7 +13,7 @@ interface PrestamoRepositoryInterface
     public function buscarActivos(): array;
 
     /** @return Prestamo[] */
-    public function findPendientesCierre(): array;
+    public function buscarDeudasPendientes(): array;
 
     public function eliminar(Prestamo $prestamo): void;
 }

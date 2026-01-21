@@ -63,7 +63,6 @@
     const api = new CoreAPI();
     let selectedPrestamo = null;
     let allPrestamos = [];
-    const modalAbono = new bootstrap.Modal(document.getElementById('modalAbono'));
 
     async function init() {
         try {
@@ -111,7 +110,12 @@
         inputMonto.value = parseFloat(selectedPrestamo.saldoPendiente).toFixed(2);
         inputMonto.max = selectedPrestamo.saldoPendiente;
         
-        modalAbono.show();
+        const modalEl = document.getElementById('modalAbono');
+        let modal = bootstrap.Modal.getInstance(modalEl);
+        if (!modal) {
+            modal = new bootstrap.Modal(modalEl);
+        }
+        modal.show();
     };
 
     document.getElementById('btn-confirmar-abono').addEventListener('click', async () => {
@@ -129,8 +133,10 @@
         }
 
         try {
-            await api.post(`/caja/prestamos/${selectedPrestamo.id}/abono`, { monto, cuenta_id });
-            modalAbono.hide();
+            await api.post(`/caja/prestamos/${selectedDeuda ? selectedDeuda.id : selectedPrestamo.id}/abono`, { monto, cuenta_id });
+            const modalEl = document.getElementById('modalAbono');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
             init();
         } catch (err) { console.error(err); }
     });

@@ -1,0 +1,255 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Cuentas por Pagar - DonWok{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold m-0">Cuentas por Pagar</h2>
+            <p class="text-muted">Gestión de obligaciones, inversiones a crédito y préstamos recibidos</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- FORMULARIO DE REGISTRO (Izquierda) -->
+        <div class="col-md-4">
+            <div class="glass-card p-4 shadow-sm">
+                <h5 class="fw-bold mb-4">Nueva Obligación</h5>
+                <form id="form-deuda">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Naturaleza de la Deuda</label>
+                        <select class="form-select" id="categoria_id" required>
+                            <option value="" disabled selected>Seleccione tipo...</option>
+                            <!-- Cargado por JS -->
+                        </select>
+                        <small class="text-muted" style="font-size: 0.7rem;">
+                            <b>Inversión/Gasto:</b> No entra dinero hoy.<br>
+                            <b>Crédito Recibido:</b> El dinero entra a la cuenta hoy.
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Entidad / Proveedor</label>
+                        <input type="text" id="entidad" class="form-control" required placeholder="Ej: Banco BBVA, Proveedor Carnes...">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Monto de la Obligación</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" id="monto" class="form-control" step="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Cuenta de Referencia</label>
+                        <select class="form-select" id="cuenta_id" required></select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Observaciones</label>
+                        <textarea id="observaciones" class="form-control" rows="2" placeholder="Detalle de la deuda..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-warning w-100 py-2 fw-bold shadow-sm">
+                        <i class="bi bi-file-earmark-plus me-2"></i> REGISTRAR OBLIGACIÓN
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- LISTADO DE DEUDAS (Derecha) -->
+        <div class="col-md-8">
+            <div class="glass-card shadow-sm overflow-hidden">
+                <div class="p-3 bg-light border-bottom">
+                    <h6 class="m-0 fw-bold">Obligaciones Pendientes</h6>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light small">
+                            <tr>
+                                <th class="ps-4">Entidad / Tipo</th>
+                                <th class="text-center">Monto Inicial</th>
+                                <th class="text-center">Saldo Pendiente</th>
+                                <th class="pe-4 text-end">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deudas-list">
+                            <tr><td colspan="4" class="text-center py-5 text-muted">Cargando obligaciones...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Abono -->
+<div class="modal fade" id="modalAbono" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Pagar Cuota / Abono</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Monto a Pagar</label>
+                    <input type="number" id="abono-monto" class="form-control" step="0.01" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Pagar desde Cuenta</label>
+                    <select class="form-select" id="abono-cuenta"></select>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-danger w-100 py-2 fw-bold" id="btn-confirmar-pago">
+                    CONFIRMAR EGRESO
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script type="module">
+    import CoreAPI from '/js/core.js';
+    const api = new CoreAPI();
+    let selectedDeuda = null;
+    let allDeudas = [];
+    let currentCategories = [];
+    
+    async function init() {
+        try {
+            const [deudas, cuentas, cats] = await Promise.all([
+                api.get('/caja/deudas'),
+                api.get('/caja/cuentas'),
+                api.get('/caja/categorias')
+            ]);
+            
+            allDeudas = deudas;
+            currentCategories = cats;
+            renderDeudas(deudas);
+            renderSelect('cuenta_id', cuentas);
+            renderSelect('abono-cuenta', cuentas);
+            
+            // Filtro robusto para categorías de pasivo
+            const catsPasivoNombres = ['Inversión', 'Gasto Pendiente', 'Crédito'];
+            const filteredCats = cats.filter(c => 
+                catsPasivoNombres.some(nombre => c.nombre.trim().toLowerCase() === nombre.toLowerCase())
+            );
+            
+            renderSelect('categoria_id', filteredCats);
+            
+            // Forzar actualización inicial del estado de la cuenta
+            setTimeout(toggleCuenta, 100);
+            
+        } catch (err) { console.error(err); }
+    }
+
+    function renderSelect(id, data) {
+        const el = document.getElementById(id);
+        if (!data || data.length === 0) {
+            el.innerHTML = '<option value="" disabled>Sin opciones disponibles</option>';
+            return;
+        }
+        el.innerHTML = data.map(i => `<option value="${i.id}">${i.nombre}</option>`).join('');
+    }
+
+    window.toggleCuenta = () => {
+        const catSelect = document.getElementById('categoria_id');
+        if (!catSelect.value) return;
+
+        const catId = parseInt(catSelect.value);
+        const category = currentCategories.find(c => c.id === catId);
+        const selectCuenta = document.getElementById('cuenta_id');
+        const containerCuenta = selectCuenta.closest('.mb-3');
+
+        // Solo habilitamos si es CRÉDITO (entra dinero hoy)
+        if (category && category.nombre.trim().toLowerCase() === 'crédito') {
+            selectCuenta.disabled = false;
+            selectCuenta.required = true;
+            containerCuenta.classList.remove('opacity-50');
+            containerCuenta.querySelector('label').innerHTML = 'Recibir dinero en (Cuenta) <span class="text-danger">*</span>';
+        } else {
+            selectCuenta.disabled = true;
+            selectCuenta.required = false;
+            containerCuenta.classList.add('opacity-50');
+            containerCuenta.querySelector('label').innerHTML = 'Cuenta de Referencia (Informativo)';
+        }
+    };
+
+    // Añadir el listener al select de categorías
+    document.getElementById('categoria_id').addEventListener('change', window.toggleCuenta);
+
+    function renderDeudas(data) {
+        const body = document.getElementById('deudas-list');
+        if (data.length === 0) {
+            body.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted">No hay deudas pendientes</td></tr>';
+            return;
+        }
+
+        body.innerHTML = data.map(d => `
+            <tr>
+                <td class="ps-4">
+                    <div class="fw-bold text-dark">${d.entidad}</div>
+                    <div class="badge bg-light text-dark border small" style="font-size: 0.65rem;">${d.categoria}</div>
+                </td>
+                <td class="text-center text-muted small">$${parseFloat(d.montoTotal).toFixed(2)}</td>
+                <td class="text-center fw-bold text-danger">$${parseFloat(d.saldoPendiente).toFixed(2)}</td>
+                <td class="pe-4 text-end">
+                    <button class="btn btn-outline-danger btn-sm px-3 fw-bold" onclick="window.abrirModalAbono(${d.id})">
+                        ABONAR / PAGAR
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    window.abrirModalAbono = (id) => {
+        selectedDeuda = allDeudas.find(d => d.id === id);
+        if (!selectedDeuda) return;
+        document.getElementById('abono-monto').value = parseFloat(selectedDeuda.saldoPendiente).toFixed(2);
+        
+        const modalEl = document.getElementById('modalAbono');
+        let modal = bootstrap.Modal.getInstance(modalEl);
+        if (!modal) {
+            modal = new bootstrap.Modal(modalEl);
+        }
+        modal.show();
+    };
+
+    document.getElementById('btn-confirmar-pago').addEventListener('click', async () => {
+        const monto = parseFloat(document.getElementById('abono-monto').value);
+        const cuenta_id = document.getElementById('abono-cuenta').value;
+
+        try {
+            await api.post(`/caja/prestamos/${selectedDeuda.id}/abono`, { monto, cuenta_id });
+            const modalEl = document.getElementById('modalAbono');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+            init();
+        } catch (err) { console.error(err); }
+    });
+
+    document.getElementById('form-deuda').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const payload = {
+            entidad: document.getElementById('entidad').value,
+            monto: document.getElementById('monto').value,
+            cuenta_id: document.getElementById('cuenta_id').value,
+            categoria_id: document.getElementById('categoria_id').value,
+            observaciones: document.getElementById('observaciones').value
+        };
+
+        try {
+            await api.post('/caja/deudas/registrar', payload);
+            location.reload();
+        } catch (err) { console.error(err); }
+    });
+
+    init();
+</script>
+{% endblock %}

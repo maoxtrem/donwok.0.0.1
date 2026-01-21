@@ -97,8 +97,6 @@
     import CoreAPI from '/js/core.js';
     const api = new CoreAPI();
     let selectedPedido = null;
-    const modalPagoElement = document.getElementById('modalPago');
-    const modalPago = new bootstrap.Modal(modalPagoElement);
 
     // Lógica de cálculos del modal
     const inputNequi = document.getElementById('input-nequi');
@@ -161,7 +159,13 @@
         containerCambio.classList.add('d-none');
         
         calcularDistribucion();
-        modalPago.show();
+        
+        const modalEl = document.getElementById('modalPago');
+        let modal = bootstrap.Modal.getInstance(modalEl);
+        if (!modal) {
+            modal = new bootstrap.Modal(modalEl);
+        }
+        modal.show();
     };
 
     document.getElementById('btn-confirmar-pago').addEventListener('click', async () => {
@@ -174,7 +178,9 @@
 
         try {
             await api.post(`/pedidos/${selectedPedido}/facturar`, { efectivo, nequi });
-            modalPago.hide();
+            const modalEl = document.getElementById('modalPago');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
             removeOrderRow(selectedPedido);
         } catch (err) {
             console.error(err);

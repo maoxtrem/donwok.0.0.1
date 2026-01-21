@@ -93,32 +93,38 @@
     import CoreAPI from '/js/core.js';
     const api = new CoreAPI();
     let currentFacturas = [];
+    let currentAbonos = [];
     let currentEgresos = [];
 
     async function cargarDatos() {
         try {
-            const [facturas, egresos] = await Promise.all([
+            const [ingresosData, egresos] = await Promise.all([
                 api.get('/caja/facturas-emitidas'),
                 api.get('/caja/egresos-pendientes')
             ]);
-            currentFacturas = facturas;
+            currentFacturas = ingresosData.facturas;
+            currentAbonos = ingresosData.abonos;
             currentEgresos = egresos;
-            renderFacturas(facturas);
+            
+            renderIngresos();
             renderEgresos(egresos);
             actualizarBalance();
         } catch (err) { console.error(err); }
     }
 
-    function renderFacturas(facturas) {
+    function renderIngresos() {
         const body = document.getElementById('facturas-emitidas-list');
-        if (!facturas || facturas.length === 0) {
-            body.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted">No hay ventas hoy</td></tr>';
+        if (currentFacturas.length === 0 && currentAbonos.length === 0) {
+            body.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted">No hay ingresos hoy</td></tr>';
             return;
         }
 
-        body.innerHTML = facturas.map(f => `
+        let html = '';
+        
+        // Renderizar Facturas
+        html += currentFacturas.map(f => `
             <tr>
-                <td class="ps-4 fw-bold">${f.numeroFactura}</td>
+                <td class="ps-4 fw-bold text-primary">${f.numeroFactura}</td>
                 <td class="text-muted small">${f.fecha}</td>
                 <td class="text-end fw-bold">$${parseFloat(f.total).toFixed(2)}</td>
                 <td class="pe-4 text-center">
@@ -127,6 +133,18 @@
                 </td>
             </tr>
         `).join('');
+
+        // Renderizar Abonos (Cobros)
+        html += currentAbonos.map(a => `
+            <tr class="bg-light-subtle">
+                <td class="ps-4 fw-bold text-success">${a.tipo_label || 'COBRO'}: ${a.entidad}</td>
+                <td class="text-muted small">${a.fecha}</td>
+                <td class="text-end fw-bold text-success">$${parseFloat(a.monto).toFixed(2)}</td>
+                <td class="pe-4 text-center text-muted small">Abono / Capital</td>
+            </tr>
+        `).join('');
+
+        body.innerHTML = html;
     }
 
     function renderEgresos(egresos) {
@@ -144,16 +162,18 @@
                 </td>
                 <td class="text-end text-danger fw-bold">$${parseFloat(e.monto).toFixed(2)}</td>
                 <td class="pe-4 text-center">
+                    ${e.tipo === 'ABONO_PAGO' ? '<i class="bi bi-lock text-muted" title="Pago de deuda"></i>' : `
                     <button class="btn btn-link text-danger btn-sm p-0" onclick="window.eliminarEgresoCola(${e.id}, '${e.tipo}')">
                         <i class="bi bi-x-circle"></i>
-                    </button>
+                    </button>`}
                 </td>
             </tr>
         `).join('');
     }
 
     function actualizarBalance() {
-        const totalIngresos = currentFacturas.reduce((sum, f) => sum + parseFloat(f.total), 0);
+        const totalIngresos = currentFacturas.reduce((sum, f) => sum + parseFloat(f.total), 0) + 
+                             currentAbonos.reduce((sum, a) => sum + parseFloat(a.monto), 0);
         const totalEgresos = currentEgresos.reduce((sum, e) => sum + parseFloat(e.monto), 0);
         const balance = totalIngresos - totalEgresos;
 
@@ -161,13 +181,13 @@
         document.getElementById('total-egresos-badge').innerText = `$${totalEgresos.toFixed(2)}`;
         document.getElementById('balance-total').innerText = `$${balance.toFixed(2)}`;
         
-        document.getElementById('btn-cerrar-caja').disabled = (currentFacturas.length === 0 && currentEgresos.length === 0);
+        document.getElementById('btn-cerrar-caja').disabled = (totalIngresos === 0 && totalEgresos === 0);
     }
 
     window.eliminarEgresoCola = async (id, tipo) => {
         const res = await Swal.fire({ title: '¿Eliminar de la cola?', text: "Este egreso se borrará permanentemente.", icon: 'warning', showCancelButton: true });
         if (res.isConfirmed) {
-            const endpoint = tipo === 'PRESTAMO' ? `/caja/prestamos-cola/${id}` : `/caja/egresos/${id}`;
+            const endpoint = (tipo === 'PRESTAMO' || tipo === 'PRESTAMO_NUEVO') ? `/caja/prestamos-cola/${id}` : `/caja/egresos/${id}`;
             await api.delete(endpoint);
             cargarDatos();
         }
@@ -182,41 +202,36 @@
     };
 
     window.verDetalle = (id) => {
-        console.log("Ver detalle factura:", id, currentFacturas);
         const f = currentFacturas.find(fact => fact.id === id);
-        if (!f) {
-            console.error("Factura no encontrada en cache local:", id);
-            return;
-        }
+        if (!f) return;
         
-        console.log("Datos de factura:", f);
         document.getElementById('detalle-nro').innerText = f.numeroFactura;
         document.getElementById('detalle-total').innerText = `$${parseFloat(f.total).toFixed(2)}`;
         
         const list = document.getElementById('detalle-items-list');
-        if (!f.items || f.items.length === 0) {
-            list.innerHTML = '<li class="list-group-item text-center py-3 text-muted">No hay productos registrados</li>';
-        } else {
-            list.innerHTML = f.items.map(item => `
-                <li class="list-group-item d-flex justify-content-between align-items-center py-3">
-                    <div><div class="fw-bold">${item.producto}</div><small class="text-muted">$${parseFloat(item.precio).toFixed(2)} x ${item.cantidad}</small></div>
-                    <span class="fw-bold">$${parseFloat(item.subtotal || (item.precio * item.cantidad)).toFixed(2)}</span>
-                </li>
-            `).join('');
-        }
+        list.innerHTML = f.items.map(item => `
+            <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                <div><div class="fw-bold">${item.producto}</div><small class="text-muted">$${parseFloat(item.precio).toFixed(2)} x ${item.cantidad}</small></div>
+                <span class="fw-bold">$${(parseFloat(item.precio) * item.cantidad).toFixed(2)}</span>
+            </li>
+        `).join('');
         
         const modalEl = document.getElementById('modalDetalle');
-        const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        let modal = bootstrap.Modal.getInstance(modalEl);
+        if (!modal) {
+            modal = new bootstrap.Modal(modalEl);
+        }
         modal.show();
     };
 
     window.realizarCierreCaja = async () => {
-        const totalIngresos = currentFacturas.reduce((sum, f) => sum + parseFloat(f.total), 0);
+        const totalIngresos = currentFacturas.reduce((sum, f) => sum + parseFloat(f.total), 0) + 
+                             currentAbonos.reduce((sum, a) => sum + parseFloat(a.monto), 0);
         const totalEgresos = currentEgresos.reduce((sum, e) => sum + parseFloat(e.monto), 0);
         
         const res = await Swal.fire({
             title: 'Confirmar Cierre',
-            html: `<div class="text-start">Ingresos: <b>$${totalIngresos.toFixed(2)}</b><br>Egresos: <b>$${totalEgresos.toFixed(2)}</b><hr>Balance: <b class="text-primary h4">$${(totalIngresos - totalEgresos).toFixed(2)}</b></div>`,
+            html: `<div class="text-start">Ingresos Totales: <b>$${totalIngresos.toFixed(2)}</b><br>Egresos Totales: <b>$${totalEgresos.toFixed(2)}</b><hr>Balance: <b class="text-primary h4">$${(totalIngresos - totalEgresos).toFixed(2)}</b></div>`,
             icon: 'info',
             showCancelButton: true,
             confirmButtonText: 'Procesar Cierre Masivo'

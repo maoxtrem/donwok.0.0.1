@@ -83,12 +83,10 @@
 <script type="module">
     import CoreAPI from '/js/core.js';
     const api = new CoreAPI();
-    let productModal;
 
-    document.addEventListener('DOMContentLoaded', () => {
-        productModal = new bootstrap.Modal(document.getElementById('productModal'));
+    async function init() {
         loadProducts();
-    });
+    }
 
     window.loadProducts = async () => {
         try {
@@ -126,11 +124,20 @@
         `).join('') || '<tr><td colspan="5" class="text-center py-5">No hay productos.</td></tr>';
     };
 
+    function getModal() {
+        const modalEl = document.getElementById('productModal');
+        let modal = bootstrap.Modal.getInstance(modalEl);
+        if (!modal) {
+            modal = new bootstrap.Modal(modalEl);
+        }
+        return modal;
+    }
+
     window.openModal = () => {
         document.getElementById('productForm').reset();
         document.getElementById('productId').value = '';
         document.getElementById('modalTitle').innerText = 'Nuevo Producto';
-        productModal.show();
+        getModal().show();
     };
 
     window.editProduct = (id, nombre, precio, costo, activo) => {
@@ -140,7 +147,7 @@
         document.getElementById('pCosto').value = costo;
         document.getElementById('pActivo').checked = activo;
         document.getElementById('modalTitle').innerText = 'Editar Producto';
-        productModal.show();
+        getModal().show();
     };
 
     document.getElementById('productForm').addEventListener('submit', async (e) => {
@@ -159,7 +166,7 @@
             } else {
                 await api.post('/productos', payload);
             }
-            productModal.hide();
+            getModal().hide();
             loadProducts();
         } catch (err) { /* Notificado por CoreAPI */ }
     });
@@ -171,5 +178,7 @@
             loadProducts();
         } catch (err) { /* Notificado por CoreAPI */ }
     };
+
+    init();
 </script>
 {% endblock %}

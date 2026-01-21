@@ -30,18 +30,18 @@ class PrestamoRepository extends ServiceEntityRepository implements PrestamoRepo
 
     public function buscarActivos(): array
     {
-        return $this->findBy(['estado' => 'PENDIENTE'], ['fechaInicio' => 'DESC']);
+        return $this->findBy(['estado' => 'PENDIENTE', 'tipo' => 'OTORGADO'], ['fechaInicio' => 'DESC']);
+    }
+
+    public function buscarDeudasPendientes(): array
+    {
+        return $this->findBy(['estado' => 'PENDIENTE', 'tipo' => 'RECIBIDO'], ['fechaInicio' => 'DESC']);
     }
 
     public function eliminar(Prestamo $prestamo): void
     {
         $this->getEntityManager()->remove($prestamo);
         $this->getEntityManager()->flush();
-    }
-
-    public function findPendientesCierre(): array
-    {
-        return $this->findBy(['isCerrado' => false, 'tipo' => 'OTORGADO']);
     }
 
     //    /**

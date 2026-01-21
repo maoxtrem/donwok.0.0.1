@@ -28,10 +28,9 @@ class RealizarCierreCajaHandler
     {
         $facturas = $this->facturaRepo->findPendientesCierre();
         $gastos = $this->gastoRepo->findPendientesCierre();
-        $prestamos = $this->prestamoRepo->findPendientesCierre();
         $abonos = $this->pagoRepo->findPendientesCierre();
         
-        if (empty($facturas) && empty($gastos) && empty($prestamos) && empty($abonos)) {
+        if (empty($facturas) && empty($gastos) && empty($abonos)) {
             throw new \Exception("No hay movimientos pendientes de cierre.");
         }
 
@@ -46,8 +45,6 @@ class RealizarCierreCajaHandler
         }
 
         $catVentas = $this->categoriaRepo->buscarPorNombre('Ventas Diarias');
-        if (!$catVentas) throw new \Exception("Categoría 'Ventas Diarias' no encontrada.");
-
         if ($totalVentaEfectivo > 0) {
             $cuenta = $this->cuentaRepo->buscarPorNombre('Caja Principal');
             if ($cuenta) {
@@ -63,30 +60,48 @@ class RealizarCierreCajaHandler
             }
         }
 
-        // --- 2. PROCESAR INGRESOS POR ABONOS (COBRO DE CARTERA) ---
+        // --- 2. PROCESAR ABONOS Y DESEMBOLSOS RECIBIDOS ---
         $catCobro = $this->categoriaRepo->buscarPorNombre('Cobro de Préstamo');
-        if (!$catCobro && count($abonos) > 0) throw new \Exception("Categoría 'Cobro de Préstamo' no encontrada.");
+        $catIngresoCredito = $this->categoriaRepo->buscarPorNombre('Crédito');
+        $catGastoDeuda = $this->categoriaRepo->buscarPorNombre('Pago de Obligaciones');
 
         foreach ($abonos as $a) {
-            $this->em->persist(new MovimientoFinanciero('INGRESO', $a->getMonto(), $catCobro, $a->getCuentaFinanciera(), 'prestamo', $a->getPrestamo()->getId(), "Cierre: Abono de {$a->getPrestamo()->getEntidad()}"));
+            $esCartera = ($a->getPrestamo()->getTipo() === 'OTORGADO');
+            
+            if ($esCartera) {
+                // Cobro a un cliente (INGRESO)
+                $tipoMov = 'INGRESO';
+                $catMov = $catCobro;
+            } else {
+                // Deuda de la empresa
+                if ($a->esDesembolso()) {
+                    // Es el dinero que entró inicialmente (INGRESO)
+                    $tipoMov = 'INGRESO';
+                    $catMov = $catIngresoCredito;
+                } else {
+                    // Es un pago que estamos haciendo a la deuda (EGRESO)
+                    $tipoMov = 'EGRESO';
+                    $catMov = $catGastoDeuda;
+                }
+            }
+
+            $this->em->persist(new MovimientoFinanciero(
+                $tipoMov, 
+                $a->getMonto(), 
+                $catMov, 
+                $a->getCuentaFinanciera(), 
+                'prestamo', 
+                $a->getPrestamo()->getId(), 
+                ($tipoMov === 'INGRESO' ? "Cierre: Entrada de " : "Cierre: Pago a ") . $a->getPrestamo()->getEntidad()
+            ));
             $a->cerrar();
             $movimientosGenerados++;
         }
 
-        // --- 3. PROCESAR EGRESOS (GASTOS E INVERSIONES) ---
+        // --- 3. PROCESAR EGRESOS (GASTOS, INVERSIONES Y DESEMBOLSOS OTORGADOS) ---
         foreach ($gastos as $g) {
             $this->em->persist(new MovimientoFinanciero('EGRESO', $g->getMonto(), $g->getCategoriaFinanciera(), $g->getCuentaFinanciera(), 'gasto', $g->getId(), "Cierre: {$g->getConcepto()}"));
             $g->cerrar();
-            $movimientosGenerados++;
-        }
-
-        // --- 4. PROCESAR EGRESOS (PRÉSTAMOS OTORGADOS) ---
-        $catPrestamoOtor = $this->categoriaRepo->buscarPorNombre('Préstamos Otorgados');
-        if (!$catPrestamoOtor && count($prestamos) > 0) throw new \Exception("Categoría 'Préstamos Otorgados' no encontrada.");
-
-        foreach ($prestamos as $p) {
-            $this->em->persist(new MovimientoFinanciero('EGRESO', $p->getMontoTotal(), $catPrestamoOtor, $p->getCuentaFinanciera(), 'prestamo', $p->getId(), "Cierre: Préstamo a {$p->getEntidad()}"));
-            $p->cerrar();
             $movimientosGenerados++;
         }
 
@@ -98,7 +113,6 @@ class RealizarCierreCajaHandler
         return [
             'facturas' => count($facturas),
             'gastos' => count($gastos),
-            'prestamos' => count($prestamos),
             'abonos' => count($abonos),
             'movimientos_creados' => $movimientosGenerados
         ];

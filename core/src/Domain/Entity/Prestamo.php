@@ -39,14 +39,15 @@ class Prestamo
     #[ORM\JoinColumn(nullable: false)]
     private CuentaFinanciera $cuentaFinanciera;
 
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: false)]
+    private CategoriaFinanciera $categoriaFinanciera;
+
     #[ORM\Column(type: 'decimal', precision: 12, scale: 2)]
     private float $saldoPendiente;
 
     #[ORM\Column(length: 20)]
     private string $estado; // PENDIENTE | PAGADO | ANULADO
-
-    #[ORM\Column]
-    private bool $isCerrado = false;
 
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $observaciones = null;
@@ -56,6 +57,7 @@ class Prestamo
         float $montoTotal,
         string $entidad,
         CuentaFinanciera $cuenta,
+        CategoriaFinanciera $categoria,
         ?string $observaciones = null
     ) {
         $this->tipo = $tipo;
@@ -63,16 +65,15 @@ class Prestamo
         $this->saldoPendiente = $montoTotal;
         $this->entidad = $entidad;
         $this->cuentaFinanciera = $cuenta;
+        $this->categoriaFinanciera = $categoria;
         $this->observaciones = $observaciones;
         $this->estado = 'PENDIENTE';
-        $this->isCerrado = false;
         $this->fechaInicio = new \DateTime();
     }
 
-    public function getCuentaFinanciera(): CuentaFinanciera { return $this->cuentaFinanciera; }
+    public function getCategoriaFinanciera(): CategoriaFinanciera { return $this->categoriaFinanciera; }
 
-    public function cerrar(): void { $this->isCerrado = true; }
-    public function isCerrado(): bool { return $this->isCerrado; }
+    public function getCuentaFinanciera(): CuentaFinanciera { return $this->cuentaFinanciera; }
 
     public function registrarAbono(float $monto): void
     {

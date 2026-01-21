@@ -38,14 +38,21 @@ class RegistrarEgresoHandler
             throw new \Exception("Categoría o Cuenta no válida.");
         }
 
-        // 1. Crear el registro específico según el tipo
+        // Caso 1: Se presta dinero (SALE EFECTIVO HOY)
         if ($tipoEgreso === 'PRESTAMO') {
-            $entidad = $data['entidad'] ?? 'Persona/Entidad desconocida';
+            $entidad = $data['entidad'] ?? 'Persona desconocida';
             $prestamo = new Prestamo('OTORGADO', $monto, $entidad, $cuenta, $descripcion);
             $this->prestamoRepo->guardar($prestamo);
+            
+            // Creamos un Gasto técnico para que el dinero salga del cierre de caja hoy
+            $gastoTecnico = new Gasto("Desembolso Préstamo: $entidad", $monto, $categoria, $cuenta, $entidad, $descripcion, false);
+            $this->gastoRepo->guardar($gastoTecnico);
+            
             $refId = $prestamo->getId();
-        } else {
-            $gasto = new Gasto($descripcion, $monto, $categoria, $cuenta, $data['proveedor'] ?? null, $descripcion);
+        } 
+        // Caso 2: Gasto o Inversión (SALE EFECTIVO HOY)
+        else {
+            $gasto = new Gasto($descripcion, $monto, $categoria, $cuenta, $data['proveedor'] ?? null, $descripcion, false);
             $this->gastoRepo->guardar($gasto);
             $refId = $gasto->getId();
         }

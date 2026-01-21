@@ -34,21 +34,27 @@ class PagoPrestamo
     #[ORM\Column]
     private bool $isCerrado = false;
 
+    #[ORM\Column]
+    private bool $esDesembolso = false;
+
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $observaciones = null;
 
-    public function __construct(Prestamo $prestamo, float $monto, CuentaFinanciera $cuenta, ?string $obs = null)
+    public function __construct(Prestamo $prestamo, float $monto, CuentaFinanciera $cuenta, ?string $obs = null, bool $esDesembolso = false)
     {
         $this->prestamo = $prestamo;
         $this->monto = $monto;
         $this->cuentaFinanciera = $cuenta;
         $this->observaciones = $obs;
+        $this->esDesembolso = $esDesembolso;
         $this->fechaPago = new \DateTime();
         $this->isCerrado = false;
     }
 
     public function cerrar(): void { $this->isCerrado = true; }
+    public function getId(): ?int { return $this->id; }
     public function getMonto(): float { return $this->monto; }
     public function getCuentaFinanciera(): CuentaFinanciera { return $this->cuentaFinanciera; }
     public function getPrestamo(): Prestamo { return $this->prestamo; }
+    public function esDesembolso(): bool { return $this->esDesembolso; }
 }

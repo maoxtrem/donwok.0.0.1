@@ -1,28 +1,28 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Gestión de Egresos - DonWok{% endblock %}
+{% block title %}Egresos Inmediatos - DonWok{% endblock %}
 
 {% block body %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="fw-bold m-0">Registro de Egresos</h2>
-            <p class="text-muted">Control de salidas de dinero, inversiones y préstamos</p>
+            <h2 class="fw-bold m-0">Egresos Inmediatos</h2>
+            <p class="text-muted">Registro de dinero que sale hoy mismo del efectivo o banco</p>
         </div>
     </div>
 
     <div class="row">
         <div class="col-md-4">
             <div class="glass-card p-4 shadow-sm">
-                <h5 class="fw-bold mb-4">Nuevo Registro</h5>
+                <h5 class="fw-bold mb-4">Nueva Salida de Dinero</h5>
                 <form id="form-egreso">
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Categoría</label>
+                        <label class="form-label small fw-bold">Categoría del Gasto</label>
                         <select class="form-select" id="categoria_id" required onchange="toggleFields()"></select>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Monto</label>
+                        <label class="form-label small fw-bold">Monto a Retirar</label>
                         <div class="input-group">
                             <span class="input-group-text">$</span>
                             <input type="number" id="monto" class="form-control" step="0.01" required>
@@ -30,7 +30,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label small fw-bold">Cuenta de Origen</label>
+                        <label class="form-label small fw-bold">Sacar Dinero de (Cuenta)</label>
                         <select class="form-select" id="cuenta_id" required></select>
                     </div>
 
@@ -41,11 +41,11 @@
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Descripción / Concepto</label>
-                        <textarea id="descripcion" class="form-control" rows="3" placeholder="Detalle del egreso..." required></textarea>
+                        <textarea id="descripcion" class="form-control" rows="3" placeholder="Ej: Pago de almuerzo, compra de suministros..." required></textarea>
                     </div>
 
                     <button type="submit" class="btn btn-danger w-100 py-2 fw-bold shadow-sm">
-                        <i class="bi bi-dash-circle me-2"></i> REGISTRAR SALIDA
+                        <i class="bi bi-cash-stack me-2"></i> REGISTRAR SALIDA AHORA
                     </button>
                 </form>
             </div>
@@ -54,13 +54,12 @@
         <div class="col-md-8">
             <div class="glass-card shadow-sm overflow-hidden">
                 <div class="p-3 bg-light border-bottom">
-                    <h6 class="m-0 fw-bold">Últimos Movimientos de Egreso</h6>
+                    <h6 class="m-0 fw-bold">Egresos en Cola (Pendientes de Cierre)</h6>
                 </div>
                 <table class="table table-hover align-middle mb-0">
                     <thead class="bg-light small">
                         <tr>
-                            <th class="ps-4">Fecha</th>
-                            <th>Categoría</th>
+                            <th class="ps-4">Categoría / Cuenta</th>
                             <th>Descripción</th>
                             <th class="pe-4 text-end">Monto</th>
                         </tr>
@@ -82,16 +81,16 @@
 
     async function init() {
         try {
-            const [cats, cuentas, movs] = await Promise.all([
+            const [cats, cuentas, egresosPendientes] = await Promise.all([
                 api.get('/caja/categorias'),
                 api.get('/caja/cuentas'),
-                api.get('/caja/movimientos')
+                api.get('/caja/egresos-pendientes')
             ]);
 
-            currentCategories = cats.filter(c => c.tipo !== 'INGRESO');
+            currentCategories = cats.filter(c => ['Inversión', 'Gasto', 'Préstamo Otorgado'].includes(c.nombre));
             renderSelect('categoria_id', currentCategories);
             renderSelect('cuenta_id', cuentas);
-            renderEgresos(movs.filter(m => m.tipo === 'EGRESO'));
+            renderEgresos(egresosPendientes);
             toggleFields();
         } catch (err) { console.error(err); }
     }
@@ -103,12 +102,18 @@
 
     function renderEgresos(data) {
         const body = document.getElementById('egresos-list');
-        body.innerHTML = data.map(m => `
+        if (!data || data.length === 0) {
+            body.innerHTML = '<tr><td colspan="3" class="text-center py-5 text-muted">No hay egresos pendientes de cierre</td></tr>';
+            return;
+        }
+        body.innerHTML = data.map(e => `
             <tr>
-                <td class="ps-4 small text-muted">${m.fecha}</td>
-                <td class="fw-bold">${m.categoria}</td>
-                <td class="small">${m.descripcion}</td>
-                <td class="pe-4 text-end text-danger fw-bold">$${parseFloat(m.monto).toFixed(2)}</td>
+                <td class="ps-4">
+                    <div class="fw-bold small">${e.categoria}</div>
+                    <div class="text-muted" style="font-size: 0.7rem;">${e.cuenta}</div>
+                </td>
+                <td class="small">${e.concepto}</td>
+                <td class="pe-4 text-end text-danger fw-bold">$${parseFloat(e.monto).toFixed(2)}</td>
             </tr>
         `).join('');
     }
@@ -118,7 +123,7 @@
         const category = currentCategories.find(c => c.id === catId);
         const fieldEntidad = document.getElementById('field-entidad');
         
-        if (category && category.nombre.includes('Préstamo')) {
+        if (category && category.nombre.includes('Préstamos Otorgados')) {
             fieldEntidad.classList.remove('d-none');
             document.getElementById('entidad').required = true;
         } else {
@@ -138,13 +143,17 @@
             cuenta_id: document.getElementById('cuenta_id').value,
             entidad: document.getElementById('entidad').value,
             descripcion: document.getElementById('descripcion').value,
-            // El handler ahora inferirá el tipo basado en la categoría
             tipo_egreso: category.nombre.includes('Préstamo') ? 'PRESTAMO' : 'GASTO'
         };
 
         try {
             await api.post('/caja/egresos', payload);
-            location.reload();
+            Swal.fire({
+                icon: 'success',
+                title: 'Egreso Registrado',
+                text: 'El dinero ha salido de la cuenta y aparecerá en la cola de cierre.',
+                timer: 2000
+            }).then(() => location.reload());
         } catch (err) { console.error(err); }
     });
 

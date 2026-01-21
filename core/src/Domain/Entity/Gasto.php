@@ -43,13 +43,17 @@ class Gasto
     #[ORM\Column]
     private bool $isCerrado = false;
 
+    #[ORM\Column]
+    private bool $esACredito = false;
+
     public function __construct(
         string $concepto,
         float $monto,
         CategoriaFinanciera $categoria,
         CuentaFinanciera $cuenta,
         ?string $proveedor = null,
-        ?string $observaciones = null
+        ?string $observaciones = null,
+        bool $esACredito = false
     ) {
         $this->concepto = $concepto;
         $this->monto = $monto;
@@ -57,9 +61,12 @@ class Gasto
         $this->cuentaFinanciera = $cuenta;
         $this->proveedor = $proveedor;
         $this->observaciones = $observaciones;
+        $this->esACredito = $esACredito;
         $this->fechaGasto = new \DateTime();
         $this->isCerrado = false;
     }
+
+    public function isACredito(): bool { return $this->esACredito; }
 
     public function getCuentaFinanciera(): CuentaFinanciera { return $this->cuentaFinanciera; }
 

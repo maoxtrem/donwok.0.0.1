@@ -30,8 +30,12 @@ class RegistrarAbonoHandler
 
         $prestamo->registrarAbono($monto);
 
+        // Determinamos si es un pago recibido (Ingreso) o un pago realizado (Egreso)
+        $tipoMovimiento = ($prestamo->getTipo() === 'OTORGADO') ? 'INGRESO' : 'EGRESO';
+        $concepto = ($prestamo->getTipo() === 'OTORGADO') ? "Abono recibido de: " : "Pago de deuda a: ";
+
         // Creamos el registro del pago, pero isCerrado será false por defecto
-        $pago = new PagoPrestamo($prestamo, $monto, $cuenta, "Abono a préstamo");
+        $pago = new PagoPrestamo($prestamo, $monto, $cuenta, $concepto . $prestamo->getEntidad());
         $this->em->persist($pago);
         
         $this->em->flush();

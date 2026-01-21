@@ -105,6 +105,7 @@
         if (data.type === 'NEW_ORDER') window.renderOrder(data.pedido, 'pending');
         else if (data.type === 'ORDER_READY') window.moveOrder(data.pedido.id);
         else if (data.type === 'ORDER_INVOICED') window.removeOrder(data.pedido.id);
+        else if (data.type === 'ORDER_DELETED') window.removeOrder(data.pedidoId);
     }
 
     window.renderOrder = (pedido, type) => {
