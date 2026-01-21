@@ -1,83 +1,112 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Informes y Analítica - DonWok{% endblock %}
+{% block title %}Analítica Detallada - DonWok{% endblock %}
 
 {% block body %}
 <div class="container-fluid">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h2 class="fw-bold m-0 text-dark">Análisis de Negocio</h2>
-            <p class="text-muted mb-0">Rendimiento financiero y crecimiento en tiempo real</p>
+            <h2 class="fw-bold m-0 text-dark">Informes y Analítica</h2>
+            <p class="text-muted mb-0">Fuente de Verdad: Movimientos Financieros</p>
         </div>
+        
+        <!-- Filtro Global de Fechas para KPIs -->
         <div class="dw-card p-2 d-flex gap-2 align-items-center border-0">
-            <input type="date" id="fecha-desde" class="form-control form-control-sm border-0 bg-transparent fw-bold" style="width: 130px;">
+            <span class="text-muted small fw-bold ps-2">FILTRAR:</span>
+            <input type="date" id="filtro-desde" class="form-control form-control-sm border-0 bg-transparent fw-bold" style="width: 130px;">
             <span class="text-muted small fw-bold">AL</span>
-            <input type="date" id="fecha-hasta" class="form-control form-control-sm border-0 bg-transparent fw-bold" style="width: 130px;">
-            <button class="dw-btn-primary text-white btn-sm px-3 shadow-sm" onclick="cargarInformes()">
+            <input type="date" id="filtro-hasta" class="form-control form-control-sm border-0 bg-transparent fw-bold" style="width: 130px;">
+            <button class="dw-btn-primary text-white btn-sm px-3 shadow-sm" onclick="cargarKPIs()">
                 <i class="bi bi-filter"></i>
             </button>
         </div>
     </div>
 
-    <!-- TARJETAS DE INDICADORES (KPIs) -->
-    <div class="row g-4 mb-4">
-        <div class="col-sm-6 col-xl-3">
-            <div class="dw-card p-4 border-0 shadow-sm h-100 border-start border-5 border-success">
-                <small class="text-muted fw-bold d-block mb-2 text-uppercase" style="letter-spacing: 0.5px;">Total Ingresos</small>
-                <div class="d-flex justify-content-between align-items-end">
-                    <h2 class="fw-bold m-0 text-success" id="kpi-ingresos" style="font-size: clamp(1.4rem, 4vw, 2rem);">$0</h2>
-                    <div id="crecimiento-badge" class="badge rounded-pill bg-success-subtle text-success small">
-                        <i class="bi bi-arrow-up"></i> <span id="kpi-crecimiento">0%</span>
-                    </div>
-                </div>
+    <!-- 1. BLOQUE DE KPIs (6 Tarjetas) -->
+    <div class="row g-3 mb-5">
+        <div class="col-6 col-xl-2">
+            <div class="dw-card p-3 border-0 shadow-sm h-100 border-start border-4 border-success text-center">
+                <small class="text-muted fw-bold d-block mb-1">VENTAS</small>
+                <h5 class="fw-bold m-0 text-success" id="kpi-total-ventas">$0</h5>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="dw-card p-4 border-0 shadow-sm h-100 border-start border-5 border-danger">
-                <small class="text-muted fw-bold d-block mb-2 text-uppercase" style="letter-spacing: 0.5px;">Total Egresos</small>
-                <h2 class="fw-bold m-0 text-danger" id="kpi-egresos" style="font-size: clamp(1.4rem, 4vw, 2rem);">$0</h2>
-                <small class="text-muted" style="font-size: 0.7rem;">Operativos e inversiones</small>
+        <div class="col-6 col-xl-2">
+            <div class="dw-card p-3 border-0 shadow-sm h-100 border-start border-4 border-danger text-center">
+                <small class="text-muted fw-bold d-block mb-1">GASTOS</small>
+                <h5 class="fw-bold m-0 text-danger" id="kpi-total-gastos">$0</h5>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="dw-card p-4 border-0 shadow-sm h-100 border-start border-5 border-primary">
-                <small class="text-muted fw-bold d-block mb-2 text-uppercase" style="letter-spacing: 0.5px;">Utilidad Bruta</small>
-                <h2 class="fw-bold m-0 text-primary" id="kpi-utilidad" style="font-size: clamp(1.4rem, 4vw, 2rem);">$0</h2>
-                <div class="progress mt-3" style="height: 6px; border-radius: 10px; background: #f1f5f9;">
-                    <div class="progress-bar bg-primary" id="utilidad-bar" style="width: 0%; border-radius: 10px;"></div>
-                </div>
+        <div class="col-6 col-xl-2">
+            <div class="dw-card p-3 border-0 shadow-sm h-100 border-start border-4 border-primary text-center">
+                <small class="text-muted fw-bold d-block mb-1">UTILIDAD</small>
+                <h5 class="fw-bold m-0 text-primary" id="kpi-utilidad-total">$0</h5>
             </div>
         </div>
-        <div class="col-sm-6 col-xl-3">
-            <div class="dw-card p-4 border-0 shadow-sm h-100 border-start border-5 border-info">
-                <small class="text-muted fw-bold d-block mb-2 text-uppercase" style="letter-spacing: 0.5px;">Prom. Venta Diaria</small>
-                <h2 class="fw-bold m-0 text-info" id="kpi-promedio" style="font-size: clamp(1.4rem, 4vw, 2rem);">$0</h2>
-                <small class="text-muted" style="font-size: 0.7rem;">Rendimiento por jornada</small>
+        <div class="col-6 col-xl-2">
+            <div class="dw-card p-3 border-0 shadow-sm h-100 border-start border-4 border-info text-center">
+                <small class="text-muted fw-bold d-block mb-1">AVG. VENTA</small>
+                <h5 class="fw-bold m-0 text-info" id="kpi-avg-venta">$0</h5>
+            </div>
+        </div>
+        <div class="col-6 col-xl-2">
+            <div class="dw-card p-3 border-0 shadow-sm h-100 border-start border-4 border-warning text-center">
+                <small class="text-muted fw-bold d-block mb-1">AVG. GASTO</small>
+                <h5 class="fw-bold m-0 text-warning-emphasis" id="kpi-avg-gasto">$0</h5>
+            </div>
+        </div>
+        <div class="col-6 col-xl-2">
+            <div class="dw-card p-3 border-0 shadow-sm h-100 border-start border-4 border-dark text-center">
+                <small class="text-muted fw-bold d-block mb-1">AVG. UTILIDAD</small>
+                <h5 class="fw-bold m-0 text-dark" id="kpi-avg-utilidad">$0</h5>
             </div>
         </div>
     </div>
 
-    <!-- GRÁFICAS -->
+    <!-- 2. GRÁFICA MENSUAL (DÍA A DÍA) -->
     <div class="row g-4 mb-5">
-        <!-- Gráfica Lineal: Tendencia -->
-        <div class="col-lg-8">
-            <div class="dw-card p-4 shadow-sm h-100 border-0">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h6 class="fw-bold m-0 text-dark small text-uppercase" style="letter-spacing: 0.5px;">Tendencia Financiera Diaria</h6>
-                    <span class="badge bg-light text-muted border">Ingresos vs Egresos</span>
+        <div class="col-12">
+            <div class="dw-card p-4 shadow-sm border-0">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+                    <div>
+                        <h6 class="fw-bold m-0 text-dark small text-uppercase" style="letter-spacing: 0.5px;">Tendencia Diaria (Mes Actual)</h6>
+                        <small class="text-muted">Ventas, Gastos y Utilidad por día</small>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <select id="mes-diario" class="form-select form-select-sm" onchange="cargarGraficasMensuales()"></select>
+                        <select id="anio-diario" class="form-select form-select-sm" onchange="cargarGraficasMensuales()"></select>
+                    </div>
                 </div>
-                <div style="height: 380px;">
-                    <canvas id="chart-tendencia"></canvas>
+                <div style="height: 350px;">
+                    <canvas id="chart-diario"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <!-- 3. GRÁFICA SEMANAL -->
+        <div class="col-lg-6">
+            <div class="dw-card p-4 shadow-sm border-0 h-100">
+                <h6 class="fw-bold mb-4 text-dark small text-uppercase" style="letter-spacing: 0.5px;">Comparativa por Semanas</h6>
+                <div style="height: 350px;">
+                    <canvas id="chart-semanal"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- Gráfica de Barras: Rentabilidad por Producto -->
-        <div class="col-lg-4">
-            <div class="dw-card p-4 shadow-sm h-100 border-0">
-                <h6 class="fw-bold mb-4 text-dark small text-uppercase" style="letter-spacing: 0.5px;">Ganancia por Producto (Top 10)</h6>
-                <div style="height: 380px;">
-                    <canvas id="chart-rentabilidad"></canvas>
+        <!-- 4. DETALLE SEMANAL (GRÁFICA DE BARRAS) -->
+        <div class="col-lg-6">
+            <div class="dw-card p-4 shadow-sm border-0 h-100">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                    <h6 class="m-0 fw-bold text-dark small text-uppercase" style="letter-spacing: 0.5px;">Detalle Diario de la Semana</h6>
+                    <div class="d-flex gap-2 align-items-center">
+                        <button class="btn btn-sm btn-white border shadow-sm" onclick="window.cambiarSemanaDetalle(-7)"><i class="bi bi-chevron-left"></i></button>
+                        <span id="label-semana" class="small fw-bold text-primary" style="min-width: 160px; text-align: center;"></span>
+                        <button class="btn btn-sm btn-white border shadow-sm" onclick="window.cambiarSemanaDetalle(7)"><i class="bi bi-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div style="height: 350px;">
+                    <canvas id="chart-detalle-semanal"></canvas>
                 </div>
             </div>
         </div>
@@ -91,136 +120,198 @@
     import CoreAPI from '/js/core.js';
     const api = new CoreAPI();
 
-    let chartTendencia = null;
-    let chartRentabilidad = null;
+    let chartDiario = null;
+    let chartSemanal = null;
+    let chartDetalleSemanal = null;
+    let currentWeekStart = getMonday(new Date());
 
-    // Inicializar fechas (últimos 30 días)
-    const hoy = new Date();
-    const hace30 = new Date();
-    hace30.setDate(hoy.getDate() - 30);
+    const fmt = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
 
-    document.getElementById('fecha-desde').value = hace30.toISOString().split('T')[0];
-    document.getElementById('fecha-hasta').value = hoy.toISOString().split('T')[0];
+    function init() {
+        const hoy = new Date();
+        const hace30 = new Date();
+        hace30.setDate(hoy.getDate() - 30);
 
-    async function cargarInformes() {
-        const desde = document.getElementById('fecha-desde').value;
-        const hasta = document.getElementById('fecha-hasta').value;
-        const params = `?desde=${desde}&hasta=${hasta}`;
+        document.getElementById('filtro-desde').value = hace30.toISOString().split('T')[0];
+        document.getElementById('filtro-hasta').value = hoy.toISOString().split('T')[0];
 
+        // Llenar selectores de mes/año
+        const mesSelect = document.getElementById('mes-diario');
+        const anioSelect = document.getElementById('anio-diario');
+        const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        
+        meses.forEach((m, i) => {
+            const opt = new Option(m, i + 1);
+            if (i === hoy.getMonth()) opt.selected = true;
+            mesSelect.add(opt);
+        });
+
+        [2025, 2026].forEach(y => {
+            const opt = new Option(y, y);
+            if (y === hoy.getFullYear()) opt.selected = true;
+            anioSelect.add(opt);
+        });
+
+        cargarKPIs();
+        cargarGraficasMensuales();
+        cargarDetalleSemanal();
+    }
+
+    async function cargarKPIs() {
+        const desde = document.getElementById('filtro-desde').value;
+        const hasta = document.getElementById('filtro-hasta').value;
         try {
-            const [movs, rent, resumen] = await Promise.all([
-                api.get(`/informes/movimientos-diarios${params}`),
-                api.get(`/informes/rentabilidad-productos${params}`),
-                api.get(`/informes/resumen-general${params}`)
-            ]);
-
-            renderKPIs(resumen.kpis);
-            renderChartTendencia(movs);
-            renderChartRentabilidad(rent);
+            const data = await api.get(`/informes/resumen-general?desde=${desde}&hasta=${hasta}`);
+            const k = data.kpis;
+            document.getElementById('kpi-total-ventas').innerText = fmt(k.total_ventas);
+            document.getElementById('kpi-total-gastos').innerText = fmt(k.total_gastos);
+            document.getElementById('kpi-utilidad-total').innerText = fmt(k.utilidad_total);
+            document.getElementById('kpi-avg-venta').innerText = fmt(k.promedio_venta_dia);
+            document.getElementById('kpi-avg-gasto').innerText = fmt(k.promedio_gasto_dia);
+            document.getElementById('kpi-avg-utilidad').innerText = fmt(k.promedio_utilidad_dia);
         } catch (err) { console.error(err); }
     }
 
-    function renderKPIs(kpis) {
-        const fmt = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
-        
-        document.getElementById('kpi-ingresos').innerText = fmt(kpis.total_ingresos);
-        document.getElementById('kpi-egresos').innerText = fmt(kpis.total_egresos);
-        document.getElementById('kpi-utilidad').innerText = fmt(kpis.utilidad_bruta);
-        document.getElementById('kpi-promedio').innerText = fmt(kpis.promedio_venta_diaria);
-        
-        const crecimiento = document.getElementById('kpi-crecimiento');
-        const badge = document.getElementById('crecimiento-badge');
-        crecimiento.innerText = `${kpis.crecimiento_porcentaje}%`;
-        
-        if (kpis.crecimiento_porcentaje >= 0) {
-            badge.className = 'badge rounded-pill bg-success-subtle text-success small';
-            badge.innerHTML = `<i class="bi bi-arrow-up"></i> ${kpis.crecimiento_porcentaje}%`;
-        } else {
-            badge.className = 'badge rounded-pill bg-danger-subtle text-danger small';
-            badge.innerHTML = `<i class="bi bi-arrow-down"></i> ${kpis.crecimiento_porcentaje}%`;
-        }
-
-        // Barra de utilidad (proporción vs ingresos)
-        const porcUtilidad = kpis.total_ventas > 0 ? (kpis.utilidad_bruta / kpis.total_ventas) * 100 : 0;
-        document.getElementById('utilidad-bar').style.width = `${Math.min(100, porcUtilidad)}%`;
+    async function cargarGraficasMensuales() {
+        const mes = document.getElementById('mes-diario').value;
+        const anio = document.getElementById('anio-diario').value;
+        try {
+            const data = await api.get(`/informes/analitica-mensual-detallada?mes=${mes}&anio=${anio}`);
+            renderChartDiario(data.diario);
+            renderChartSemanal(data.semanal);
+        } catch (err) { console.error(err); }
     }
 
-    function renderChartTendencia(data) {
-        const ctx = document.getElementById('chart-tendencia').getContext('2d');
+    async function cargarDetalleSemanal() {
+        const desde = currentWeekStart.toISOString().split('T')[0];
+        const hasta = new Date(currentWeekStart);
+        hasta.setDate(hasta.getDate() + 6);
         
-        // Agrupar datos por fecha
-        const labels = [...new Set(data.map(d => d.fecha))];
-        const ingresos = labels.map(l => data.filter(d => d.fecha === l && d.tipo === 'INGRESO').reduce((s, i) => s + parseFloat(i.total), 0));
-        const egresos = labels.map(l => data.filter(d => d.fecha === l && d.tipo === 'EGRESO').reduce((s, i) => s + parseFloat(i.total), 0));
+        document.getElementById('label-semana').innerText = `${desde} al ${hasta.toISOString().split('T')[0]}`;
 
-        if (chartTendencia) chartTendencia.destroy();
+        try {
+            const data = await api.get(`/informes/detalle-semanal?desde=${desde}`);
+            renderChartDetalleSemanal(data);
+        } catch (err) { console.error(err); }
+    }
 
-        chartTendencia = new Chart(ctx, {
+    function renderChartDiario(diario) {
+        const ctx = document.getElementById('chart-diario').getContext('2d');
+        const labels = Object.keys(diario).map(f => f.split('-')[2]); // Solo el día
+        const datasetVentas = Object.values(diario).map(d => d.ventas);
+        const datasetGastos = Object.values(diario).map(d => d.gastos);
+        const datasetUtilidad = Object.values(diario).map(d => d.utilidad);
+
+        if (chartDiario) chartDiario.destroy();
+
+        chartDiario = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [
-                    {
-                        label: 'Ingresos',
-                        data: ingresos,
-                        borderColor: '#48bb78',
-                        backgroundColor: 'rgba(72, 187, 120, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Egresos',
-                        data: egresos,
-                        borderColor: '#f56565',
-                        backgroundColor: 'rgba(245, 101, 101, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }
+                    { label: 'Ventas', data: datasetVentas, borderColor: '#10b981', tension: 0.4, borderWidth: 3, pointRadius: 0 },
+                    { label: 'Gastos', data: datasetGastos, borderColor: '#ef4444', tension: 0.4, borderWidth: 3, pointRadius: 0 },
+                    { label: 'Utilidad', data: datasetUtilidad, borderColor: '#3b82f6', tension: 0.4, borderWidth: 3, borderDash: [5, 5], pointRadius: 0 }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: { legend: { position: 'bottom' } },
-                scales: {
-                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                scales: { 
+                    y: { beginAtZero: true, ticks: { callback: v => fmt(v) } },
                     x: { grid: { display: false } }
                 }
             }
         });
     }
 
-    function renderChartRentabilidad(data) {
-        const ctx = document.getElementById('chart-rentabilidad').getContext('2d');
-        const limit = data.slice(0, 10); // Top 10
+    function renderChartSemanal(semanal) {
+        const ctx = document.getElementById('chart-semanal').getContext('2d');
+        const labels = Object.keys(semanal);
+        const datasetVentas = labels.map(l => semanal[l].ventas);
+        const datasetGastos = labels.map(l => semanal[l].gastos);
+        const datasetUtilidad = labels.map(l => semanal[l].utilidad);
 
-        if (chartRentabilidad) chartRentabilidad.destroy();
+        if (chartSemanal) chartSemanal.destroy();
 
-        chartRentabilidad = new Chart(ctx, {
+        chartSemanal = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: limit.map(d => d.nombre),
-                datasets: [{
-                    label: 'Ganancia Bruta',
-                    data: limit.map(d => parseFloat(d.ganancia)),
-                    backgroundColor: '#4299e1',
-                    borderRadius: 8
-                }]
+                labels: labels,
+                datasets: [
+                    { label: 'Ventas', data: datasetVentas, backgroundColor: '#10b981', borderRadius: 5 },
+                    { label: 'Gastos', data: datasetGastos, backgroundColor: '#ef4444', borderRadius: 5 },
+                    { label: 'Utilidad', data: datasetUtilidad, backgroundColor: '#3b82f6', borderRadius: 5 }
+                ]
             },
             options: {
-                indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-                    y: { grid: { display: false } }
+                plugins: { legend: { position: 'bottom' } },
+                scales: { 
+                    y: { beginAtZero: true, ticks: { callback: v => fmt(v) } },
+                    x: { grid: { display: false } }
                 }
             }
         });
     }
 
-    window.cargarInformes = cargarInformes;
-    cargarInformes();
+    function renderChartDetalleSemanal(data) {
+        const ctx = document.getElementById('chart-detalle-semanal').getContext('2d');
+        const labels = data.map(d => d.dia);
+        const ventas = data.map(d => d.ventas);
+        const gastos = data.map(d => d.gastos);
+        const utilidad = data.map(d => d.utilidad);
+
+        if (chartDetalleSemanal) chartDetalleSemanal.destroy();
+
+        chartDetalleSemanal = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Ventas', data: ventas, backgroundColor: '#10b981', borderRadius: 4 },
+                    { label: 'Gastos', data: gastos, backgroundColor: '#ef4444', borderRadius: 4 },
+                    { label: 'Utilidad', data: utilidad, backgroundColor: '#3b82f6', borderRadius: 4 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + fmt(context.raw);
+                            }
+                        }
+                    }
+                },
+                scales: { 
+                    y: { beginAtZero: true, ticks: { callback: v => fmt(v) } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    function getMonday(d) {
+        d = new Date(d);
+        const day = d.getDay(),
+            diff = d.getDate() - day + (day == 0 ? -6 : 1);
+        return new Date(d.setDate(diff));
+    }
+
+    window.cambiarSemanaDetalle = (delta) => {
+        currentWeekStart.setDate(currentWeekStart.getDate() + delta);
+        cargarDetalleSemanal();
+    };
+
+    window.cargarKPIs = cargarKPIs;
+    window.cargarGraficasMensuales = cargarGraficasMensuales;
+
+    init();
 </script>
 {% endblock %}
