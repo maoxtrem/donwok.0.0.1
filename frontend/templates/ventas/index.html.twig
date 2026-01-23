@@ -21,6 +21,8 @@
             width: 100% !important; /* Factura ancho completo */
             order: -1; /* Opcional: mostrar factura arriba en móvil para ver total */
             margin-bottom: 2rem;
+            position: static !important;
+            max-height: none !important;
         }
         .menu-container {
             height: auto;
@@ -157,6 +159,10 @@
         width: 420px;
         display: flex;
         flex-direction: column;
+        position: sticky;
+        top: 2rem;
+        align-self: flex-start;
+        max-height: calc(100vh - 4rem);
     }
 
     .invoice-card {
