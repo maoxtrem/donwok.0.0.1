@@ -48,11 +48,10 @@ class InformeController extends AbstractController
             }
         }
 
-        $utilidadTotal = $totalVentas - $totalCostoVenta - ($totalEgresos - 0); // Ajuste: Restamos gastos operativos
-        // En realidad la utilidad neta es Ingresos - Egresos - Costos (si los egresos no incluyen el costo de producto)
-        // Como nuestras facturas no descuentan inventario en egresos inmediatos, la utilidad es:
-        // Ventas - Costo de Productos - Gastos Operativos.
-        $gananciaNeta = $totalIngresos - $totalEgresos - $totalCostoVenta; 
+        $utilidadTotal = $totalVentas - $totalCostoVenta; 
+        // La utilidad bruta es Ventas - Costo de Ventas.
+        // La ganancia neta (cash flow) sería Ingresos - Egresos.
+        $gananciaNeta = $totalIngresos - $totalEgresos;
 
         $diff = $desde->diff($hasta);
         $dias = max(1, $diff->days + 1);
@@ -61,10 +60,10 @@ class InformeController extends AbstractController
             'kpis' => [
                 'total_ventas' => $totalVentas,
                 'total_gastos' => $totalEgresos,
-                'utilidad_total' => $totalVentas - $totalCostoVenta - $totalEgresos,
+                'utilidad_total' => $utilidadTotal,
                 'promedio_venta_dia' => $totalVentas / $dias,
                 'promedio_gasto_dia' => $totalEgresos / $dias,
-                'promedio_utilidad_dia' => ($totalVentas - $totalCostoVenta - $totalEgresos) / $dias,
+                'promedio_utilidad_dia' => $utilidadTotal / $dias,
             ]
         ]);
     }
@@ -116,10 +115,8 @@ class InformeController extends AbstractController
             } 
             elseif ($m['tipo'] === 'EGRESO') {
                 $diario[$fecha]['gastos'] += $monto;
-                $diario[$fecha]['utilidad'] -= $monto;
-                
+                // No restamos gastos de la utilidad bruta
                 $semanal[$keySemana]['gastos'] += $monto;
-                $semanal[$keySemana]['utilidad'] -= $monto;
             }
         }
 
@@ -166,7 +163,7 @@ class InformeController extends AbstractController
                 $datos[$fecha]['utilidad'] += ($monto * (1 - $ratioCosto));
             } elseif ($m['tipo'] === 'EGRESO') {
                 $datos[$fecha]['gastos'] += $monto;
-                $datos[$fecha]['utilidad'] -= $monto;
+                // No restamos gastos de la utilidad bruta
             }
         }
 
