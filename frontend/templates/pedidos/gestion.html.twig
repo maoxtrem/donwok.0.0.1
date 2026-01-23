@@ -36,57 +36,63 @@
 
 <!-- Modal de Pago -->
 <div class="modal fade" id="modalPago" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
             <div class="modal-header border-0 pb-0">
                 <h5 class="modal-title fw-bold">Finalizar Facturación</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <div class="text-center mb-4">
-                    <small class="text-muted d-block small fw-bold">VALOR FACTURA</small>
-                    <h3 class="fw-extrabold text-primary m-0" id="pago-total-display">$0.00</h3>
+            <div class="modal-body p-4">
+                <div class="text-center mb-5">
+                    <small class="text-muted d-block mb-1 fw-bold text-uppercase" style="letter-spacing: 1px;">Total a Cobrar</small>
+                    <h1 class="fw-extrabold text-primary m-0 display-4" id="pago-total-display">$0</h1>
                 </div>
                 
-                <div class="mb-3">
-                    <label class="form-label small fw-bold text-secondary">TRANSFERENCIA (NEQUI/TRANSF.)</label>
-                    <div class="input-group input-group-lg">
-                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-phone text-info"></i></span>
-                        <input type="number" id="input-nequi" class="form-control border-start-0 ps-0 fw-bold" step="0.01" value="0">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-secondary text-uppercase">Transferencia (Nequi / Transf.)</label>
+                        <div class="input-group input-group-lg shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-phone text-info"></i></span>
+                            <input type="number" id="input-nequi" class="form-control border-start-0 ps-0 fw-bold" step="0.01" value="0">
+                            <button class="btn btn-info text-white fw-bold px-3" type="button" id="btn-nequi-todo">TODO</button>
+                        </div>
+                        <small class="text-muted mt-2 d-block">Monto pagado por medios digitales.</small>
                     </div>
-                    <small class="text-muted" style="font-size: 0.7rem;">Si es todo en efectivo, dejar en 0.</small>
-                </div>
 
-                <div class="mb-3">
-                    <label class="form-label small fw-bold text-secondary">EFECTIVO (A REGISTRAR)</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-cash-stack text-success"></i></span>
-                        <input type="number" id="input-efectivo" class="form-control border-start-0 ps-0 fw-bold bg-light" readonly value="0">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold text-secondary text-uppercase">Efectivo (A Recibir)</label>
+                        <div class="input-group input-group-lg shadow-sm rounded-3 overflow-hidden">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-cash-stack text-success"></i></span>
+                            <input type="number" id="input-efectivo" class="form-control border-start-0 ps-0 fw-bold bg-light" readonly value="0">
+                            <button class="btn btn-success text-white fw-bold px-3" type="button" id="btn-efectivo-todo">TODO</button>
+                        </div>
+                        <small class="text-muted mt-2 d-block">Saldo pendiente en efectivo.</small>
+                    </div>
+
+                    <div class="col-12" id="wrapper-recibido">
+                        <hr class="my-2 opacity-10">
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold text-primary text-uppercase">Efectivo Recibido (Cliente)</label>
+                            <div class="input-group input-group-lg shadow-sm rounded-3 overflow-hidden">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-person-down text-primary"></i></span>
+                                <input type="number" id="input-recibido" class="form-control border-start-0 ps-0 fw-bold" step="100" placeholder="¿Cuánto dinero entregó el cliente?">
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <hr class="my-4 opacity-10">
-
-                <div class="mb-3">
-                    <label class="form-label small fw-bold text-primary">EFECTIVO RECIBIDO (CLIENTE)</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-person-down text-primary"></i></span>
-                        <input type="number" id="input-recibido" class="form-control border-start-0 ps-0 fw-bold" step="0.01" placeholder="¿Cuánto entregó?">
-                    </div>
+                <div class="p-4 bg-primary-subtle rounded-4 text-center mt-4 d-none" id="container-cambio" style="border: 2px dashed var(--bs-primary);">
+                    <small class="text-primary d-block fw-bold text-uppercase mb-1" style="letter-spacing: 1px;">Cambio a Devolver</small>
+                    <h2 class="fw-bold text-dark m-0 display-5" id="display-cambio">$0</h2>
                 </div>
 
-                <div class="p-3 bg-warning-subtle rounded-3 text-center mb-3 d-none" id="container-cambio">
-                    <small class="text-warning-emphasis d-block fw-bold small">CAMBIO A DEVOLVER</small>
-                    <h4 class="fw-bold text-dark m-0" id="display-cambio">$0.00</h4>
-                </div>
-
-                <div id="pago-error" class="alert alert-danger py-2 small d-none">
-                    El valor de transferencia supera el total.
+                <div id="pago-error" class="alert alert-danger mt-3 py-3 fw-bold small d-none shadow-sm border-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i> El valor de transferencia supera el total de la factura.
                 </div>
             </div>
-            <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-primary w-100 py-3 fw-bold shadow" id="btn-confirmar-pago" style="border-radius: 12px;">
-                    GENERAR FACTURA
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-primary w-100 py-3 fs-5 fw-bold shadow-lg" id="btn-confirmar-pago" style="border-radius: 15px;">
+                    <i class="bi bi-check-circle-fill me-2"></i> CONFIRMAR Y FACTURAR
                 </button>
             </div>
         </div>
@@ -107,6 +113,11 @@
     const containerCambio = document.getElementById('container-cambio');
     const displayCambio = document.getElementById('display-cambio');
     const errorPago = document.getElementById('pago-error');
+    const btnNequiTodo = document.getElementById('btn-nequi-todo');
+    const btnEfectivoTodo = document.getElementById('btn-efectivo-todo');
+    const wrapperRecibido = document.getElementById('wrapper-recibido');
+
+    const fmt = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
 
     function calcularDistribucion() {
         const row = document.getElementById(`row-${selectedPedido}`);
@@ -116,14 +127,22 @@
 
         if (nequi > total) {
             nequi = total;
-            inputNequi.value = total.toFixed(2);
+            inputNequi.value = total;
             errorPago.classList.remove('d-none');
         } else {
             errorPago.classList.add('d-none');
         }
 
         const efectivo = total - nequi;
-        inputEfectivo.value = efectivo.toFixed(2);
+        inputEfectivo.value = efectivo;
+
+        // Mostrar/Ocultar sección de efectivo recibido
+        if (efectivo <= 0) {
+            wrapperRecibido.classList.add('d-none');
+            inputRecibido.value = "";
+        } else {
+            wrapperRecibido.classList.remove('d-none');
+        }
         
         calcularCambio();
     }
@@ -132,9 +151,9 @@
         const efectivoARegistrar = parseFloat(inputEfectivo.value) || 0;
         const recibido = parseFloat(inputRecibido.value) || 0;
 
-        if (recibido > efectivoARegistrar) {
+        if (recibido >= efectivoARegistrar && efectivoARegistrar > 0) {
             const cambio = recibido - efectivoARegistrar;
-            displayCambio.innerText = `$${cambio.toFixed(2)}`;
+            displayCambio.innerText = fmt(cambio);
             containerCambio.classList.remove('d-none');
         } else {
             containerCambio.classList.add('d-none');
@@ -143,6 +162,19 @@
 
     inputNequi.addEventListener('input', calcularDistribucion);
     inputRecibido.addEventListener('input', calcularCambio);
+    
+    btnNequiTodo.addEventListener('click', () => {
+        const row = document.getElementById(`row-${selectedPedido}`);
+        if (row) {
+            inputNequi.value = row.dataset.total;
+            calcularDistribucion();
+        }
+    });
+
+    btnEfectivoTodo.addEventListener('click', () => {
+        inputNequi.value = 0;
+        calcularDistribucion();
+    });
 
     function updateWSStatus(text, colorClass) {
         const container = document.getElementById('sse-status-badge');
@@ -154,8 +186,8 @@
         const total = parseFloat(row.dataset.total);
         selectedPedido = id;
 
-        document.getElementById('pago-total-display').innerText = `$${total.toFixed(2)}`;
-        inputNequi.value = "0.00";
+        document.getElementById('pago-total-display').innerText = fmt(total);
+        inputNequi.value = 0;
         inputRecibido.value = "";
         errorPago.classList.add('d-none');
         containerCambio.classList.add('d-none');
@@ -173,6 +205,8 @@
     document.getElementById('btn-confirmar-pago').addEventListener('click', async () => {
         const efectivo = parseFloat(inputEfectivo.value) || 0;
         const nequi = parseFloat(inputNequi.value) || 0;
+        const recibido = parseFloat(inputRecibido.value) || 0;
+        const cambio = recibido > efectivo ? recibido - efectivo : 0;
         
         const btn = document.getElementById('btn-confirmar-pago');
         btn.disabled = true;
@@ -180,15 +214,39 @@
 
         try {
             await api.post(`/pedidos/${selectedPedido}/facturar`, { efectivo, nequi });
+            
             const modalEl = document.getElementById('modalPago');
             const modal = bootstrap.Modal.getInstance(modalEl);
             if (modal) modal.hide();
+
+            if (efectivo > 0 && recibido > efectivo) {
+                await Swal.fire({
+                    title: '<span class="text-muted small uppercase fw-bold">CAMBIO A ENTREGAR</span>',
+                    html: `<h1 class="display-1 fw-bold text-success mt-3">${fmt(cambio)}</h1>`,
+                    icon: 'success',
+                    confirmButtonText: 'ENTREGADO',
+                    confirmButtonColor: '#10b981',
+                    allowOutsideClick: true,
+                    backdrop: `rgba(0,0,123,0.4)`
+                });
+            } else {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Factura Generada',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
+            }
+
             removeOrderRow(selectedPedido);
         } catch (err) {
             console.error(err);
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo generar la factura.' });
         } finally {
             btn.disabled = false;
-            btn.innerHTML = 'GENERAR FACTURA';
+            btn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> CONFIRMAR Y FACTURAR';
         }
     });
 

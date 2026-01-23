@@ -1,11 +1,11 @@
 # Plan de Trabajo Actual
 
-## 2026-01-23: Mejoras Visuales en Gráficos de Informes
+## 2026-01-23: Refinamiento de Flujo de Facturación
 
-- **Meta:** Mejorar la legibilidad de la gráfica lineal "Tendencia Diaria" agregando puntos visibles en los vértices de los datos.
-- **Archivo Objetivo:** `frontend/templates/informes/index.html.twig`.
+- **Meta:** Optimizar la lógica de entrada de datos en el modal de facturación para evitar ingresos innecesarios.
+- **Archivo Objetivo:** `frontend/templates/pedidos/gestion.html.twig`.
 - **Plan Técnico:**
-    1.  Modificar la configuración de `chartDiario` (Chart.js).
-    2.  Cambiar `pointRadius: 0` a `pointRadius: 4` (o un valor visible) en los datasets.
-    3.  Añadir `pointHoverRadius: 6` para mejorar la interacción.
+    1.  **Botón TODO en Efectivo:** Añadido botón al campo de efectivo que asigna $0 a Nequi. (Completado)
+    2.  **Visibilidad Dinámica:** Se oculta la sección de "Efectivo Recibido" cuando el saldo de efectivo es $0. (Completado)
+    3.  **Ajuste de Cálculos:** Los botones de "TODO" actualizan correctamente la distribución y visibilidad. (Completado)
 - **Estado:** Completado.
