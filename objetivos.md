@@ -1,12 +1,11 @@
 # Plan de Trabajo Actual
 
-## 2026-01-23: Mejoras de UX en Punto de Venta (POS)
+## 2026-01-23: Visualización de Total de Deudas
 
-- **Meta:** Mantener el contenedor de la factura (`invoice-container`) visible durante el desplazamiento en la vista de Punto de Venta para mejorar la eficiencia operativa en escritorio.
-- **Archivo Objetivo:** `frontend/templates/ventas/index.html.twig`.
+- **Meta:** Agregar un resumen visual que muestre la suma total de todas las deudas pendientes en la vista de "Cuentas por Pagar".
+- **Archivo Objetivo:** `frontend/templates/caja/deudas.html.twig`.
 - **Plan Técnico:**
-    1.  Modificar los estilos de `.invoice-container` para usar `position: sticky`. (Completado)
-    2.  Asegurar que el comportamiento sticky solo se aplique en pantallas grandes (desktop). (Completado)
-    3.  Ajustar `top` y `max-height` para que el contenedor se adapte al viewport sin perderse. (Completado)
-    4.  Verificar que el scroll interno de `invoice-body` siga funcionando correctamente. (Completado)
+    1.  Insertar un componente visual (KPI card) sobre el listado de deudas para mostrar el total acumulado. (Completado)
+    2.  Modificar la función `renderDeudas` para calcular la suma de `saldoPendiente`. (Completado)
+    3.  Aplicar formato de moneda profesional (COP) a toda la vista. (Completado)
 - **Estado:** Completado.

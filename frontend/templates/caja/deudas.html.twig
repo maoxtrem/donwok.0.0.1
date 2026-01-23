@@ -60,6 +60,14 @@
 
         <!-- LISTADO DE DEUDAS (Derecha) -->
         <div class="col-md-8">
+            <div class="dw-card p-4 mb-4 border-start border-4 border-danger shadow-sm d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted fw-bold text-uppercase d-block mb-1" style="font-size: 0.7rem; letter-spacing: 0.5px;">Total Pasivos / Deudas</small>
+                    <h2 class="fw-bold text-danger m-0" id="total-deuda-display">$0</h2>
+                </div>
+                <i class="bi bi-bank2 text-danger opacity-25" style="font-size: 2.5rem;"></i>
+            </div>
+
             <div class="dw-card shadow-sm overflow-hidden border-0">
                 <div class="p-3 bg-light border-bottom">
                     <h6 class="m-0 fw-bold text-muted small text-uppercase" style="letter-spacing: 0.5px;">Obligaciones Pendientes</h6>
@@ -185,6 +193,12 @@
 
     function renderDeudas(data) {
         const body = document.getElementById('deudas-list');
+        const totalDisplay = document.getElementById('total-deuda-display');
+        const fmt = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+
+        const totalAcumulado = data.reduce((acc, d) => acc + parseFloat(d.saldoPendiente), 0);
+        totalDisplay.innerText = fmt(totalAcumulado);
+
         if (data.length === 0) {
             body.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted">No hay deudas pendientes</td></tr>';
             return;
@@ -196,8 +210,8 @@
                     <div class="fw-bold text-dark">${d.entidad}</div>
                     <div class="badge bg-light text-dark border small" style="font-size: 0.65rem;">${d.categoria}</div>
                 </td>
-                <td class="text-center text-muted small">$${parseFloat(d.montoTotal).toFixed(2)}</td>
-                <td class="text-center fw-bold text-danger">$${parseFloat(d.saldoPendiente).toFixed(2)}</td>
+                <td class="text-center text-muted small">${fmt(d.montoTotal)}</td>
+                <td class="text-center fw-bold text-danger">${fmt(d.saldoPendiente)}</td>
                 <td class="pe-4 text-end">
                     <button class="btn btn-outline-danger btn-sm px-3 fw-bold" onclick="window.abrirModalAbono(${d.id})">
                         ABONAR / PAGAR
