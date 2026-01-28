@@ -493,7 +493,24 @@
 
             const response = await api.post('/pedidos', payload);
             
-            // api.notify ya maneja la notificación de éxito basada en el message del core
+            // Mostrar modal con el número de tiquete
+            if (response.pedido && response.pedido.numeroTicket) {
+                await Swal.fire({
+                    title: '<span class="text-muted small uppercase fw-bold">TIQUETE DE PEDIDO</span>',
+                    html: `
+                        <div class="py-4">
+                            <h1 class="display-1 fw-black text-primary mb-0" style="font-size: 8rem;">${response.pedido.numeroTicket}</h1>
+                            <p class="text-muted mt-2">ID de Factura: #${response.pedido.id}</p>
+                        </div>
+                    `,
+                    icon: 'success',
+                    confirmButtonText: 'ENTENDIDO',
+                    confirmButtonColor: '#3b82f6',
+                    allowOutsideClick: false,
+                    backdrop: `rgba(15, 23, 42, 0.9)`
+                });
+            }
+            
             cart = [];
             renderInvoice();
         } catch (err) {
