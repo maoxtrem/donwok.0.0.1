@@ -371,7 +371,7 @@
             console.log("[SSE] Evento:", data);
             
             if (data.type === 'NEW_ORDER') {
-                prependToQueue(data.pedido);
+                appendToQueue(data.pedido);
                 const audio = new Audio('/vendor/notification.mp3');
                 audio.play().catch(() => {});
             }
@@ -394,11 +394,11 @@
         body.innerHTML = pedidos.map(p => rowTemplate(p)).join('');
     }
 
-    function prependToQueue(pedido) {
+    function appendToQueue(pedido) {
         if (document.getElementById(`row-${pedido.id}`)) return;
         const body = document.getElementById('production-queue');
         if (body.innerText.includes('No hay pedidos')) body.innerHTML = '';
-        body.insertAdjacentHTML('afterbegin', rowTemplate(pedido));
+        body.insertAdjacentHTML('beforeend', rowTemplate(pedido));
     }
 
     function updateOrderRow(pedido) {
@@ -429,11 +429,12 @@
         const btnText = isPending ? 'TERMINAR' : 'FACTURAR';
         const btnAction = isPending ? `window.terminarPedido(${p.id})` : `window.facturarPedido(${p.id})`;
         const btnClass = isPending ? 'btn-primary' : 'btn-success';
-        const labelNro = p.numeroTicket ? `T-${p.numeroTicket}` : `#${p.id}`;
+        const labelNro = p.numeroTicket ? `T-${p.numeroTicket}` : `---`;
+        const labelId = `<small class="text-muted ms-2" style="font-size: 0.7rem;">ID: #${p.id}</small>`;
 
         return `
             <tr id="row-${p.id}" data-total="${p.total}">
-                <td class="ps-4 fw-bold text-primary">${labelNro}</td>
+                <td class="ps-4 fw-bold text-primary">${labelNro}${labelId}</td>
                 <td class="small text-muted">${items}</td>
                 <td class="text-center fw-bold">$${parseFloat(p.total).toFixed(2)}</td>
                 <td class="text-center">

@@ -112,8 +112,14 @@
         if (document.getElementById(`order-${pedido.id}`)) return;
         const grid = type === 'pending' ? document.getElementById('pending-list') : document.getElementById('ready-list');
         const cardClass = type === 'pending' ? 'card-pending' : 'card-ready';
-        const card = `<div class="order-card ${cardClass}" id="order-${pedido.id}"><div class="order-number">${pedido.numeroTicket}</div></div>`;
-        grid.insertAdjacentHTML('afterbegin', card);
+        const card = `
+            <div class="order-card ${cardClass}" id="order-${pedido.id}">
+                <div class="d-flex flex-column align-items-center">
+                    <div class="order-number">${pedido.numeroTicket}</div>
+                    <div class="text-white opacity-25 small mt-n2">#${pedido.id}</div>
+                </div>
+            </div>`;
+        grid.insertAdjacentHTML('beforeend', card);
     };
 
     window.moveOrder = (pedido) => {

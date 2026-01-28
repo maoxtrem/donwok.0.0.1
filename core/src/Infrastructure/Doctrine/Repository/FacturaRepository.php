@@ -61,28 +61,24 @@ class FacturaRepository extends ServiceEntityRepository implements FacturaReposi
 
     public function getNextTicketNumber(): int
     {
-        $ahora = new \DateTimeImmutable();
-        $inicioDia = $ahora->setTime(0, 0, 0);
-        $finDia = $ahora->setTime(23, 59, 59);
-
+        // Buscamos los tiquetes ocupados por pedidos activos
         $qb = $this->createQueryBuilder('f');
-        $lastTicket = $qb->select('MAX(f.numeroTicket)')
-            ->where('f.fechaCreacion >= :inicioDia')
-            ->andWhere('f.fechaCreacion <= :finDia')
-            ->setParameter('inicioDia', $inicioDia)
-            ->setParameter('finDia', $finDia)
+        $ocupados = $qb->select('f.numeroTicket')
+            ->where('f.estado IN (:estados)')
+            ->setParameter('estados', [Factura::ESTADO_PENDIENTE, Factura::ESTADO_TERMINADO])
             ->getQuery()
-            ->getSingleScalarResult();
+            ->getScalarResult();
 
-        if (!$lastTicket) {
-            return 1;
+        $tiquetesOcupados = array_column($ocupados, 'numeroTicket');
+
+        // Buscamos el primer número disponible del 1 al 20
+        for ($i = 1; $i <= 20; $i++) {
+            if (!in_array($i, $tiquetesOcupados)) {
+                return $i;
+            }
         }
 
-        $nextTicket = (int)$lastTicket + 1;
-        if ($nextTicket > 20) {
-            return 1;
-        }
-
-        return $nextTicket;
+        // Si todos están ocupados (raro), buscamos el máximo y seguimos (o reciclamos)
+        return 1; 
     }
 }

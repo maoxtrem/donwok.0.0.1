@@ -42,7 +42,7 @@ class PedidoController extends AbstractController
     {
         $pedidos = $repo->findBy(
             ['estado' => [Factura::ESTADO_PENDIENTE, Factura::ESTADO_TERMINADO]],
-            ['id' => 'DESC']
+            ['id' => 'ASC']
         );
         return new JsonResponse(array_map(fn($p) => $p->toArray(), $pedidos));
     }
