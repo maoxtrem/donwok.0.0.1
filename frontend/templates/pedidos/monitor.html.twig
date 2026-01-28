@@ -103,7 +103,7 @@
 
     function handleIncomingEvent(data) {
         if (data.type === 'NEW_ORDER') window.renderOrder(data.pedido, 'pending');
-        else if (data.type === 'ORDER_READY') window.moveOrder(data.pedido.id);
+        else if (data.type === 'ORDER_READY') window.moveOrder(data.pedido);
         else if (data.type === 'ORDER_INVOICED') window.removeOrder(data.pedido.id);
         else if (data.type === 'ORDER_DELETED') window.removeOrder(data.pedidoId);
     }
@@ -112,13 +112,13 @@
         if (document.getElementById(`order-${pedido.id}`)) return;
         const grid = type === 'pending' ? document.getElementById('pending-list') : document.getElementById('ready-list');
         const cardClass = type === 'pending' ? 'card-pending' : 'card-ready';
-        const card = `<div class="order-card ${cardClass}" id="order-${pedido.id}"><div class="order-number">${pedido.id}</div></div>`;
+        const card = `<div class="order-card ${cardClass}" id="order-${pedido.id}"><div class="order-number">${pedido.numeroTicket}</div></div>`;
         grid.insertAdjacentHTML('afterbegin', card);
     };
 
-    window.moveOrder = (id) => {
-        const card = document.getElementById(`order-${id}`);
-        if (card) { card.remove(); window.renderOrder({id: id}, 'ready'); playSound(); }
+    window.moveOrder = (pedido) => {
+        const card = document.getElementById(`order-${pedido.id}`);
+        if (card) { card.remove(); window.renderOrder(pedido, 'ready'); playSound(); }
     };
 
     window.removeOrder = (id) => {
@@ -127,7 +127,7 @@
     };
 
     function playSound() {
-        new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play().catch(() => {});
+        new Audio('/vendor/notification.mp3').play().catch(() => {});
     }
 
     // Arrancar

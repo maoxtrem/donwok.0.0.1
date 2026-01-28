@@ -40,6 +40,9 @@ class Factura
     #[ORM\Column(length: 20, unique: true, nullable: true)]
     private ?string $numeroFactura = null;
 
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $numeroTicket = null;
+
     #[ORM\OneToMany(mappedBy: 'factura', targetEntity: FacturaDetalle::class, cascade: ['persist', 'remove'])]
     private Collection $detalles;
 
@@ -57,6 +60,8 @@ class Factura
     public function getPagoEfectivo(): float { return $this->pagoEfectivo; }
     public function getPagoNequi(): float { return $this->pagoNequi; }
     public function getNumeroFactura(): ?string { return $this->numeroFactura; }
+    public function getNumeroTicket(): ?int { return $this->numeroTicket; }
+    public function setNumeroTicket(int $numero): void { $this->numeroTicket = $numero; }
 
     public function agregarItem(string $nombre, float $precio, float $costo, int $cantidad): void
     {
@@ -97,6 +102,7 @@ class Factura
         return [
             'id' => $this->id,
             'numeroFactura' => $this->numeroFactura,
+            'numeroTicket' => $this->numeroTicket,
             'estado' => $this->estado,
             'total' => (float)$this->total,
             'pagoEfectivo' => (float)$this->pagoEfectivo,

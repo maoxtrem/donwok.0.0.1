@@ -10,10 +10,12 @@ interface FacturaRepositoryInterface
     
     public function buscarPorId(int $id): ?Factura;
 
-    /**
-     * @return Factura[]
-     */
-    public function findPendientesCierre(): array;
+        /**
+         * @return Factura[]
+         */
+        public function findPendientesCierre(): array;
     
-    public function getNextInvoiceNumber(): string;
-}
+        public function getNextInvoiceNumber(): string;
+    
+        public function getNextTicketNumber(): int;
+    }

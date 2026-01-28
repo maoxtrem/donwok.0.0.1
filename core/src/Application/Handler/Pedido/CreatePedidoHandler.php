@@ -4,6 +4,7 @@ namespace App\Application\Handler\Pedido;
 
 use App\Application\DTO\Request\PedidoRequestDTO;
 use App\Domain\Entity\Factura;
+use App\Domain\Repository\FacturaRepositoryInterface;
 use App\Domain\Repository\ProductoRepositoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -11,12 +12,14 @@ class CreatePedidoHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private ProductoRepositoryInterface $productoRepo
+        private ProductoRepositoryInterface $productoRepo,
+        private FacturaRepositoryInterface $facturaRepo
     ) {}
 
     public function handle(PedidoRequestDTO $dto): Factura
     {
         $factura = new Factura();
+        $factura->setNumeroTicket($this->facturaRepo->getNextTicketNumber());
 
         foreach ($dto->items as $itemData) {
             $producto = $this->productoRepo->buscarPorId($itemData['id']);

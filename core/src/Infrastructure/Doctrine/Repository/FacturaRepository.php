@@ -58,4 +58,31 @@ class FacturaRepository extends ServiceEntityRepository implements FacturaReposi
 
         return "#" . str_pad((string)$nextNumber, 6, '0', STR_PAD_LEFT);
     }
+
+    public function getNextTicketNumber(): int
+    {
+        $ahora = new \DateTimeImmutable();
+        $inicioDia = $ahora->setTime(0, 0, 0);
+        $finDia = $ahora->setTime(23, 59, 59);
+
+        $qb = $this->createQueryBuilder('f');
+        $lastTicket = $qb->select('MAX(f.numeroTicket)')
+            ->where('f.fechaCreacion >= :inicioDia')
+            ->andWhere('f.fechaCreacion <= :finDia')
+            ->setParameter('inicioDia', $inicioDia)
+            ->setParameter('finDia', $finDia)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        if (!$lastTicket) {
+            return 1;
+        }
+
+        $nextTicket = (int)$lastTicket + 1;
+        if ($nextTicket > 20) {
+            return 1;
+        }
+
+        return $nextTicket;
+    }
 }

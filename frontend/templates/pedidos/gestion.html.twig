@@ -372,7 +372,7 @@
             
             if (data.type === 'NEW_ORDER') {
                 prependToQueue(data.pedido);
-                const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                const audio = new Audio('/vendor/notification.mp3');
                 audio.play().catch(() => {});
             }
             else if (data.type === 'ORDER_READY') updateOrderRow(data.pedido);
@@ -429,7 +429,7 @@
         const btnText = isPending ? 'TERMINAR' : 'FACTURAR';
         const btnAction = isPending ? `window.terminarPedido(${p.id})` : `window.facturarPedido(${p.id})`;
         const btnClass = isPending ? 'btn-primary' : 'btn-success';
-        const labelNro = p.numeroFactura ? p.numeroFactura : `#${p.id}`;
+        const labelNro = p.numeroTicket ? `T-${p.numeroTicket}` : `#${p.id}`;
 
         return `
             <tr id="row-${p.id}" data-total="${p.total}">
