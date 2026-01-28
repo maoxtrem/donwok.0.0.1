@@ -41,7 +41,7 @@ class RegistrarEgresoHandler
         // Caso 1: Se presta dinero (SALE EFECTIVO HOY)
         if ($tipoEgreso === 'PRESTAMO') {
             $entidad = $data['entidad'] ?? 'Persona desconocida';
-            $prestamo = new Prestamo('OTORGADO', $monto, $entidad, $cuenta, $descripcion);
+            $prestamo = new Prestamo('OTORGADO', $monto, $entidad, $cuenta, $categoria, $descripcion);
             $this->prestamoRepo->guardar($prestamo);
             
             // Creamos un Gasto técnico para que el dinero salga del cierre de caja hoy
