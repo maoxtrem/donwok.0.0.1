@@ -1,6 +1,4 @@
-networks:
-  internal_net:
-    driver: bridge
+
 
 services:
   # =====================
@@ -123,3 +121,7 @@ services:
       - ./db_data:/var/lib/mysql:rw
     networks:
       - internal_net
+
+networks:
+  internal_net:
+    driver: bridge
