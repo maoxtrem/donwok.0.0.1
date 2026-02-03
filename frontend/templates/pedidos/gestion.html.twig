@@ -21,6 +21,8 @@
                     <tr>
                         <th class="ps-4 py-3 text-muted fw-bold small text-uppercase">Nro.</th>
                         <th class="py-3 text-muted fw-bold small text-uppercase">Productos</th>
+                        <th class="text-center py-3 text-muted fw-bold small text-uppercase">Tipo</th>
+                        <th class="text-center py-3 text-muted fw-bold small text-uppercase">Pago</th>
                         <th class="text-center py-3 text-muted fw-bold small text-uppercase">Total</th>
                         <th class="text-center py-3 text-muted fw-bold small text-uppercase">Estado</th>
                         <th class="pe-4 text-end py-3 text-muted fw-bold small text-uppercase">Acción</th>
@@ -284,6 +286,17 @@
         }
     });
 
+    window.actualizarDatoPedido = async (id, data) => {
+        try {
+            await api.patch(`/pedidos/${id}/actualizar-datos`, data);
+            // No recargamos la fila aquí para evitar saltos si el usuario sigue editando,
+            // el SSE se encargará de sincronizar si viene de otro cliente.
+        } catch (err) {
+            console.error("Error al actualizar pedido:", err);
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo actualizar el pedido.' });
+        }
+    };
+
     window.terminarPedido = async (id) => {
         const btn = document.getElementById(`btn-action-${id}`);
         if (!btn) return;
@@ -375,7 +388,7 @@
                 const audio = new Audio('/vendor/notification.mp3');
                 audio.play().catch(() => {});
             }
-            else if (data.type === 'ORDER_READY') updateOrderRow(data.pedido);
+            else if (data.type === 'ORDER_READY' || data.type === 'ORDER_UPDATED') updateOrderRow(data.pedido);
             else if (data.type === 'ORDER_INVOICED') removeOrderRow(data.pedido.id);
             else if (data.type === 'ORDER_DELETED') removeOrderRow(data.pedidoId);
         };
@@ -432,19 +445,36 @@
         const labelNro = p.numeroTicket ? `T-${p.numeroTicket}` : `---`;
         const labelId = `<small class="text-muted ms-2" style="font-size: 0.7rem;">ID: #${p.id}</small>`;
 
+        const tipoSelect = `
+            <select class="form-select form-select-sm border-0 bg-light fw-bold" onchange="window.actualizarDatoPedido(${p.id}, {tipo: this.value})">
+                <option value="MESA" ${p.tipo === 'MESA' ? 'selected' : ''}>Mesa</option>
+                <option value="LLEVAR" ${p.tipo === 'LLEVAR' ? 'selected' : ''}>Llevar</option>
+                <option value="DOMICILIO" ${p.tipo === 'DOMICILIO' ? 'selected' : ''}>Dom.</option>
+                <option value="WHATSAPP" ${p.tipo === 'WHATSAPP' ? 'selected' : ''}>Wsp</option>
+            </select>
+        `;
+
+        const pagoCheckbox = `
+            <div class="form-check form-switch d-flex justify-content-center">
+                <input class="form-check-input" type="checkbox" role="switch" style="cursor:pointer; width: 2.5em;" ${p.esPago ? 'checked' : ''} onchange="window.actualizarDatoPedido(${p.id}, {esPago: this.checked})">
+            </div>
+        `;
+
         return `
             <tr id="row-${p.id}" data-total="${p.total}">
                 <td class="ps-4 fw-bold text-primary">${labelNro}${labelId}</td>
                 <td class="small text-muted">${items}</td>
-                <td class="text-center fw-bold">$${parseFloat(p.total).toFixed(2)}</td>
+                <td style="width: 120px;">${tipoSelect}</td>
+                <td class="text-center">${pagoCheckbox}</td>
+                <td class="text-center fw-bold text-dark">$${parseFloat(p.total).toLocaleString('es-CO')}</td>
                 <td class="text-center">
-                    <span class="badge ${badgeClass} border px-3 py-2">${p.estado}</span>
+                    <span class="badge ${badgeClass} border px-3 py-2" style="font-size: 0.7rem;">${p.estado}</span>
                 </td>
                 <td class="pe-4 text-end">
                     <button id="btn-action-${p.id}" class="btn ${btnClass} btn-sm px-3 fw-bold" onclick="${btnAction}">
                         ${btnText}
                     </button>
-                    <button class="btn btn-outline-danger btn-sm px-2" onclick="window.eliminarPedido(${p.id})" title="Eliminar Pedido">
+                    <button class="btn btn-outline-danger btn-sm px-2 border-0" onclick="window.eliminarPedido(${p.id})" title="Eliminar Pedido">
                         <i class="bi bi-trash"></i>
                     </button>
                 </td>

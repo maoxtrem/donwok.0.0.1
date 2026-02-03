@@ -20,6 +20,8 @@ class CreatePedidoHandler
     {
         $factura = new Factura();
         $factura->setNumeroTicket($this->facturaRepo->getNextTicketNumber());
+        $factura->setEsPago($dto->esPago);
+        $factura->setTipo($dto->tipo);
 
         foreach ($dto->items as $itemData) {
             $producto = $this->productoRepo->buscarPorId($itemData['id']);

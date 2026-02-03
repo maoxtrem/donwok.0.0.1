@@ -325,6 +325,26 @@
                 </div>
 
                 <div class="invoice-footer">
+                    <div class="mb-3">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="small fw-bold text-muted text-uppercase mb-1">Estado de Pago</label>
+                                <div class="form-check form-switch bg-light p-2 rounded-3 border d-flex align-items-center justify-content-between">
+                                    <label class="form-check-label small ms-2" for="order-is-paid">¿Ya Pagó?</label>
+                                    <input class="form-check-input me-1" type="checkbox" id="order-is-paid" style="width: 2.5em; height: 1.25em;">
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <label class="small fw-bold text-muted text-uppercase mb-1">Tipo de Pedido</label>
+                                <select class="form-select form-select-sm fw-bold border" id="order-type">                                  
+                                    <option value="LLEVAR">Llevar</option>
+                                    <option value="MESA">Mesa</option>
+                                    <option value="DOMICILIO">Domicilio</option>
+                                    <option value="WHATSAPP">WhatsApp</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                     <div class="total-display">
                         <span class="label">Total a Pagar</span>
                         <span class="amount" id="grand-total">$0.00</span>
@@ -488,7 +508,9 @@
                 items: cart.map(item => ({
                     id: item.id,
                     qty: item.qty
-                }))
+                })),
+                esPago: document.getElementById('order-is-paid').checked,
+                tipo: document.getElementById('order-type').value
             };
 
             const response = await api.post('/pedidos', payload);
@@ -512,6 +534,8 @@
             }
             
             cart = [];
+            document.getElementById('order-is-paid').checked = false;
+            document.getElementById('order-type').value = 'MESA';
             renderInvoice();
         } catch (err) {
             // api.notify ya maneja la notificación de error

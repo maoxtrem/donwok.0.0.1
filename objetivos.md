@@ -10,10 +10,12 @@
     3.  Añadir un botón de "X" (Reset) en el input-group del efectivo recibido. (Completado)
 - **Estado:** Completado.
 
-## 2026-01-28: Corrección de error de tipos en RegistrarEgresoHandler
+## 2026-02-02: Gestión de Pago y Tipo de Pedido
 
-- **Meta:** Corregir el error en la instanciación de la entidad `Prestamo` donde se omitía el argumento de categoría.
+- **Meta:** Añadir control de pago previo y tipo de pedido (Mesa, Llevar, Domicilio, WhatsApp) sin afectar el flujo de facturación final.
 - **Plan Técnico:**
-    1. Identificar la firma del constructor de `App\Domain\Entity\Prestamo`.
-    2. Actualizar `RegistrarEgresoHandler::handle` para pasar el objeto `CategoriaFinanciera` como quinto argumento.
-- **Estado:** Completado.
+    1.  Modificar la entidad `Factura` en el núcleo (`core`) para incluir los campos `esPago` (bool) y `tipo` (string).
+    2.  Actualizar `PedidoRequestDTO` y `CreatePedidoHandler` para soportar estos nuevos campos en la creación.
+    3.  Añadir un endpoint o actualizar el existente para permitir cambiar el estado de pago y el tipo de un pedido existente.
+    4.  Actualizar la interfaz del frontend (`pedidos/gestion.html.twig`) para mostrar y permitir editar estos campos.
+- **Estado:** En progreso.

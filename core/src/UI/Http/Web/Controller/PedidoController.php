@@ -112,12 +112,41 @@ class PedidoController extends AbstractController
     public function create(Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true) ?? [];
-        $dto = new PedidoRequestDTO($data['items'] ?? []);
+        $dto = new PedidoRequestDTO(
+            $data['items'] ?? [],
+            $data['esPago'] ?? false,
+            $data['tipo'] ?? 'MESA'
+        );
         try {
             $factura = $this->createHandler->handle($dto);
             $this->publishUpdate($factura, 'NEW_ORDER');
             return new JsonResponse(['message' => 'Pedido en cola', 'pedido' => $factura->toArray()], 201);
         } catch (\Exception $e) { return new JsonResponse(['message' => $e->getMessage()], 400); }
+    }
+
+    #[Route('/{id}/actualizar-datos', name: 'app_pedidos_actualizar_datos', methods: ['PATCH'])]
+    public function actualizarDatos(int $id, Request $request, FacturaRepository $repo): JsonResponse
+    {
+        $pedido = $repo->find($id);
+        if (!$pedido) return new JsonResponse(['message' => 'No encontrado'], 404);
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        
+        try {
+            if (isset($data['esPago'])) {
+                $pedido->setEsPago((bool)$data['esPago']);
+            }
+            if (isset($data['tipo'])) {
+                $pedido->setTipo((string)$data['tipo']);
+            }
+            
+            $this->em->flush();
+            $this->publishUpdate($pedido, 'ORDER_UPDATED');
+            
+            return new JsonResponse(['message' => 'Datos actualizados', 'pedido' => $pedido->toArray()]);
+        } catch (\Exception $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 400);
+        }
     }
 
     private function publishUpdate(Factura $factura, string $type): void

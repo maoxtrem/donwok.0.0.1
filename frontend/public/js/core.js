@@ -56,7 +56,7 @@ export default class CoreAPI {
       const data = response.status !== 204 ? await response.json() : true;
       
       // Notificar éxito en operaciones de escritura
-      if (['POST', 'PUT', 'DELETE'].includes(method) && !endpoint.includes('login')) {
+      if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && !endpoint.includes('login')) {
         this.notify('success', data.message || 'Operación completada');
       }
 
@@ -72,6 +72,7 @@ export default class CoreAPI {
   get(endpoint) { return this.request(endpoint); }
   post(endpoint, body) { return this.request(endpoint, { method: 'POST', body }); }
   put(endpoint, body) { return this.request(endpoint, { method: 'PUT', body }); }
+  patch(endpoint, body) { return this.request(endpoint, { method: 'PATCH', body }); }
   delete(endpoint) { return this.request(endpoint, { method: 'DELETE' }); }
 
   async loginAuth(username, password) {

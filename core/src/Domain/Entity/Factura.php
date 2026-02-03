@@ -43,6 +43,12 @@ class Factura
     #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $numeroTicket = null;
 
+    #[ORM\Column(type: 'boolean', options: ['default' => false], nullable: true)]
+    private ?bool $esPago = false;
+
+    #[ORM\Column(length: 20, options: ['default' => 'MESA'], nullable: true)]
+    private ?string $tipo = 'MESA';
+
     #[ORM\OneToMany(mappedBy: 'factura', targetEntity: FacturaDetalle::class, cascade: ['persist', 'remove'])]
     private Collection $detalles;
 
@@ -52,6 +58,8 @@ class Factura
         $this->estado = self::ESTADO_PENDIENTE;
         $this->pagoEfectivo = 0;
         $this->pagoNequi = 0;
+        $this->esPago = false;
+        $this->tipo = 'MESA';
     }
 
     public function getId(): ?int { return $this->id; }
@@ -62,6 +70,12 @@ class Factura
     public function getNumeroFactura(): ?string { return $this->numeroFactura; }
     public function getNumeroTicket(): ?int { return $this->numeroTicket; }
     public function setNumeroTicket(int $numero): void { $this->numeroTicket = $numero; }
+
+    public function isEsPago(): bool { return (bool)($this->esPago ?? false); }
+    public function setEsPago(?bool $esPago): void { $this->esPago = $esPago; }
+
+    public function getTipo(): string { return $this->tipo ?? 'MESA'; }
+    public function setTipo(?string $tipo): void { $this->tipo = $tipo; }
 
     public function agregarItem(string $nombre, float $precio, float $costo, int $cantidad): void
     {
@@ -107,6 +121,8 @@ class Factura
             'total' => (float)$this->total,
             'pagoEfectivo' => (float)$this->pagoEfectivo,
             'pagoNequi' => (float)$this->pagoNequi,
+            'esPago' => $this->isEsPago(),
+            'tipo' => $this->getTipo(),
             'fecha' => $this->getFechaCreacion() ? $this->getFechaCreacion()->format('Y-m-d H:i:s') : null,
             'items' => array_map(fn($d) => $d->toArray(), $this->detalles->toArray())
         ];
