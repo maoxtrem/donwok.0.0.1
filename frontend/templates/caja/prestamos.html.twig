@@ -124,8 +124,18 @@
     };
 
     document.getElementById('btn-confirmar-abono').addEventListener('click', async () => {
+        if (!selectedPrestamo) {
+            Swal.fire('Error', 'Seleccione un préstamo para registrar el abono', 'error');
+            return;
+        }
+
         const monto = parseFloat(document.getElementById('abono-monto').value) || 0;
         const cuenta_id = document.getElementById('abono-cuenta').value;
+
+        if (!cuenta_id) {
+            Swal.fire('Error', 'Seleccione una cuenta de ingreso', 'error');
+            return;
+        }
 
         if (monto > parseFloat(selectedPrestamo.saldoPendiente) + 0.01) {
             Swal.fire('Error', 'El abono no puede superar el saldo pendiente ($' + selectedPrestamo.saldoPendiente + ')', 'error');
@@ -138,7 +148,7 @@
         }
 
         try {
-            await api.post(`/caja/prestamos/${selectedDeuda ? selectedDeuda.id : selectedPrestamo.id}/abono`, { monto, cuenta_id });
+            await api.post(`/caja/prestamos/${selectedPrestamo.id}/abono`, { monto, cuenta_id });
             const modalEl = document.getElementById('modalAbono');
             const modal = bootstrap.Modal.getInstance(modalEl);
             if (modal) modal.hide();

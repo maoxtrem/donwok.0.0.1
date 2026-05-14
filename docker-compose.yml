@@ -23,7 +23,7 @@ services:
       CORE_SERVICE_SECRET: super-secret-core-key
       
       # Mercure Config
-      MERCURE_URL: http://gateway/.well-known/mercure
+      MERCURE_URL: http://mercure/.well-known/mercure
       MERCURE_PUBLIC_URL: http://localhost/.well-known/mercure
       MERCURE_JWT_SECRET: "secret-key-must-be-at-least-32-chars-long-1234"
     networks:
@@ -99,7 +99,6 @@ services:
       - frontend
       - core
       - auth
-      - mercure
     networks:
       - internal_net
 

@@ -7,33 +7,291 @@
 {% block stylesheets %}
 <style>
     :root {
-        --bg-dark: #0f172a;
-        --card-pending: rgba(245, 158, 11, 0.1);
-        --card-ready: rgba(16, 185, 129, 0.1);
-        --accent-amber: #f59e0b;
-        --accent-emerald: #10b981;
+        --bg-main: #091320;
+        --bg-panel: rgba(9, 23, 39, 0.75);
+        --line-soft: rgba(148, 163, 184, 0.25);
+        --text-main: #e2e8f0;
+        --text-muted: #94a3b8;
+        --ready-accent: #34d399;
+        --ready-accent-2: #10b981;
+        --pending-accent: #f59e0b;
     }
-    body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: var(--bg-dark); }
-    .monitor-container { display: flex; height: 100vh; width: 100vw; }
-    .monitor-col { flex: 1; padding: 3rem; display: flex; flex-direction: column; overflow: hidden; }
-    .col-pending { background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); border-right: 2px solid rgba(255,255,255,0.05); }
-    .col-ready { background: linear-gradient(180deg, #0f172a 0%, #111827 100%); }
-    .monitor-header { text-align: center; margin-bottom: 4rem; }
-    .monitor-header h1 { font-size: 3.5rem; font-weight: 900; letter-spacing: -1px; text-transform: uppercase; }
-    .text-pending { color: var(--accent-amber); text-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
-    .text-ready { color: var(--accent-emerald); text-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
-    .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2rem; }
-    .order-card { aspect-ratio: 1/1; border-radius: 24px; display: flex; align-items: center; justify-content: center; animation: orderIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); position: relative; }
-    @keyframes orderIn { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
-    .card-pending { background: var(--card-pending); border: 2px solid rgba(245, 158, 11, 0.2); }
-    .card-ready { background: var(--card-ready); border: 2px solid rgba(16, 185, 129, 0.2); }
-    .order-number { font-size: 5rem; font-weight: 900; color: white; }
-    
-    #sse-status { position: fixed; top: 1rem; right: 1rem; z-index: 3000; opacity: 0.8; }
+
+    html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg-main);
+        color: var(--text-main);
+    }
+
+    .monitor-shell {
+        position: relative;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        background:
+            radial-gradient(circle at 10% 15%, rgba(16, 185, 129, 0.16) 0%, transparent 32%),
+            radial-gradient(circle at 85% 20%, rgba(56, 189, 248, 0.12) 0%, transparent 28%),
+            linear-gradient(180deg, #08111c 0%, #0a1726 55%, #0b1420 100%);
+    }
+
+    .monitor-topbar {
+        padding: 1.2rem 2rem 0.8rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .topbar-panel {
+        width: min(1200px, 100%);
+        border: 1px solid var(--line-soft);
+        border-radius: 18px;
+        background: var(--bg-panel);
+        backdrop-filter: blur(8px);
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .title-wrap h1 {
+        margin: 0;
+        font-size: clamp(1.5rem, 2.2vw, 2.4rem);
+        font-weight: 900;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: #ecfeff;
+    }
+
+    .title-wrap p {
+        margin: 0.2rem 0 0;
+        color: var(--text-muted);
+        font-size: 0.92rem;
+    }
+
+    .ready-counter {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        color: var(--ready-accent);
+        font-weight: 800;
+    }
+
+    .ready-counter strong {
+        font-size: clamp(2rem, 3.6vw, 3rem);
+        line-height: 1;
+    }
+
+    .ready-counter span {
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.09em;
+        color: #a7f3d0;
+    }
+
+    .ready-stage {
+        flex: 1;
+        min-height: 0;
+        padding: 0.4rem 2rem 1rem;
+    }
+
+    .ready-canvas {
+        height: 100%;
+        border: 1px solid var(--line-soft);
+        border-radius: 24px;
+        background: linear-gradient(180deg, rgba(15, 32, 52, 0.65) 0%, rgba(8, 20, 36, 0.78) 100%);
+        padding: clamp(1rem, 2.6vw, 2rem);
+        overflow: auto;
+        scrollbar-width: thin;
+    }
+
+    .ready-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+        gap: clamp(0.8rem, 1.7vw, 1.3rem);
+        align-content: start;
+    }
+
+    .order-card {
+        border-radius: 18px;
+        border: 1px solid transparent;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+        animation: orderIn 0.34s ease-out;
+        user-select: none;
+    }
+
+    .order-ready {
+        aspect-ratio: 1 / 1;
+        background: linear-gradient(180deg, rgba(10, 62, 51, 0.76) 0%, rgba(11, 30, 31, 0.82) 100%);
+        border-color: rgba(52, 211, 153, 0.32);
+        box-shadow: 0 12px 28px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .ready-ticket {
+        font-size: clamp(3rem, 6vw, 4.4rem);
+        line-height: 1;
+        font-weight: 900;
+        color: #ecfdf5;
+        letter-spacing: -0.03em;
+    }
+
+    .ready-meta {
+        margin-top: 0.5rem;
+        font-size: 0.68rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(209, 250, 229, 0.9);
+    }
+
+    .ready-id {
+        margin-top: 0.3rem;
+        font-size: 0.75rem;
+        color: rgba(226, 232, 240, 0.6);
+    }
+
+    .ready-empty {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(148, 163, 184, 0.72);
+        font-size: 1.2rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .pending-footer {
+        padding: 0.85rem 1rem 1rem;
+        background: linear-gradient(180deg, rgba(8, 18, 31, 0.72) 0%, rgba(6, 14, 26, 0.96) 100%);
+        border-top: 1px solid rgba(148, 163, 184, 0.28);
+    }
+
+    .pending-wrap {
+        width: min(1240px, 100%);
+        margin: 0 auto;
+        border: 1px solid rgba(245, 158, 11, 0.25);
+        border-radius: 16px;
+        background: rgba(38, 28, 7, 0.45);
+        padding: 0.75rem;
+    }
+
+    .pending-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.55rem;
+        padding: 0 0.2rem;
+    }
+
+    .pending-head h2 {
+        margin: 0;
+        font-size: 0.84rem;
+        font-weight: 800;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: #fbbf24;
+    }
+
+    .pending-head small {
+        color: rgba(253, 230, 138, 0.82);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .pending-strip {
+        min-height: 82px;
+        display: flex;
+        gap: 0.65rem;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 0.15rem;
+        scrollbar-width: thin;
+    }
+
+    .order-pending {
+        min-width: 118px;
+        height: 72px;
+        background: linear-gradient(180deg, rgba(245, 158, 11, 0.2) 0%, rgba(146, 64, 14, 0.2) 100%);
+        border-color: rgba(245, 158, 11, 0.35);
+    }
+
+    .pending-ticket {
+        font-size: 2rem;
+        font-weight: 900;
+        color: #fef3c7;
+        line-height: 1;
+    }
+
+    .pending-id {
+        margin-top: 0.2rem;
+        font-size: 0.66rem;
+        color: rgba(253, 230, 138, 0.7);
+    }
+
+    .pending-empty {
+        display: inline-flex;
+        align-items: center;
+        color: rgba(253, 230, 138, 0.65);
+        font-size: 0.78rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 0.8rem 0.25rem;
+    }
+
+    @keyframes orderIn {
+        from { opacity: 0; transform: translateY(8px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    #sse-status {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 3000;
+        opacity: 0.9;
+    }
+
     .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 
-    .btn-back-float { position: fixed; bottom: 2rem; right: 2rem; width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem; text-decoration: none; transition: all 0.3s; z-index: 2000; border: 1px solid rgba(255,255,255,0.1); }
+    .btn-back-float {
+        position: fixed;
+        bottom: 1.25rem;
+        right: 1.25rem;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: rgba(15, 23, 42, 0.82);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #e2e8f0;
+        font-size: 1.3rem;
+        text-decoration: none;
+        z-index: 2000;
+        border: 1px solid rgba(148, 163, 184, 0.32);
+    }
+
+    @media (max-width: 900px) {
+        .monitor-topbar { padding: 0.8rem 0.8rem 0.5rem; }
+        .topbar-panel { padding: 0.8rem 1rem; border-radius: 14px; }
+        .title-wrap p { display: none; }
+        .ready-stage { padding: 0.2rem 0.8rem 0.7rem; }
+        .ready-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
+        .pending-footer { padding: 0.55rem 0.65rem 0.75rem; }
+        .order-pending { min-width: 96px; height: 62px; }
+        .pending-ticket { font-size: 1.55rem; }
+    }
 </style>
 {% endblock %}
 
@@ -42,15 +300,38 @@
     <span class="badge bg-warning text-dark animate-pulse">Conectando...</span>
 </div>
 
-<div class="monitor-container">
-    <div class="monitor-col col-pending">
-        <div class="monitor-header"><h1 class="text-pending">Preparando</h1></div>
-        <div id="pending-list" class="orders-grid"></div>
+<div class="monitor-shell">
+    <div class="monitor-topbar">
+        <div class="topbar-panel">
+            <div class="title-wrap">
+                <h1>Pedidos Listos</h1>
+                <p>Monitor de despacho en tiempo real</p>
+            </div>
+            <div class="ready-counter">
+                <strong id="ready-count">0</strong>
+                <span>en pantalla</span>
+            </div>
+        </div>
     </div>
-    <div class="monitor-col col-ready">
-        <div class="monitor-header"><h1 class="text-ready">Listos</h1></div>
-        <div id="ready-list" class="orders-grid"></div>
-    </div>
+
+    <main class="ready-stage">
+        <div class="ready-canvas">
+            <div id="ready-empty" class="ready-empty">Sin pedidos listos</div>
+            <div id="ready-list" class="ready-grid"></div>
+        </div>
+    </main>
+
+    <footer class="pending-footer">
+        <div class="pending-wrap">
+            <div class="pending-head">
+                <h2>Preparando</h2>
+                <small id="pending-count">0 en cola</small>
+            </div>
+            <div id="pending-list" class="pending-strip">
+                <div id="pending-empty" class="pending-empty">Sin pedidos en preparación</div>
+            </div>
+        </div>
+    </footer>
 </div>
 <a href="/dashboard" class="btn-back-float"><i class="bi bi-grid-fill"></i></a>
 {% endblock %}
@@ -63,6 +344,21 @@
     function updateStatus(text, colorClass) {
         const el = document.getElementById('sse-status');
         if (el) el.innerHTML = `<span class="badge ${colorClass} animate-pulse">${text}</span>`;
+    }
+
+    function refreshBoardState() {
+        const readyCount = document.querySelectorAll('#ready-list .order-card').length;
+        const pendingCount = document.querySelectorAll('#pending-list .order-card').length;
+
+        const readyCountEl = document.getElementById('ready-count');
+        const pendingCountEl = document.getElementById('pending-count');
+        const readyEmpty = document.getElementById('ready-empty');
+        const pendingEmpty = document.getElementById('pending-empty');
+
+        if (readyCountEl) readyCountEl.textContent = readyCount.toString();
+        if (pendingCountEl) pendingCountEl.textContent = `${pendingCount} en cola`;
+        if (readyEmpty) readyEmpty.style.display = readyCount === 0 ? 'flex' : 'none';
+        if (pendingEmpty) pendingEmpty.style.display = pendingCount === 0 ? 'inline-flex' : 'none';
     }
 
     // 🟢 Inicializar Mercure (EventSource)
@@ -98,6 +394,7 @@
                 if (p.estado === 'PENDIENTE') window.renderOrder(p, 'pending');
                 if (p.estado === 'TERMINADO') window.renderOrder(p, 'ready');
             });
+            refreshBoardState();
         } catch (err) { console.error("Error cargando API:", err); }
     }
 
@@ -110,26 +407,40 @@
 
     window.renderOrder = (pedido, type) => {
         if (document.getElementById(`order-${pedido.id}`)) return;
-        const grid = type === 'pending' ? document.getElementById('pending-list') : document.getElementById('ready-list');
-        const cardClass = type === 'pending' ? 'card-pending' : 'card-ready';
-        const card = `
-            <div class="order-card ${cardClass}" id="order-${pedido.id}">
-                <div class="d-flex flex-column align-items-center">
-                    <div class="order-number">${pedido.numeroTicket}</div>
-                    <div class="text-white opacity-25 small mt-n2">#${pedido.id}</div>
-                </div>
+        const container = type === 'pending'
+            ? document.getElementById('pending-list')
+            : document.getElementById('ready-list');
+        const ticket = pedido.numeroTicket ?? '---';
+
+        const card = type === 'pending'
+            ? `
+            <div class="order-card order-pending" id="order-${pedido.id}">
+                <div class="pending-ticket">${ticket}</div>
+                <div class="pending-id">#${pedido.id}</div>
+            </div>`
+            : `
+            <div class="order-card order-ready" id="order-${pedido.id}">
+                <div class="ready-ticket">${ticket}</div>
+                <div class="ready-meta">Listo para entrega</div>
+                <div class="ready-id">#${pedido.id}</div>
             </div>`;
-        grid.insertAdjacentHTML('beforeend', card);
+
+        container.insertAdjacentHTML('beforeend', card);
+        refreshBoardState();
     };
 
     window.moveOrder = (pedido) => {
         const card = document.getElementById(`order-${pedido.id}`);
-        if (card) { card.remove(); window.renderOrder(pedido, 'ready'); playSound(); }
+        if (card) card.remove();
+        window.renderOrder(pedido, 'ready');
+        playSound();
+        refreshBoardState();
     };
 
     window.removeOrder = (id) => {
         const card = document.getElementById(`order-${id}`);
         if (card) card.remove();
+        refreshBoardState();
     };
 
     function playSound() {
@@ -139,5 +450,6 @@
     // Arrancar
     startMercure();
     loadInitialData();
+    refreshBoardState();
 </script>
 {% endblock %}
