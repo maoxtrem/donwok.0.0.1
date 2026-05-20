@@ -6,6 +6,9 @@ use App\Domain\Repository\MovimientoFinancieroRepositoryInterface;
 use App\Domain\Repository\FacturaDetalleRepositoryInterface;
 use App\Domain\Repository\CuentaFinancieraRepositoryInterface;
 use App\Domain\Repository\PrestamoRepositoryInterface;
+use App\Domain\Repository\InventarioRepositoryInterface;
+use App\Domain\Repository\FacturaRepositoryInterface;
+use App\Domain\Repository\PagoPrestamoRepositoryInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,7 +21,10 @@ class InformeController extends AbstractController
         private MovimientoFinancieroRepositoryInterface $movimientoRepo,
         private FacturaDetalleRepositoryInterface $detalleRepo,
         private CuentaFinancieraRepositoryInterface $cuentaRepo,
-        private PrestamoRepositoryInterface $prestamoRepo
+        private PrestamoRepositoryInterface $prestamoRepo,
+        private InventarioRepositoryInterface $inventarioRepo,
+        private FacturaRepositoryInterface $facturaRepo,
+        private PagoPrestamoRepositoryInterface $pagoRepo
     ) {}
 
     #[Route('/resumen-general', name: 'app_api_informes_resumen', methods: ['GET'])]
@@ -204,13 +210,57 @@ class InformeController extends AbstractController
         $deudas = $this->prestamoRepo->buscarDeudasPendientes();
         $totalPasivos = array_reduce($deudas, fn($c, $p) => $c + $p->getSaldoPendiente(), 0);
         $totalLiquidez = array_reduce($cuentas, fn($c, $i) => $c + $i['saldo'], 0);
+        $totalInventario = $this->inventarioRepo->totalDineroInventario();
+        $patrimonioNeto = $totalLiquidez + $totalCartera + $totalInventario - $totalPasivos;
+
+        // Pendientes de cierre (impacto de arqueo no materializado aún en cuentas financieras)
+        $facturasPendientes = $this->facturaRepo->findPendientesCierre();
+        $pagosPendientes = $this->pagoRepo->findPendientesCierre();
+
+        $ventasPendientesCierre = array_reduce($facturasPendientes, fn($c, $f) => $c + $f->getTotal(), 0.0);
+        $deudasPagadasPendientesCierre = 0.0; // Pagos de deudas de la empresa (salidas)
+        $cobrosCarteraPendientesCierre = 0.0; // Cobros a clientes (ingresos)
+        $creditosRecibidosPendientesCierre = 0.0; // Desembolso inicial de deuda recibida (ingresos)
+
+        foreach ($pagosPendientes as $pago) {
+            $monto = $pago->getMonto();
+            $prestamo = $pago->getPrestamo();
+
+            if ($prestamo->getTipo() === 'RECIBIDO' && !$pago->esDesembolso()) {
+                $deudasPagadasPendientesCierre += $monto;
+            } elseif ($prestamo->getTipo() === 'OTORGADO') {
+                $cobrosCarteraPendientesCierre += $monto;
+            } elseif ($prestamo->getTipo() === 'RECIBIDO' && $pago->esDesembolso()) {
+                $creditosRecibidosPendientesCierre += $monto;
+            }
+        }
+
+        $netoPendienteCierre =
+            $ventasPendientesCierre +
+            $cobrosCarteraPendientesCierre +
+            $creditosRecibidosPendientesCierre -
+            $deudasPagadasPendientesCierre;
+
+        $liquidezProyectada = $totalLiquidez + $netoPendienteCierre;
 
         return new JsonResponse([
             'periodo' => ['desde' => $desde->format('Y-m-d'), 'hasta' => $hasta->format('Y-m-d')],
-            'liquidez' => ['cuentas' => $cuentas, 'total_efectivo' => $totalLiquidez],
+            'liquidez' => [
+                'cuentas' => $cuentas,
+                'total_efectivo' => $totalLiquidez,
+                'proyectada_con_pendientes' => $liquidezProyectada
+            ],
+            'pendientes_cierre' => [
+                'ventas' => $ventasPendientesCierre,
+                'deudas_pagadas' => $deudasPagadasPendientesCierre,
+                'cobros_cartera' => $cobrosCarteraPendientesCierre,
+                'creditos_recibidos' => $creditosRecibidosPendientesCierre,
+                'neto' => $netoPendienteCierre
+            ],
+            'inventario' => ['total' => $totalInventario],
             'cartera' => ['items' => array_map(fn($p) => ['entidad' => $p->getEntidad(), 'saldo' => $p->getSaldoPendiente(), 'fecha' => $p->getFechaCreacion()->format('Y-m-d')], $prestamos), 'total' => $totalCartera],
             'pasivos' => ['items' => array_map(fn($p) => ['entidad' => $p->getEntidad(), 'saldo' => $p->getSaldoPendiente(), 'fecha' => $p->getFechaCreacion()->format('Y-m-d')], $deudas), 'total' => $totalPasivos],
-            'patrimonio' => ['neto' => $totalLiquidez + $totalCartera - $totalPasivos],
+            'patrimonio' => ['neto' => $patrimonioNeto],
             'resultados' => [
                 'ingresos' => ['total' => $totalIngresos, 'desglose' => $desgloseIngresos],
                 'egresos' => ['total' => $totalEgresos, 'desglose' => $desgloseEgresos],

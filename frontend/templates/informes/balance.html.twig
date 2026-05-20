@@ -33,6 +33,24 @@
                         <span class="fw-bold text-muted small">TOTAL EFECTIVO</span>
                         <span class="h4 fw-bold text-primary m-0" id="total-liquidez">$0.00</span>
                     </div>
+                    <hr class="my-3 opacity-10">
+                    <div class="small text-muted fw-bold mb-2">Pendientes de Cierre (Arqueo)</div>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="small">Ventas pendientes</span>
+                        <span class="fw-bold text-success" id="pend-ventas">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="small">Deudas pagadas pendientes</span>
+                        <span class="fw-bold text-danger" id="pend-deudas-pagadas">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small">Neto pendiente</span>
+                        <span class="fw-bold" id="pend-neto">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center border-top pt-2">
+                        <span class="fw-bold text-muted small">EFECTIVO PROYECTADO</span>
+                        <span class="h6 fw-bold m-0" id="total-liquidez-proyectada">$0.00</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -76,7 +94,8 @@
                 <div class="row align-items-center">
                     <div class="col-md-8">
                         <h4 class="fw-bold mb-1" style="letter-spacing: -0.5px;">VALOR REAL DEL NEGOCIO (Patrimonio Neto)</h4>
-                        <p class="text-white-50 small mb-0">Calculado como: (Liquidez + Cartera) - Deudas Pendientes</p>
+                        <p class="text-white-50 small mb-0">Calculado como: (Liquidez + Cartera + Inventario) - Deudas Pendientes</p>
+                        <p class="text-white-50 small mb-0 mt-1">Inventario valorizado: <span id="total-inventario-balance" class="fw-bold">$0.00</span></p>
                     </div>
                     <div class="col-md-4 text-center text-md-end">
                         <h1 class="fw-bold m-0 text-warning" id="patrimonio-neto" style="font-size: clamp(1.8rem, 5vw, 3rem); letter-spacing: -1.5px;">$0.00</h1>
@@ -183,8 +202,10 @@
             const rent = await api.get(`/informes/rentabilidad-productos${params}`);
             
             renderLiquidez(data.liquidez);
+            renderPendientesCierre(data.pendientes_cierre, data.liquidez);
             renderCartera(data.cartera);
             renderPasivos(data.pasivos);
+            renderInventario(data.inventario);
             renderPatrimonio(data.patrimonio.neto);
             renderResultados(data.resultados);
             renderRentabilidad(rent, data.resultados.utilidad_bruta);
@@ -200,6 +221,13 @@
             </div>
         `).join('');
         document.getElementById('total-liquidez').innerText = fmt(liquidez.total_efectivo);
+    }
+
+    function renderPendientesCierre(pendientes, liquidez) {
+        document.getElementById('pend-ventas').innerText = fmt(pendientes?.ventas || 0);
+        document.getElementById('pend-deudas-pagadas').innerText = fmt(pendientes?.deudas_pagadas || 0);
+        document.getElementById('pend-neto').innerText = fmt(pendientes?.neto || 0);
+        document.getElementById('total-liquidez-proyectada').innerText = fmt(liquidez?.proyectada_con_pendientes || 0);
     }
 
     function renderCartera(cartera) {
@@ -240,6 +268,10 @@
 
     function renderPatrimonio(neto) {
         document.getElementById('patrimonio-neto').innerText = fmt(neto);
+    }
+
+    function renderInventario(inventario) {
+        document.getElementById('total-inventario-balance').innerText = fmt(inventario?.total || 0);
     }
 
     function renderResultados(res) {

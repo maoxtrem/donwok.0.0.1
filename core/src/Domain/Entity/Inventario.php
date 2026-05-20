@@ -34,7 +34,7 @@ class Inventario
     #[ORM\Column(type: 'decimal', precision: 14, scale: 2)]
     private string $valorTotalActual;
 
-    public function __construct(string $nombre, string $unidadMedida, float $cantidad, float $costo)
+    public function __construct(string $nombre, string $unidadMedida, float $cantidad, float $costoTotal)
     {
         if (empty(trim($nombre))) {
             throw new \InvalidArgumentException('El nombre no puede estar vacio.');
@@ -42,17 +42,17 @@ class Inventario
         if (!in_array($unidadMedida, self::UNIDADES_MEDIDA_VALIDAS, true)) {
             throw new \InvalidArgumentException('Unidad de medida no valida.');
         }
-        if ($cantidad < 0) {
-            throw new \InvalidArgumentException('La cantidad no puede ser negativa.');
+        if ($cantidad <= 0) {
+            throw new \InvalidArgumentException('La cantidad debe ser mayor que 0.');
         }
-        if ($costo < 0) {
+        if ($costoTotal < 0) {
             throw new \InvalidArgumentException('El costo no puede ser negativo.');
         }
 
         $this->nombre = trim($nombre);
         $this->unidadMedida = $unidadMedida;
         $this->cantidad = (string) $cantidad;
-        $this->costoPromedio = (string) $costo;
+        $this->costoPromedio = (string) ($costoTotal / $cantidad);
         $this->recalcularValorTotalActual();
     }
 
@@ -63,7 +63,7 @@ class Inventario
     public function getCostoPromedio(): float { return (float) $this->costoPromedio; }
     public function getValorTotalActual(): float { return (float) $this->valorTotalActual; }
 
-    public function actualizarCantidad(float $cantidadMovimiento, ?float $costoNuevo = null): void
+    public function actualizarCantidad(float $cantidadMovimiento, ?float $costoTotalIngreso = null): void
     {
         if ($cantidadMovimiento <= 0) {
             throw new \InvalidArgumentException('La cantidad debe ser mayor que 0.');
@@ -72,7 +72,7 @@ class Inventario
         $cantidadActual = (float) $this->cantidad;
         $costoActual = (float) $this->costoPromedio;
 
-        if ($costoNuevo === null) {
+        if ($costoTotalIngreso === null) {
             $nuevaCantidad = $cantidadActual - $cantidadMovimiento;
             if ($nuevaCantidad < 0) {
                 throw new \InvalidArgumentException('No hay suficiente inventario para descontar esa cantidad.');
@@ -82,7 +82,7 @@ class Inventario
             return;
         }
 
-        if ($costoNuevo < 0) {
+        if ($costoTotalIngreso < 0) {
             throw new \InvalidArgumentException('El costo nuevo no puede ser negativo.');
         }
 
@@ -92,7 +92,7 @@ class Inventario
         }
 
         $costoTotalActual = $cantidadActual * $costoActual;
-        $costoTotalNuevoIngreso = $cantidadMovimiento * $costoNuevo;
+        $costoTotalNuevoIngreso = $costoTotalIngreso;
         $nuevoCostoPromedio = ($costoTotalActual + $costoTotalNuevoIngreso) / $nuevaCantidad;
 
         $this->cantidad = (string) $nuevaCantidad;
