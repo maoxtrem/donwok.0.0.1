@@ -4,6 +4,7 @@ services:
   # BACKEND / CORE - DEV
   # =====================
   core:
+    restart: unless-stopped
     container_name: core-dev
     build:
       context: .
@@ -36,6 +37,7 @@ services:
   # AUTH - DEV
   # =====================
   auth:
+    restart: unless-stopped
     container_name: auth-dev
     build:
       context: .
@@ -61,6 +63,7 @@ services:
   # FRONTEND (SYMFONY)
   # =====================
   frontend:
+    restart: unless-stopped
     container_name: frontend-symfony
     build:
       context: .
@@ -96,6 +99,7 @@ services:
   gateway:
     image: nginx:alpine
     container_name: gateway-pos
+    restart: unless-stopped
     volumes:
       - ./nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
