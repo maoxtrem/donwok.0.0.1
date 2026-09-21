@@ -242,6 +242,8 @@
         });
 
         if (res.isConfirmed) {
+            // Primero se imprime; si falla, no se realiza el cierre contable.
+            await api.post('/caja/imprimir-cierre');
             const result = await api.post('/caja/cerrar');
             Swal.fire('¡Cierre Exitoso!', 'Los movimientos se han guardado en el historial.', 'success').then(() => {
                 window.location.href = '/caja/movimientos';

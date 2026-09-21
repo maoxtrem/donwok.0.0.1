@@ -12,6 +12,7 @@ services:
     volumes:
       - ./core:/app
       - ./auth/config/jwt/public.pem:/app/config/jwt/public.pem:ro
+      - /run/cups/cups.sock:/run/cups/cups.sock
     command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
     depends_on:
       - db

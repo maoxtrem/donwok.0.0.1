@@ -11,7 +11,8 @@ RUN apk add --no-cache \
     icu-dev \
     libzip-dev \
     oniguruma-dev \
-    bash
+    bash \
+    cups-client
 
 RUN docker-php-ext-install \
     intl \

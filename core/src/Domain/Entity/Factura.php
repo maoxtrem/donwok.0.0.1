@@ -76,6 +76,7 @@ class Factura
 
     public function getTipo(): string { return $this->tipo ?? 'MESA'; }
     public function setTipo(?string $tipo): void { $this->tipo = $tipo; }
+    public function getDetalles(): Collection { return $this->detalles; }
 
     public function agregarItem(string $nombre, float $precio, float $costo, int $cantidad): void
     {
@@ -113,6 +114,8 @@ class Factura
 
     public function toArray(): array
     {
+        $fecha = $this->getFechaCreacion()?->setTimezone(new \DateTimeZone('America/Bogota'));
+
         return [
             'id' => $this->id,
             'numeroFactura' => $this->numeroFactura,
@@ -123,7 +126,7 @@ class Factura
             'pagoNequi' => (float)$this->pagoNequi,
             'esPago' => $this->isEsPago(),
             'tipo' => $this->getTipo(),
-            'fecha' => $this->getFechaCreacion() ? $this->getFechaCreacion()->format('Y-m-d H:i:s') : null,
+            'fecha' => $fecha?->format('Y-m-d H:i:s'),
             'items' => array_map(fn($d) => $d->toArray(), $this->detalles->toArray())
         ];
     }

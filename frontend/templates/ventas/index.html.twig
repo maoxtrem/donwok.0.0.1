@@ -265,6 +265,161 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+    /* Ticket térmico de 80 mm: solo se muestra al imprimir */
+    #thermal-ticket {
+        display: none;
+    }
+
+    /* Vista previa visible dentro del modal antes de imprimir */
+    .ticket-preview-content {
+        color: #000;
+        background: #fff;
+        font-family: "Courier New", Courier, monospace;
+        font-size: 12px;
+        line-height: 1.3;
+        text-align: left;
+    }
+
+    .ticket-preview-content .thermal-ticket-header {
+        text-align: center;
+        border-bottom: 1px dashed #000;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+    }
+
+    .ticket-preview-content .thermal-ticket-title {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .ticket-preview-content .thermal-ticket-turn {
+        font-size: 38px;
+        font-weight: 700;
+        line-height: 1;
+        margin: 8px 0;
+    }
+
+    .ticket-preview-content .thermal-ticket-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .ticket-preview-content .thermal-ticket-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px dotted #999;
+    }
+
+    .ticket-preview-content .thermal-ticket-item-name {
+        flex: 1;
+        overflow-wrap: anywhere;
+    }
+
+    .ticket-preview-content .thermal-ticket-footer {
+        text-align: center;
+        border-top: 1px dashed #000;
+        margin-top: 10px;
+        padding-top: 10px;
+    }
+
+    @media print {
+        @page {
+            size: 80mm auto;
+            margin: 0;
+        }
+
+        /* Solo aplicamos estas reglas cuando se imprime el ticket */
+        body.printing-ticket > * {
+            visibility: hidden !important;
+        }
+
+        body.printing-ticket main.main-content {
+            display: block !important;
+            visibility: visible !important;
+            width: 80mm !important;
+            min-width: 80mm !important;
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+
+        /* Ocultamos la pantalla POS, pero no el ticket que está dentro de main */
+        body.printing-ticket main.main-content > * {
+            display: none !important;
+        }
+
+        body.printing-ticket #thermal-ticket,
+        body.printing-ticket #thermal-ticket * {
+            visibility: visible !important;
+        }
+
+        body.printing-ticket main.main-content > #thermal-ticket {
+            display: block !important;
+            width: 72mm;
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 auto;
+            padding: 4mm 0;
+            color: #000;
+            background: #fff;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 12px;
+            line-height: 1.3;
+        }
+
+        .thermal-ticket-header {
+            text-align: center;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 3mm;
+            margin-bottom: 3mm;
+        }
+
+        .thermal-ticket-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 2mm;
+        }
+
+        .thermal-ticket-turn {
+            font-size: 38px;
+            font-weight: 700;
+            line-height: 1;
+            margin: 2mm 0;
+        }
+
+        .thermal-ticket-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .thermal-ticket-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 1.5mm 0;
+            border-bottom: 1px dotted #999;
+        }
+
+        .thermal-ticket-item-name {
+            flex: 1;
+            overflow-wrap: anywhere;
+        }
+
+        .thermal-ticket-footer {
+            text-align: center;
+            border-top: 1px dashed #000;
+            margin-top: 3mm;
+            padding-top: 3mm;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -326,6 +481,10 @@
 
                 <div class="invoice-footer">
                     <div class="mb-3">
+                        <label class="small fw-bold text-muted text-uppercase mb-1" for="order-client-name">Nombre del cliente <span class="fw-normal text-lowercase">(opcional)</span></label>
+                        <input type="text" class="form-control border" id="order-client-name" maxlength="80" placeholder="Escriba el nombre para imprimirlo en el ticket">
+                    </div>
+                    <div class="mb-3">
                         <div class="row g-2">
                             <div class="col-6">
                                 <label class="small fw-bold text-muted text-uppercase mb-1">Estado de Pago</label>
@@ -358,6 +517,9 @@
 
     </div>
 </div>
+
+<!-- Plantilla que utiliza el navegador al imprimir en la térmica -->
+<section id="thermal-ticket" aria-hidden="true"></section>
 {% endblock %}
 
 {% block javascripts %}
@@ -497,10 +659,92 @@
         btn.disabled = false;
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function formatTicketDate(fecha) {
+        if (!fecha) return new Date().toLocaleString('es-CO');
+        const date = new Date(fecha.replace(' ', 'T'));
+        return Number.isNaN(date.getTime()) ? fecha : date.toLocaleString('es-CO');
+    }
+
+    function buildTicketMarkup(pedido) {
+        const items = (pedido.items || []).map(item => `
+            <div class="thermal-ticket-item">
+                <span class="thermal-ticket-item-name">${escapeHtml(item.producto)}</span>
+                <strong>${escapeHtml(item.cantidad)} x</strong>
+            </div>
+        `).join('');
+
+        return `
+            <div class="thermal-ticket-header">
+                <div class="thermal-ticket-title">DONWOK</div>
+                <div>COMANDA DE PEDIDO</div>
+                <div class="thermal-ticket-turn">${escapeHtml(pedido.numeroTicket)}</div>
+                <div class="thermal-ticket-meta">
+                    <span>Orden #${escapeHtml(pedido.id)}</span>
+                    <span>${escapeHtml(formatTicketDate(pedido.fecha))}</span>
+                </div>
+            </div>
+            <div><strong>DETALLE DEL PEDIDO</strong></div>
+            ${items || '<div>Sin productos registrados</div>'}
+            <div class="thermal-ticket-footer">
+                <div>Tipo: ${escapeHtml(pedido.tipo || 'MESA')}</div>
+                <div>¡Gracias por su compra!</div>
+            </div>
+        `;
+    }
+
+    async function showPrintSteps(pedido, cliente) {
+        const comandaMarkup = buildTicketMarkup(pedido);
+        const turnMarkup = `
+            <div class="thermal-ticket-header">
+                <div class="thermal-ticket-title">DESPRENDIBLE CLIENTE</div>
+                ${cliente ? `<div class="fw-bold">${escapeHtml(cliente)}</div>` : ''}
+                <div class="thermal-ticket-turn">TURNO ${escapeHtml(pedido.numeroTicket)}</div>
+                <div class="fw-bold">${pedido.esPago ? 'PAGADO' : 'PENDIENTE DE PAGO'}</div>
+                <div>Conserve este turno</div>
+            </div>
+        `;
+
+        const result = await Swal.fire({
+            title: 'Comanda y turno listos',
+            html: `
+                <div class="ticket-preview-content border rounded bg-white p-3 mb-3" style="max-height: 260px; overflow-y: auto;">
+                    <div class="fw-bold text-center mb-2">1. COMANDA</div>
+                    ${comandaMarkup}
+                </div>
+                <div class="ticket-preview-content border rounded bg-white p-3">
+                    <div class="fw-bold text-center mb-2">2. DESPRENDIBLE DEL CLIENTE</div>
+                    ${turnMarkup}
+                </div>
+            `,
+            confirmButtonText: '<i class="bi bi-printer me-2"></i>IMPRIMIR COMANDA Y TURNO',
+            showCancelButton: true,
+            cancelButtonText: 'CERRAR',
+            confirmButtonColor: '#3b82f6',
+            width: 520,
+            focusConfirm: false
+        });
+
+        if (!result.isConfirmed) return false;
+
+        await api.post(`/pedidos/${pedido.id}/imprimir-comanda-turno`, { cliente });
+        return true;
+    }
+
     window.processOrder = async () => {
         if (cart.length === 0) return;
         const btn = document.getElementById('btn-process');
         const originalText = btn.innerText;
+        let pedidoCreado = null;
+        const cliente = document.getElementById('order-client-name').value.trim();
         btn.disabled = true;
         btn.innerText = 'PROCESANDO...';
 
@@ -515,32 +759,43 @@
             };
 
             const response = await api.post('/pedidos', payload);
+            pedidoCreado = response.pedido;
             
-            // Mostrar modal con el número de tiquete
+            // Un solo paso para el turno y luego un segundo paso para la comanda.
             if (response.pedido && response.pedido.numeroTicket) {
-                await Swal.fire({
-                    title: '<span class="text-muted small uppercase fw-bold">TIQUETE DE PEDIDO</span>',
-                    html: `
-                        <div class="py-4">
-                            <h1 class="display-1 fw-black text-primary mb-0" style="font-size: 8rem;">${response.pedido.numeroTicket}</h1>
-                            <p class="text-muted mt-2">ID de Factura: #${response.pedido.id}</p>
-                        </div>
-                    `,
-                    icon: 'success',
-                    confirmButtonText: 'ENTENDIDO',
-                    confirmButtonColor: '#3b82f6',
-                    allowOutsideClick: false,
-                    backdrop: `rgba(15, 23, 42, 0.9)`
-                });
+                const impreso = await showPrintSteps(response.pedido, cliente);
+
+                if (!impreso) {
+                    // No se permite dejar un pedido en cola sin impresión.
+                    await api.delete(`/pedidos/${response.pedido.id}/eliminar`);
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Pedido cancelado',
+                        text: 'El pedido no se registró porque no se imprimió.',
+                        timer: 2200,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                    return;
+                }
             }
             
             cart = [];
+            document.getElementById('order-client-name').value = '';
             document.getElementById('order-is-paid').checked = false;
             document.getElementById('order-type').value = 'MESA';
             renderInvoice();
         } catch (err) {
             // api.notify ya maneja la notificación de error
             console.error(err);
+            if (pedidoCreado?.id) {
+                try {
+                    await api.delete(`/pedidos/${pedidoCreado.id}/eliminar`);
+                } catch (cancelError) {
+                    console.error('No se pudo cancelar el pedido sin imprimir:', cancelError);
+                }
+            }
         } finally {
             btn.disabled = false;
             btn.innerText = originalText;

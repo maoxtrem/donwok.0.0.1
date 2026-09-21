@@ -5,6 +5,7 @@ namespace App\UI\Http\Web\Controller;
 use App\Application\DTO\Request\PedidoRequestDTO;
 use App\Application\Handler\Pedido\CreatePedidoHandler;
 use App\Application\Handler\Pedido\EliminarPedidoHandler;
+use App\Domain\Entity\DatosEmpresa;
 use App\Infrastructure\Doctrine\Repository\FacturaRepository;
 use App\Domain\Entity\Factura;
 use Doctrine\ORM\EntityManagerInterface;
@@ -14,6 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
+use Symfony\Component\Process\Process;
 
 #[Route('/pedidos')]
 class PedidoController extends AbstractController
@@ -35,6 +37,191 @@ class PedidoController extends AbstractController
             'pendientes' => $pendientes,
             'terminados' => $terminados
         ]);
+    }
+
+    #[Route('/{id}/imprimir', name: 'app_pedidos_imprimir', methods: ['POST'])]
+    public function imprimir(int $id, FacturaRepository $repo): JsonResponse
+    {
+        $pedido = $repo->find($id);
+        if (!$pedido) {
+            return new JsonResponse(['message' => 'Pedido no encontrado'], 404);
+        }
+
+        // Formato ESC/POS: encabezado y turno grandes; detalle en tamaño normal.
+        $esc = "\x1b";
+        $gs = "\x1d";
+        $ticket = $esc . "@"; // Inicializar impresora
+        $ticket .= $esc . "a" . "\x01"; // Centrado
+        $ticket .= $esc . "E" . "\x01" . $gs . "!" . "\x11" . "DONWOK\n";
+        $ticket .= $gs . "!" . "\x00" . $esc . "E" . "\x00" . "COMANDA\n";
+        $ticket .= $esc . "E" . "\x01" . $gs . "!" . "\x11";
+        $ticket .= "TURNO: " . ($pedido->getNumeroTicket() ?? '---') . "\n";
+        $ticket .= $gs . "!" . "\x00" . $esc . "E" . "\x00";
+        $ticket .= "ORDEN: #" . $pedido->getId() . "\n";
+        $ticket .= "FECHA: " . $this->fechaBogota($pedido->getFechaCreacion()) . "\n";
+        $ticket .= str_repeat('-', 32) . "\n";
+        $ticket .= "DETALLE DEL PEDIDO\n";
+        $ticket .= str_repeat('-', 32) . "\n";
+
+        $ticket .= $esc . "a" . "\x00"; // Alinear a la izquierda
+        foreach ($pedido->getDetalles() as $detalle) {
+            $ticket .= $detalle->getCantidad() . ' x ' . $detalle->getNombreProducto() . "\n";
+        }
+
+        $ticket .= str_repeat('-', 32) . "\n";
+        $ticket .= "TIPO: " . $pedido->getTipo() . "\n";
+        $ticket .= $esc . "a" . "\x01";
+        $ticket .= $this->prepararCorte();
+
+        try {
+            $this->enviarAImpresora($ticket);
+            return new JsonResponse(['message' => 'Ticket enviado a la impresora T86LR']);
+        } catch (\Throwable $e) {
+            error_log('Error imprimiendo ticket: ' . $e->getMessage());
+            return new JsonResponse(['message' => 'No se pudo imprimir: ' . $e->getMessage()], 500);
+        }
+    }
+
+    #[Route('/{id}/imprimir-turno', name: 'app_pedidos_imprimir_turno', methods: ['POST'])]
+    public function imprimirTurno(int $id, FacturaRepository $repo): JsonResponse
+    {
+        $pedido = $repo->find($id);
+        if (!$pedido) {
+            return new JsonResponse(['message' => 'Pedido no encontrado'], 404);
+        }
+
+        try {
+            $this->enviarAImpresora($this->desprendibleTurno($pedido) . $this->prepararCorte());
+            return new JsonResponse(['message' => 'Turno enviado a la impresora T86LR']);
+        } catch (\Throwable $e) {
+            error_log('Error imprimiendo turno: ' . $e->getMessage());
+            return new JsonResponse(['message' => 'No se pudo imprimir el turno: ' . $e->getMessage()], 500);
+        }
+    }
+
+    #[Route('/{id}/imprimir-comanda-turno', name: 'app_pedidos_imprimir_comanda_turno', methods: ['POST'])]
+    public function imprimirComandaYTurno(int $id, Request $request, FacturaRepository $repo): JsonResponse
+    {
+        $pedido = $repo->find($id);
+        if (!$pedido) {
+            return new JsonResponse(['message' => 'Pedido no encontrado'], 404);
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        // Este nombre solo vive durante esta impresión; nunca se persiste.
+        $cliente = trim(substr((string)($data['cliente'] ?? ''), 0, 80));
+
+        $esc = "\x1b";
+        $gs = "\x1d";
+        $comanda = $esc . "@";
+        $comanda .= $esc . "a" . "\x01";
+        $comanda .= $esc . "E" . "\x01" . $gs . "!" . "\x11" . "DONWOK\n";
+        $comanda .= $gs . "!" . "\x00" . $esc . "E" . "\x00" . "COMANDA\n";
+        $comanda .= $esc . "E" . "\x01" . $gs . "!" . "\x11";
+        $comanda .= "TURNO: " . ($pedido->getNumeroTicket() ?? '---') . "\n";
+        $comanda .= $gs . "!" . "\x00" . $esc . "E" . "\x00";
+        $comanda .= "ORDEN: #" . $pedido->getId() . "\n";
+        if ($cliente !== '') {
+            $comanda .= "CLIENTE: " . $cliente . "\n";
+        }
+        $comanda .= "FECHA: " . $this->fechaBogota($pedido->getFechaCreacion()) . "\n";
+        $comanda .= str_repeat('-', 32) . "\nDETALLE DEL PEDIDO\n" . str_repeat('-', 32) . "\n";
+        $comanda .= $esc . "a" . "\x00";
+
+        foreach ($pedido->getDetalles() as $detalle) {
+            $comanda .= $detalle->getCantidad() . ' x ' . $detalle->getNombreProducto() . "\n";
+        }
+
+        $comanda .= str_repeat('-', 32) . "\nTIPO: " . $pedido->getTipo() . "\n";
+        $comanda .= $this->prepararCorte();
+
+        // La comanda se imprime y se corta antes de imprimir el desprendible.
+        $secuencia = $comanda . $this->desprendibleTurno($pedido, $cliente) . $this->prepararCorte();
+
+        try {
+            $this->enviarAImpresora($secuencia);
+            return new JsonResponse(['message' => 'Comanda y turno enviados a la impresora T86LR']);
+        } catch (\Throwable $e) {
+            error_log('Error imprimiendo comanda y turno: ' . $e->getMessage());
+            return new JsonResponse(['message' => 'No se pudo imprimir la comanda y el turno: ' . $e->getMessage()], 500);
+        }
+    }
+
+    #[Route('/{id}/imprimir-factura', name: 'app_pedidos_imprimir_factura', methods: ['POST'])]
+    public function imprimirFactura(int $id, Request $request, FacturaRepository $repo): JsonResponse
+    {
+        $pedido = $repo->find($id);
+        if (!$pedido) {
+            return new JsonResponse(['message' => 'Pedido no encontrado'], 404);
+        }
+
+        if (!$pedido->getNumeroFactura()) {
+            return new JsonResponse(['message' => 'El pedido todavía no está facturado'], 400);
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        $recibido = max(0, (float)($data['recibido'] ?? 0));
+        // Si no se digitó el recibido, el efectivo registrado se considera pago exacto.
+        if ($recibido <= 0 && $pedido->getPagoEfectivo() > 0) {
+            $recibido = $pedido->getPagoEfectivo();
+        }
+        $cambio = max(0, $recibido - $pedido->getPagoEfectivo());
+        $empresa = $this->em->getRepository(DatosEmpresa::class)->findOneBy([]);
+
+        $ticket = "\x1b@";
+        $ticket .= "\x1ba\x01";
+        if ($empresa && $empresa->getNombre() !== '') {
+            $ticket .= "\x1bE\x01\x1d!\x11" . $empresa->getNombre() . "\n";
+        } else {
+            $ticket .= "\x1bE\x01\x1d!\x11DON WOK\n";
+        }
+        $ticket .= "\x1d!\x00\x1bE\x00";
+        if ($empresa && $empresa->getNit() !== '') {
+            $ticket .= "NIT: " . $empresa->getNit() . "\n";
+        }
+        $ticket .= "FACTURA DE VENTA\n";
+        $ticket .= "\x1bE\x01FACTURA #" . $pedido->getNumeroFactura() . "\n";
+        $ticket .= "\x1d!\x00\x1bE\x00";
+        $ticket .= "ORDEN: #" . $pedido->getId() . "\n";
+        $ticket .= "FECHA: " . $this->fechaBogota($pedido->getFechaCreacion()) . "\n";
+        $ticket .= str_repeat('-', 32) . "\n";
+        $ticket .= "\x1ba\x00";
+
+        foreach ($pedido->getDetalles() as $detalle) {
+            $subtotal = $detalle->getPrecioUnitario() * $detalle->getCantidad();
+            $ticket .= $detalle->getCantidad() . ' x ' . $detalle->getNombreProducto() . "\n";
+            $ticket .= '   $' . number_format($subtotal, 0, ',', '.') . "\n";
+        }
+
+        $ticket .= str_repeat('-', 32) . "\n";
+        $ticket .= "TOTAL: $" . number_format($pedido->getTotal(), 0, ',', '.') . "\n";
+        $ticket .= "EFECTIVO: $" . number_format($pedido->getPagoEfectivo(), 0, ',', '.') . "\n";
+        $ticket .= "NEQUI: $" . number_format($pedido->getPagoNequi(), 0, ',', '.') . "\n";
+        if ($pedido->getPagoEfectivo() > 0) {
+            $ticket .= "RECIBIDO: $" . number_format($recibido, 0, ',', '.') . "\n";
+            $ticket .= "CAMBIO: $" . number_format($cambio, 0, ',', '.') . "\n";
+        }
+        $ticket .= "TIPO: " . $pedido->getTipo() . "\n";
+        $ticket .= "\x1ba\x01";
+        if ($empresa && $empresa->getTelefonoDomicilios() !== '') {
+            $ticket .= "\x1bE\x01\x1d!\x11PEDIDOS: " . $empresa->getTelefonoDomicilios() . "\n";
+            $ticket .= "\x1d!\x00\x1bE\x00";
+        }
+        if ($empresa && $empresa->getFraseDia()) {
+            $ticket .= str_repeat('.', 32) . "\n";
+            $ticket .= $empresa->getFraseDia() . "\n";
+            $ticket .= str_repeat('.', 32) . "\n";
+        }
+        $ticket .= "Gracias por preferirnos\n";
+        $ticket .= $this->prepararCorte();
+
+        try {
+            $this->enviarAImpresora($ticket);
+            return new JsonResponse(['message' => 'Factura enviada a la impresora T86LR']);
+        } catch (\Throwable $e) {
+            error_log('Error imprimiendo factura: ' . $e->getMessage());
+            return new JsonResponse(['message' => 'No se pudo imprimir la factura: ' . $e->getMessage()], 500);
+        }
     }
 
     #[Route('/pendientes', name: 'app_pedidos_pendientes', methods: ['GET'])]
@@ -158,5 +345,49 @@ class PedidoController extends AbstractController
         );
 
         $this->hub->publish($update);
+    }
+
+    private function enviarAImpresora(string $contenido): void
+    {
+        $process = new Process(['lp', '-o', 'raw', '-d', 'T86LR'], null, null, $contenido);
+        $process->setTimeout(15);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            throw new \RuntimeException(trim($process->getErrorOutput()) ?: 'CUPS no pudo imprimir.');
+        }
+    }
+
+    private function desprendibleTurno(Factura $pedido, string $cliente = ''): string
+    {
+        $ticket = "\x1b@"
+            . "\x1ba\x01"
+            . "DESPRENDIBLE CLIENTE\n";
+
+        if ($cliente !== '') {
+            $ticket .= $cliente . "\n";
+        }
+
+        return $ticket
+            . "\x1bE\x01\x1d!\x11"
+            . "TURNO: " . ($pedido->getNumeroTicket() ?? '---') . "\n"
+            . "\x1d!\x00\x1bE\x00"
+            . "ESTADO: " . ($pedido->isEsPago() ? 'PAGADO' : 'PENDIENTE DE PAGO') . "\n"
+            . "Gracias por su compra\n";
+    }
+
+    private function prepararCorte(): string
+    {
+        // Avance y corte físico ESC/POS, sin imprimir una línea adicional.
+        return "\x1bd\x06" // Avanza 6 líneas para separar el corte del texto.
+            . "\x1d\x56\x00"; // Corte total.
+    }
+
+    private function fechaBogota(?\DateTimeImmutable $fecha): string
+    {
+        $zona = new \DateTimeZone('America/Bogota');
+        return ($fecha ?? new \DateTimeImmutable('now', $zona))
+            ->setTimezone($zona)
+            ->format('Y-m-d H:i');
     }
 }

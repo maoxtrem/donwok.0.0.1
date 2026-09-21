@@ -1,0 +1,80 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Datos de empresa - DonWok{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold m-0">Datos de empresa</h2>
+            <p class="text-muted mb-0">Información que podrá utilizarse en tickets y facturas.</p>
+        </div>
+    </div>
+
+    <div class="dw-card p-4 mx-auto" style="max-width: 760px;">
+        <form id="empresa-form">
+            <div class="row g-3">
+                <div class="col-md-7">
+                    <label class="form-label fw-bold">Nombre de la empresa</label>
+                    <input id="empresa-nombre" class="form-control" maxlength="150" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-bold">NIT</label>
+                    <input id="empresa-nit" class="form-control" maxlength="50">
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-bold">Frase del día</label>
+                    <textarea id="empresa-frase" class="form-control" maxlength="255" rows="3" placeholder="Ejemplo: ¡Gracias por preferirnos!"></textarea>
+                </div>
+                <div class="col-md-7">
+                    <label class="form-label fw-bold">Número para domicilios</label>
+                    <input id="empresa-telefono" class="form-control" maxlength="50" placeholder="Ejemplo: 300 000 0000">
+                </div>
+            </div>
+            <div class="d-flex justify-content-end mt-4">
+                <button class="dw-btn-primary" id="btn-guardar" type="submit">
+                    <i class="bi bi-check-circle me-2"></i>Guardar datos
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script type="module">
+    import CoreAPI from '/js/core.js';
+    const api = new CoreAPI();
+    const byId = id => document.getElementById(id);
+
+    async function cargar() {
+        try {
+            const empresa = await api.get('/datos-empresa');
+            byId('empresa-nombre').value = empresa.nombre || '';
+            byId('empresa-nit').value = empresa.nit || '';
+            byId('empresa-frase').value = empresa.fraseDia || '';
+            byId('empresa-telefono').value = empresa.telefonoDomicilios || '';
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    byId('empresa-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        const btn = byId('btn-guardar');
+        btn.disabled = true;
+        try {
+            await api.patch('/datos-empresa', {
+                nombre: byId('empresa-nombre').value,
+                nit: byId('empresa-nit').value,
+                fraseDia: byId('empresa-frase').value,
+                telefonoDomicilios: byId('empresa-telefono').value
+            });
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    cargar();
+</script>
+{% endblock %}

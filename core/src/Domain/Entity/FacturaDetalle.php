@@ -47,4 +47,8 @@ class FacturaDetalle
             'subtotal' => (float)($this->precioUnitario * $this->cantidad)
         ];
     }
+
+    public function getNombreProducto(): string { return $this->nombreProducto; }
+    public function getCantidad(): int { return $this->cantidad; }
+    public function getPrecioUnitario(): float { return (float)$this->precioUnitario; }
 }

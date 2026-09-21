@@ -7,6 +7,7 @@ use App\Application\Handler\Finanzas\RealizarCierreCajaHandler;
 use App\Application\Handler\Finanzas\RegistrarEgresoHandler;
 use App\Application\Handler\Finanzas\RegistrarAbonoHandler;
 use App\Application\Handler\Finanzas\RegistrarDeudaHandler;
+use App\Domain\Entity\DatosEmpresa;
 use App\Domain\Entity\Factura;
 use App\Domain\Repository\FacturaRepositoryInterface;
 use App\Domain\Repository\MovimientoFinancieroRepositoryInterface;
@@ -19,6 +20,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Process\Process;
 
 #[Route('/caja')]
 class CajaController extends AbstractController
@@ -31,7 +33,8 @@ class CajaController extends AbstractController
         private RegistrarDeudaHandler $deudaHandler,
         private GastoRepositoryInterface $gastoRepo,
         private PrestamoRepositoryInterface $prestamoRepo,
-        private PagoPrestamoRepositoryInterface $pagoRepo
+        private PagoPrestamoRepositoryInterface $pagoRepo,
+        private \Doctrine\ORM\EntityManagerInterface $em
     ) {}
 
     #[Route('/deudas', name: 'app_caja_deudas_empresa', methods: ['GET'])]
@@ -233,6 +236,71 @@ class CajaController extends AbstractController
             ]);
         } catch (\Exception $e) {
             return new JsonResponse(['message' => $e->getMessage()], 400);
+        }
+    }
+
+    #[Route('/imprimir-cierre', name: 'app_caja_imprimir_cierre', methods: ['POST'])]
+    public function imprimirCierre(FacturaRepositoryInterface $repo): JsonResponse
+    {
+        $facturas = $repo->findPendientesCierre();
+        $abonos = $this->pagoRepo->findPendientesCierre();
+        $gastos = $this->gastoRepo->findPendientesCierre();
+
+        $ingresosAbonos = [];
+        foreach ($abonos as $abono) {
+            $esCartera = $abono->getPrestamo()->getTipo() === 'OTORGADO';
+            $esCreditoInicial = $abono->getPrestamo()->getTipo() === 'RECIBIDO' && $abono->esDesembolso();
+            if ($esCartera || $esCreditoInicial) {
+                $ingresosAbonos[] = $abono;
+            }
+        }
+
+        $egresos = $gastos;
+        foreach ($abonos as $abono) {
+            if ($abono->getPrestamo()->getTipo() === 'RECIBIDO' && !$abono->esDesembolso()) {
+                $egresos[] = $abono;
+            }
+        }
+
+        $totalFacturas = array_reduce($facturas, fn(float $total, Factura $factura) => $total + $factura->getTotal(), 0.0);
+        $totalAbonos = array_reduce($ingresosAbonos, fn(float $total, $abono) => $total + $abono->getMonto(), 0.0);
+        $totalEgresos = array_reduce($egresos, fn(float $total, $egreso) => $total + $egreso->getMonto(), 0.0);
+        $totalIngresos = $totalFacturas + $totalAbonos;
+
+        $empresa = $this->em->getRepository(DatosEmpresa::class)->findOneBy([]);
+        $nombreEmpresa = $empresa?->getNombre() ?: 'DON WOK';
+        $ticket = "\x1b@\x1ba\x01\x1bE\x01\x1d!\x11" . $nombreEmpresa . "\n";
+        $ticket .= "\x1d!\x00\x1bE\x00CIERRE DE CAJA\n";
+        $ticket .= "FECHA: " . (new \DateTimeImmutable('now', new \DateTimeZone('America/Bogota')))->format('Y-m-d H:i') . "\n";
+        $ticket .= str_repeat('-', 32) . "\n";
+        $ticket .= "FACTURAS: " . count($facturas) . "\n";
+        $ticket .= "VENTAS: $" . number_format($totalFacturas, 0, ',', '.') . "\n";
+        $ticket .= "OTROS INGRESOS: $" . number_format($totalAbonos, 0, ',', '.') . "\n";
+        $ticket .= "TOTAL INGRESOS: $" . number_format($totalIngresos, 0, ',', '.') . "\n";
+        $ticket .= str_repeat('-', 32) . "\n";
+        $ticket .= "EGRESOS: $" . number_format($totalEgresos, 0, ',', '.') . "\n";
+        $ticket .= "BALANCE: $" . number_format($totalIngresos - $totalEgresos, 0, ',', '.') . "\n";
+        $ticket .= str_repeat('-', 32) . "\n";
+
+        foreach ($facturas as $factura) {
+            $ticket .= '#' . ($factura->getNumeroFactura() ?: $factura->getId()) . ' $' . number_format($factura->getTotal(), 0, ',', '.') . "\n";
+        }
+
+        $ticket .= "\nCierre realizado correctamente\n";
+        $ticket .= "Gracias por preferirnos\n" . "\x1bd\x06\x1d\x56\x00";
+
+        try {
+            $process = new Process(['lp', '-o', 'raw', '-d', 'T86LR'], null, null, $ticket);
+            $process->setTimeout(15);
+            $process->run();
+            if (!$process->isSuccessful()) {
+                throw new \RuntimeException(trim($process->getErrorOutput()) ?: 'CUPS no pudo imprimir el cierre.');
+            }
+
+            return new JsonResponse(['message' => 'Cierre enviado a la impresora T86LR']);
+        } catch (\Throwable $e) {
+            error_log('Error imprimiendo cierre: ' . $e->getMessage());
+            return new JsonResponse(['message' => 'No se pudo imprimir el cierre: ' . $e->getMessage()], 500);
         }
     }
 

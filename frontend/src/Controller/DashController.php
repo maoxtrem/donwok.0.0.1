@@ -17,6 +17,9 @@ final class DashController extends AbstractController
     #[Route('/inventario', name: 'app_inventario')]
     public function inventario(): Response { return $this->render('inventario/index.html.twig'); }
 
+    #[Route('/datos-empresa', name: 'app_datos_empresa')]
+    public function datosEmpresa(): Response { return $this->render('empresa/datos.html.twig'); }
+
     #[Route('/ventas', name: 'app_ventas')]
     public function ventas(): Response { return $this->render('ventas/index.html.twig'); }
 

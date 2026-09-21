@@ -251,6 +251,18 @@
 
         try {
             await api.post(`/pedidos/${selectedPedido}/facturar`, { efectivo, nequi });
+
+            // La factura ya quedó registrada; la enviamos directamente a la T86LR.
+            try {
+                await api.post(`/pedidos/${selectedPedido}/imprimir-factura`, { recibido });
+            } catch (printError) {
+                console.error('Factura generada, pero no se pudo imprimir:', printError);
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'Factura generada',
+                    text: 'La factura quedó registrada, pero no se pudo enviar a la impresora.'
+                });
+            }
             
             const modalEl = document.getElementById('modalPago');
             const modal = bootstrap.Modal.getInstance(modalEl);
