@@ -339,6 +339,7 @@
 {% block javascripts %}
 <script type="module">
     import CoreAPI from '/js/core.js';
+    import MercureClient from '/js/mercure.js';
     const api = new CoreAPI();
 
     function updateStatus(text, colorClass) {
@@ -363,27 +364,22 @@
 
     // 🟢 Inicializar Mercure (EventSource)
     function startMercure() {
-        const url = new URL('/.well-known/mercure', window.location.origin);
-        url.searchParams.append('topic', 'donwok/pedidos');
-
-        console.log("[SSE] Conectando a:", url.toString());
-        const eventSource = new EventSource(url);
-
-        eventSource.onopen = () => {
+        const mercure = new MercureClient();
+        const subscription = mercure.subscribe({
+            topics: ['donwok/pedidos'],
+            onOpen: () => {
             updateStatus('Online ✅', 'bg-success');
-            console.log("[SSE] Conectado.");
-        };
-
-        eventSource.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+            console.log("[SSE] Conectado a:", subscription.url.toString());
+            },
+            onMessage: (data) => {
             console.log("[SSE] Evento:", data);
             handleIncomingEvent(data);
-        };
-
-        eventSource.onerror = (err) => {
+            },
+            onError: (err) => {
             console.error("[SSE] Error:", err);
             updateStatus('Reconectando... ⚠️', 'bg-warning text-dark');
-        };
+            },
+        });
     }
 
     // 🔵 Cargar datos iniciales

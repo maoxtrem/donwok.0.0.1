@@ -363,6 +363,7 @@
 {% block javascripts %}
 <script type="module">
     import CoreAPI from '/js/core.js';
+    import MercureClient from '/js/mercure.js';
     const api = new CoreAPI();
     
     let allProducts = [];
@@ -397,15 +398,15 @@
     }
 
     function initSSE() {
-        const url = new URL('/.well-known/mercure', window.location.origin);
-        url.searchParams.append('topic', 'donwok/pedidos');
-        const eventSource = new EventSource(url);
-        
-        eventSource.onmessage = async () => {
+        const mercure = new MercureClient();
+        mercure.subscribe({
+            topics: ['donwok/pedidos'],
+            onMessage: async () => {
             // Recargamos stats en cada evento relevante para asegurar precisión
             const stats = await api.get('/pedidos/stats');
             updateStats(stats);
-        };
+            },
+        });
     }
 
     function renderMenu(products) {

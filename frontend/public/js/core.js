@@ -6,7 +6,6 @@ export default class CoreAPI {
     // 🟢 Todo bajo el mismo dominio y puerto 80
     this.authBaseUrl = '/api/auth';
     this.coreBaseUrl = '/api/core';
-    this.mercureUrl  = '/.well-known/mercure';
   }
 
   /**

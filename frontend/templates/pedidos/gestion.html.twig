@@ -122,6 +122,7 @@
 {% block javascripts %}
 <script type="module">
     import CoreAPI from '/js/core.js';
+    import MercureClient from '/js/mercure.js';
     const api = new CoreAPI();
     let selectedPedido = null;
 
@@ -369,18 +370,14 @@
     }
 
     function initSSE() {
-        const url = new URL('/.well-known/mercure', window.location.origin);
-        url.searchParams.append('topic', 'donwok/pedidos');
-
-        const eventSource = new EventSource(url);
-
-        eventSource.onopen = () => {
+        const mercure = new MercureClient();
+        mercure.subscribe({
+            topics: ['donwok/pedidos'],
+            onOpen: () => {
             console.log("[SSE] Conectado ✅");
             updateWSStatus('Tiempo Real: Activo ✅', 'bg-success');
-        };
-
-        eventSource.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+            },
+            onMessage: (data) => {
             console.log("[SSE] Evento:", data);
             
             if (data.type === 'NEW_ORDER') {
@@ -391,11 +388,11 @@
             else if (data.type === 'ORDER_READY' || data.type === 'ORDER_UPDATED') updateOrderRow(data.pedido);
             else if (data.type === 'ORDER_INVOICED') removeOrderRow(data.pedido.id);
             else if (data.type === 'ORDER_DELETED') removeOrderRow(data.pedidoId);
-        };
-
-        eventSource.onerror = () => {
+            },
+            onError: () => {
             updateWSStatus('Reconectando...', 'bg-warning text-dark');
-        };
+            },
+        });
     }
 
     function renderQueue(pedidos) {
