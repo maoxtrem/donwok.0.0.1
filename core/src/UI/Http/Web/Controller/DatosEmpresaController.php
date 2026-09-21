@@ -37,6 +37,9 @@ class DatosEmpresaController extends AbstractController
         if (array_key_exists('telefonoDomicilios', $data)) {
             $empresa->setTelefonoDomicilios(trim((string)$data['telefonoDomicilios']));
         }
+        if (array_key_exists('impresoraActiva', $data)) {
+            $empresa->setImpresoraActiva((bool)$data['impresoraActiva']);
+        }
 
         $em->flush();
         return new JsonResponse(['message' => 'Datos de empresa guardados', 'empresa' => $empresa->toArray()]);

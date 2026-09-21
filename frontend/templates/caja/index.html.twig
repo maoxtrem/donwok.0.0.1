@@ -242,6 +242,18 @@
         });
 
         if (res.isConfirmed) {
+            try {
+                await api.get('/impresora/estado');
+            } catch (error) {
+                await Swal.fire({
+                    icon: 'warning',
+                    title: 'Impresora no disponible',
+                    text: 'El cierre no se realizó. Encienda o conecte la T86LR e inténtelo nuevamente.',
+                    confirmButtonText: 'Entendido'
+                });
+                return;
+            }
+
             // Primero se imprime; si falla, no se realiza el cierre contable.
             await api.post('/caja/imprimir-cierre');
             const result = await api.post('/caja/cerrar');

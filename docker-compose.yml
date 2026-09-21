@@ -23,6 +23,7 @@ services:
       AUTH_BASE_URL: http://auth
       CORE_SERVICE_NAME: core
       CORE_SERVICE_SECRET: super-secret-core-key
+      PRINTER_NAME: T86LR
       
       # Mercure Config
       MERCURE_URL: http://mercure/.well-known/mercure

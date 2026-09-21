@@ -34,7 +34,8 @@ class CajaController extends AbstractController
         private GastoRepositoryInterface $gastoRepo,
         private PrestamoRepositoryInterface $prestamoRepo,
         private PagoPrestamoRepositoryInterface $pagoRepo,
-        private \Doctrine\ORM\EntityManagerInterface $em
+        private \Doctrine\ORM\EntityManagerInterface $em,
+        private string $printerName
     ) {}
 
     #[Route('/deudas', name: 'app_caja_deudas_empresa', methods: ['GET'])]
@@ -269,6 +270,11 @@ class CajaController extends AbstractController
 
         $empresa = $this->em->getRepository(DatosEmpresa::class)->findOneBy([]);
         $nombreEmpresa = $empresa?->getNombre() ?: 'DON WOK';
+
+        if ($empresa && !$empresa->isImpresoraActiva()) {
+            return new JsonResponse(['message' => 'Impresión automática desactivada; cierre listo para continuar']);
+        }
+
         $ticket = "\x1b@\x1ba\x01\x1bE\x01\x1d!\x11" . $nombreEmpresa . "\n";
         $ticket .= "\x1d!\x00\x1bE\x00CIERRE DE CAJA\n";
         $ticket .= "FECHA: " . (new \DateTimeImmutable('now', new \DateTimeZone('America/Bogota')))->format('Y-m-d H:i') . "\n";
@@ -290,14 +296,14 @@ class CajaController extends AbstractController
         $ticket .= "Gracias por preferirnos\n" . "\x1bd\x06\x1d\x56\x00";
 
         try {
-            $process = new Process(['lp', '-o', 'raw', '-d', 'T86LR'], null, null, $ticket);
+            $process = new Process(['lp', '-o', 'raw', '-d', $this->printerName], null, null, $ticket);
             $process->setTimeout(15);
             $process->run();
             if (!$process->isSuccessful()) {
                 throw new \RuntimeException(trim($process->getErrorOutput()) ?: 'CUPS no pudo imprimir el cierre.');
             }
 
-            return new JsonResponse(['message' => 'Cierre enviado a la impresora T86LR']);
+            return new JsonResponse(['message' => 'Cierre enviado a la impresora ' . $this->printerName]);
         } catch (\Throwable $e) {
             error_log('Error imprimiendo cierre: ' . $e->getMessage());
             return new JsonResponse(['message' => 'No se pudo imprimir el cierre: ' . $e->getMessage()], 500);

@@ -8,6 +8,8 @@ services:
     _defaults:
         autowire: true
         autoconfigure: true
+        bind:
+            string $printerName: '%env(PRINTER_NAME)%'
 
     App\:
         resource: '../src/'

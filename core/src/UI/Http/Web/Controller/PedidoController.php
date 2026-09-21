@@ -24,7 +24,8 @@ class PedidoController extends AbstractController
         private CreatePedidoHandler $createHandler,
         private EliminarPedidoHandler $eliminarHandler,
         private EntityManagerInterface $em,
-        private HubInterface $hub
+        private HubInterface $hub,
+        private string $printerName
     ) {}
 
     #[Route('/stats', name: 'app_pedidos_stats', methods: ['GET'])]
@@ -75,7 +76,7 @@ class PedidoController extends AbstractController
 
         try {
             $this->enviarAImpresora($ticket);
-            return new JsonResponse(['message' => 'Ticket enviado a la impresora T86LR']);
+            return new JsonResponse(['message' => 'Ticket enviado a la impresora ' . $this->printerName]);
         } catch (\Throwable $e) {
             error_log('Error imprimiendo ticket: ' . $e->getMessage());
             return new JsonResponse(['message' => 'No se pudo imprimir: ' . $e->getMessage()], 500);
@@ -92,7 +93,7 @@ class PedidoController extends AbstractController
 
         try {
             $this->enviarAImpresora($this->desprendibleTurno($pedido) . $this->prepararCorte());
-            return new JsonResponse(['message' => 'Turno enviado a la impresora T86LR']);
+            return new JsonResponse(['message' => 'Turno enviado a la impresora ' . $this->printerName]);
         } catch (\Throwable $e) {
             error_log('Error imprimiendo turno: ' . $e->getMessage());
             return new JsonResponse(['message' => 'No se pudo imprimir el turno: ' . $e->getMessage()], 500);
@@ -140,7 +141,7 @@ class PedidoController extends AbstractController
 
         try {
             $this->enviarAImpresora($secuencia);
-            return new JsonResponse(['message' => 'Comanda y turno enviados a la impresora T86LR']);
+            return new JsonResponse(['message' => 'Comanda y turno enviados a la impresora ' . $this->printerName]);
         } catch (\Throwable $e) {
             error_log('Error imprimiendo comanda y turno: ' . $e->getMessage());
             return new JsonResponse(['message' => 'No se pudo imprimir la comanda y el turno: ' . $e->getMessage()], 500);
@@ -217,7 +218,7 @@ class PedidoController extends AbstractController
 
         try {
             $this->enviarAImpresora($ticket);
-            return new JsonResponse(['message' => 'Factura enviada a la impresora T86LR']);
+            return new JsonResponse(['message' => 'Factura enviada a la impresora ' . $this->printerName]);
         } catch (\Throwable $e) {
             error_log('Error imprimiendo factura: ' . $e->getMessage());
             return new JsonResponse(['message' => 'No se pudo imprimir la factura: ' . $e->getMessage()], 500);
@@ -349,7 +350,12 @@ class PedidoController extends AbstractController
 
     private function enviarAImpresora(string $contenido): void
     {
-        $process = new Process(['lp', '-o', 'raw', '-d', 'T86LR'], null, null, $contenido);
+        $empresa = $this->em->getRepository(DatosEmpresa::class)->findOneBy([]);
+        if ($empresa && !$empresa->isImpresoraActiva()) {
+            return;
+        }
+
+        $process = new Process(['lp', '-o', 'raw', '-d', $this->printerName], null, null, $contenido);
         $process->setTimeout(15);
         $process->run();
 

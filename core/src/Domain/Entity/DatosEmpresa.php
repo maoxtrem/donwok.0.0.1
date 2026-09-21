@@ -25,6 +25,9 @@ class DatosEmpresa
     #[ORM\Column(length: 50)]
     private string $telefonoDomicilios = '';
 
+    #[ORM\Column(options: ['default' => true])]
+    private bool $impresoraActiva = true;
+
     public function getId(): ?int { return $this->id; }
     public function getNombre(): string { return $this->nombre; }
     public function setNombre(string $nombre): void { $this->nombre = $nombre; }
@@ -34,6 +37,8 @@ class DatosEmpresa
     public function setFraseDia(?string $fraseDia): void { $this->fraseDia = $fraseDia; }
     public function getTelefonoDomicilios(): string { return $this->telefonoDomicilios; }
     public function setTelefonoDomicilios(string $telefono): void { $this->telefonoDomicilios = $telefono; }
+    public function isImpresoraActiva(): bool { return $this->impresoraActiva; }
+    public function setImpresoraActiva(bool $activa): void { $this->impresoraActiva = $activa; }
 
     public function toArray(): array
     {
@@ -43,6 +48,7 @@ class DatosEmpresa
             'nit' => $this->nit,
             'fraseDia' => $this->fraseDia ?? '',
             'telefonoDomicilios' => $this->telefonoDomicilios,
+            'impresoraActiva' => $this->impresoraActiva,
         ];
     }
 }

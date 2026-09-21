@@ -739,6 +739,23 @@
         return true;
     }
 
+    async function impresoraDisponible() {
+        try {
+            const estado = await api.get('/impresora/estado');
+            if (estado?.disponible) return true;
+        } catch (error) {
+            console.error('Impresora no disponible:', error);
+        }
+
+        await Swal.fire({
+            icon: 'warning',
+            title: 'Impresora no disponible',
+            text: 'Encienda o conecte la T86LR antes de registrar el pedido.',
+            confirmButtonText: 'Entendido'
+        });
+        return false;
+    }
+
     window.processOrder = async () => {
         if (cart.length === 0) return;
         const btn = document.getElementById('btn-process');
@@ -749,6 +766,8 @@
         btn.innerText = 'PROCESANDO...';
 
         try {
+            if (!await impresoraDisponible()) return;
+
             const payload = {
                 items: cart.map(item => ({
                     id: item.id,
