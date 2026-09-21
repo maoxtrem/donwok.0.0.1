@@ -23,6 +23,12 @@ services:
     App\Infrastructure\Security\TokenVerifierService:
         arguments:
             $publicKeyPath: '%jwt_public_key%'
+
+    App\Infrastructure\Mercure\MercureTokenFactory:
+        arguments:
+            $secret: '%env(MERCURE_JWT_SECRET)%'
+            $issuer: '%env(MERCURE_JWT_ISSUER)%'
+            $audience: '%env(MERCURE_JWT_AUDIENCE)%'
     
     App\UI\Http\Web\Controller\UserController:
         arguments:

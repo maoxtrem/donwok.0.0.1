@@ -26,6 +26,9 @@ services:
       MERCURE_URL: http://mercure/.well-known/mercure
       MERCURE_PUBLIC_URL: http://localhost/.well-known/mercure
       MERCURE_JWT_SECRET: "secret-key-must-be-at-least-32-chars-long-1234"
+      MERCURE_JWT_ISSUER: "https://localhost"
+      MERCURE_JWT_AUDIENCE: "http://mercure/.well-known/mercure"
+      MERCURE_TOPIC_PEDIDOS: "donwok/pedidos"
     networks:
       - internal_net
 
@@ -79,9 +82,11 @@ services:
       SERVER_NAME: ":80"
       MERCURE_PUBLISHER_JWT_KEY: "secret-key-must-be-at-least-32-chars-long-1234"
       MERCURE_SUBSCRIBER_JWT_KEY: "secret-key-must-be-at-least-32-chars-long-1234"
+      MERCURE_TRUSTED_ISSUERS: "https://localhost"
       MERCURE_EXTRA_DIRECTIVES: |
         anonymous
         cors_origins *
+        protocol_version_compatibility 8
     networks:
       - internal_net
 
