@@ -21,7 +21,12 @@ class EliminarPedidoHandler
             throw new \Exception("Pedido no encontrado.");
         }
 
-        // Solo permitir eliminar si no ha sido facturado ni cerrado
+        // Un pedido facturado debe permanecer en la cola hasta ser preparado.
+        if ($pedido->getNumeroFactura() !== null) {
+            throw new \Exception("No se puede eliminar un pedido que ya ha sido facturado. Debe permanecer en la cola hasta terminarlo.");
+        }
+
+        // Solo permitir eliminar si no ha sido facturado ni cerrado.
         if (!in_array($pedido->getEstado(), [Factura::ESTADO_PENDIENTE, Factura::ESTADO_TERMINADO])) {
             throw new \Exception("No se puede eliminar un pedido que ya ha sido facturado o cerrado. Intente anularlo si es una factura.");
         }

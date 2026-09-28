@@ -295,9 +295,16 @@
     }
 
     .ticket-preview-content .thermal-ticket-turn {
-        font-size: 38px;
+        font-size: 30px;
         font-weight: 700;
         line-height: 1;
+        margin: 8px 0;
+    }
+
+    .ticket-preview-content .thermal-ticket-order {
+        font-size: 44px;
+        font-weight: 800;
+        line-height: 1.1;
         margin: 8px 0;
     }
 
@@ -485,24 +492,13 @@
                         <input type="text" class="form-control border" id="order-client-name" maxlength="80" placeholder="Escriba el nombre para imprimirlo en el ticket">
                     </div>
                     <div class="mb-3">
-                        <div class="row g-2">
-                            <div class="col-6">
-                                <label class="small fw-bold text-muted text-uppercase mb-1">Estado de Pago</label>
-                                <div class="form-check form-switch bg-light p-2 rounded-3 border d-flex align-items-center justify-content-between">
-                                    <label class="form-check-label small ms-2" for="order-is-paid">¿Ya Pagó?</label>
-                                    <input class="form-check-input me-1" type="checkbox" id="order-is-paid" style="width: 2.5em; height: 1.25em;">
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <label class="small fw-bold text-muted text-uppercase mb-1">Tipo de Pedido</label>
-                                <select class="form-select form-select-sm fw-bold border" id="order-type">                                  
-                                    <option value="LLEVAR">Llevar</option>
-                                    <option value="MESA">Mesa</option>
-                                    <option value="DOMICILIO">Domicilio</option>
-                                    <option value="WHATSAPP">WhatsApp</option>
-                                </select>
-                            </div>
-                        </div>
+                        <label class="small fw-bold text-muted text-uppercase mb-1">Tipo de Pedido</label>
+                        <select class="form-select form-select-sm fw-bold border" id="order-type">
+                            <option value="LLEVAR">Llevar</option>
+                            <option value="MESA">Mesa</option>
+                            <option value="DOMICILIO">Domicilio</option>
+                            <option value="WHATSAPP">WhatsApp</option>
+                        </select>
                     </div>
                     <div class="total-display">
                         <span class="label">Total a Pagar</span>
@@ -677,8 +673,8 @@
     function buildTicketMarkup(pedido) {
         const items = (pedido.items || []).map(item => `
             <div class="thermal-ticket-item">
-                <span class="thermal-ticket-item-name">${escapeHtml(item.producto)}</span>
-                <strong>${escapeHtml(item.cantidad)} x</strong>
+                <span class="thermal-ticket-item-name">${escapeHtml(item.producto)}<br><small>$${Number(item.precio || 0).toLocaleString('es-CO')} c/u</small></span>
+                <strong>${escapeHtml(item.cantidad)} x<br>$${Number(item.subtotal || 0).toLocaleString('es-CO')}</strong>
             </div>
         `).join('');
 
@@ -686,15 +682,17 @@
             <div class="thermal-ticket-header">
                 <div class="thermal-ticket-title">DONWOK</div>
                 <div>COMANDA DE PEDIDO</div>
+                <div class="thermal-ticket-order">ORDEN #${escapeHtml(pedido.id)}</div>
                 <div class="thermal-ticket-turn">${escapeHtml(pedido.numeroTicket)}</div>
                 <div class="thermal-ticket-meta">
-                    <span>Orden #${escapeHtml(pedido.id)}</span>
+                    <span>Turno ${escapeHtml(pedido.numeroTicket)}</span>
                     <span>${escapeHtml(formatTicketDate(pedido.fecha))}</span>
                 </div>
             </div>
             <div><strong>DETALLE DEL PEDIDO</strong></div>
             ${items || '<div>Sin productos registrados</div>'}
             <div class="thermal-ticket-footer">
+                <div class="fw-bold fs-6">TOTAL: $${Number(pedido.total || 0).toLocaleString('es-CO')}</div>
                 <div>Tipo: ${escapeHtml(pedido.tipo || 'MESA')}</div>
                 <div>¡Gracias por su compra!</div>
             </div>
@@ -707,10 +705,19 @@
             <div class="thermal-ticket-header">
                 <div class="thermal-ticket-title">DESPRENDIBLE CLIENTE</div>
                 ${cliente ? `<div class="fw-bold">${escapeHtml(cliente)}</div>` : ''}
+                <div class="thermal-ticket-order">ORDEN #${escapeHtml(pedido.id)}</div>
                 <div class="thermal-ticket-turn">TURNO ${escapeHtml(pedido.numeroTicket)}</div>
                 <div class="fw-bold">${pedido.esPago ? 'PAGADO' : 'PENDIENTE DE PAGO'}</div>
                 <div>Conserve este turno</div>
             </div>
+            <div><strong>DETALLE DEL PEDIDO</strong></div>
+            ${(pedido.items || []).map(item => `
+                <div class="thermal-ticket-item">
+                    <span class="thermal-ticket-item-name">${escapeHtml(item.producto)}<br><small>$${Number(item.precio || 0).toLocaleString('es-CO')} c/u</small></span>
+                    <strong>${escapeHtml(item.cantidad)} x<br>$${Number(item.subtotal || 0).toLocaleString('es-CO')}</strong>
+                </div>
+            `).join('') || '<div>Sin productos registrados</div>'}
+            <div class="thermal-ticket-footer"><strong>TOTAL: $${Number(pedido.total || 0).toLocaleString('es-CO')}</strong></div>
         `;
 
         const result = await Swal.fire({
@@ -773,7 +780,6 @@
                     id: item.id,
                     qty: item.qty
                 })),
-                esPago: document.getElementById('order-is-paid').checked,
                 tipo: document.getElementById('order-type').value
             };
 
@@ -802,7 +808,6 @@
             
             cart = [];
             document.getElementById('order-client-name').value = '';
-            document.getElementById('order-is-paid').checked = false;
             document.getElementById('order-type').value = 'MESA';
             renderInvoice();
         } catch (err) {

@@ -13,7 +13,9 @@ services:
       - ./core:/app
       - ./auth/config/jwt/public.pem:/app/config/jwt/public.pem:ro
       - /run/cups/cups.sock:/run/cups/cups.sock
-    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
+    # Limpia el estado de Symfony CLI que puede quedar en el contenedor tras
+    # un reinicio y evita que el proceso termine con "server already running".
+    command: ["sh", "-lc", "symfony server:stop --all >/dev/null 2>&1 || true; exec symfony serve --no-tls --allow-http --listen-ip=0.0.0.0 --port=80"]
     depends_on:
       - db
     environment:
@@ -47,7 +49,7 @@ services:
     volumes:
       - ./auth:/app
       - ./auth/config/jwt:/app/config/jwt:rw
-    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
+    command: ["sh", "-lc", "symfony server:stop --all >/dev/null 2>&1 || true; exec symfony serve --no-tls --allow-http --listen-ip=0.0.0.0 --port=80"]
     environment:
       APP_ENV: dev
       JWT_PRIVATE_KEY: /app/config/jwt/private.pem
@@ -72,7 +74,7 @@ services:
       dockerfile: Dockerfile.frontend
     volumes:
       - ./frontend:/app
-    command: ["symfony", "serve", "--no-tls", "--allow-http", "--listen-ip=0.0.0.0", "--port=80"]
+    command: ["sh", "-lc", "symfony server:stop --all >/dev/null 2>&1 || true; exec symfony serve --no-tls --allow-http --listen-ip=0.0.0.0 --port=80"]
     networks:
       - internal_net
 

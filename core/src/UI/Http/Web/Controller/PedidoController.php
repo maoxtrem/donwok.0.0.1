@@ -58,7 +58,9 @@ class PedidoController extends AbstractController
         $ticket .= $esc . "E" . "\x01" . $gs . "!" . "\x11";
         $ticket .= "TURNO: " . ($pedido->getNumeroTicket() ?? '---') . "\n";
         $ticket .= $gs . "!" . "\x00" . $esc . "E" . "\x00";
-        $ticket .= "ORDEN: #" . $pedido->getId() . "\n";
+        $ticket .= $esc . "E" . "\x01" . $gs . "!" . "\x22";
+        $ticket .= "ORDEN #" . $pedido->getId() . "\n";
+        $ticket .= $gs . "!" . "\x00" . $esc . "E" . "\x00";
         $ticket .= "FECHA: " . $this->fechaBogota($pedido->getFechaCreacion()) . "\n";
         $ticket .= str_repeat('-', 32) . "\n";
         $ticket .= "DETALLE DEL PEDIDO\n";
@@ -121,7 +123,9 @@ class PedidoController extends AbstractController
         $comanda .= $esc . "E" . "\x01" . $gs . "!" . "\x11";
         $comanda .= "TURNO: " . ($pedido->getNumeroTicket() ?? '---') . "\n";
         $comanda .= $gs . "!" . "\x00" . $esc . "E" . "\x00";
-        $comanda .= "ORDEN: #" . $pedido->getId() . "\n";
+        $comanda .= $esc . "E" . "\x01" . $gs . "!" . "\x22";
+        $comanda .= "ORDEN #" . $pedido->getId() . "\n";
+        $comanda .= $gs . "!" . "\x00" . $esc . "E" . "\x00";
         if ($cliente !== '') {
             $comanda .= "CLIENTE: " . $cliente . "\n";
         }
@@ -215,6 +219,11 @@ class PedidoController extends AbstractController
         }
         $ticket .= "Gracias por preferirnos\n";
         $ticket .= $this->prepararCorte();
+        // El cajón está conectado al puerto RJ de la impresora. Solo se abre
+        // cuando la factura tiene un componente pagado en efectivo.
+        if ($pedido->getPagoEfectivo() > 0) {
+            $ticket .= $this->abrirCajon();
+        }
 
         try {
             $this->enviarAImpresora($ticket);
@@ -252,13 +261,31 @@ class PedidoController extends AbstractController
         }
     }
 
+    #[Route('/{id}/entregar', name: 'app_pedidos_entregar', methods: ['POST'])]
+    public function entregar(int $id, FacturaRepository $repo): JsonResponse
+    {
+        $pedido = $repo->find($id);
+        if (!$pedido) return new JsonResponse(['message' => 'Pedido no encontrado'], 404);
+
+        try {
+            $pedido->marcarComoEntregado();
+            $this->em->flush();
+            $this->publishUpdate($pedido, 'ORDER_DELIVERED');
+
+            return new JsonResponse(['message' => 'Pedido entregado', 'pedido' => $pedido->toArray()]);
+        } catch (\Exception $e) {
+            error_log('Error entregando pedido: ' . $e->getMessage());
+            return new JsonResponse(['message' => $e->getMessage()], 400);
+        }
+    }
+
     #[Route('/{id}/facturar', name: 'app_pedidos_facturar', methods: ['POST'])]
     public function facturar(int $id, Request $request, FacturaRepository $repo): JsonResponse
     {
         $pedido = $repo->find($id);
         if (!$pedido) return new JsonResponse(['message' => 'No encontrado'], 404);
         
-        if ($pedido->getEstado() === Factura::ESTADO_FACTURADO) {
+        if ($pedido->getNumeroFactura() !== null) {
             return new JsonResponse(['message' => 'Este pedido ya fue facturado anteriormente']);
         }
 
@@ -271,7 +298,8 @@ class PedidoController extends AbstractController
             $pedido->facturar($proximoNumero, $efectivo, $nequi);
             $this->em->flush();
             
-            $this->publishUpdate($pedido, 'ORDER_INVOICED');
+            // La factura no saca el pedido de producción; solo actualiza la fila.
+            $this->publishUpdate($pedido, 'ORDER_UPDATED');
             return new JsonResponse(['message' => 'Facturado con éxito: ' . $proximoNumero, 'pedido' => $pedido->toArray()]);
         } catch (\Exception $e) { 
             return new JsonResponse(['message' => $e->getMessage()], 400); 
@@ -368,16 +396,30 @@ class PedidoController extends AbstractController
     {
         $ticket = "\x1b@"
             . "\x1ba\x01"
-            . "DESPRENDIBLE CLIENTE\n";
+            . "DESPRENDIBLE CLIENTE\n"
+            . "\x1bE\x01\x1d!\x11"
+            . "ORDEN #" . $pedido->getId() . "\n"
+            . "\x1d!\x00\x1bE\x00";
 
         if ($cliente !== '') {
             $ticket .= $cliente . "\n";
         }
 
+        $ticket .= "TURNO: " . ($pedido->getNumeroTicket() ?? '---') . "\n";
+        $ticket .= str_repeat('-', 32) . "\nDETALLE DEL PEDIDO\n" . str_repeat('-', 32) . "\n";
+        $ticket .= "\x1ba\x00";
+
+        foreach ($pedido->getDetalles() as $detalle) {
+            $subtotal = $detalle->getPrecioUnitario() * $detalle->getCantidad();
+            $ticket .= $detalle->getCantidad() . ' x ' . $detalle->getNombreProducto() . "\n";
+            $ticket .= '   $' . number_format($detalle->getPrecioUnitario(), 0, ',', '.')
+                . ' c/u  $' . number_format($subtotal, 0, ',', '.') . "\n";
+        }
+
         return $ticket
-            . "\x1bE\x01\x1d!\x11"
-            . "TURNO: " . ($pedido->getNumeroTicket() ?? '---') . "\n"
-            . "\x1d!\x00\x1bE\x00"
+            . str_repeat('-', 32) . "\n"
+            . "TOTAL: $" . number_format($pedido->getTotal(), 0, ',', '.') . "\n"
+            . "TIPO: " . $pedido->getTipo() . "\n"
             . "ESTADO: " . ($pedido->isEsPago() ? 'PAGADO' : 'PENDIENTE DE PAGO') . "\n"
             . "Gracias por su compra\n";
     }
@@ -387,6 +429,12 @@ class PedidoController extends AbstractController
         // Avance y corte físico ESC/POS, sin imprimir una línea adicional.
         return "\x1bd\x06" // Avanza 6 líneas para separar el corte del texto.
             . "\x1d\x56\x00"; // Corte total.
+    }
+
+    private function abrirCajon(): string
+    {
+        // ESC/POS: ESC p m t1 t2. Pin 2, 50 ms activo y 500 ms de pausa.
+        return "\x1b\x70\x00\x19\xfa";
     }
 
     private function fechaBogota(?\DateTimeImmutable $fecha): string

@@ -16,6 +16,7 @@ class Factura
 
     public const ESTADO_PENDIENTE = 'PENDIENTE';
     public const ESTADO_TERMINADO = 'TERMINADO';
+    public const ESTADO_ENTREGADO = 'ENTREGADO';
     public const ESTADO_FACTURADO = 'FACTURADO';
     public const ESTADO_CERRADA = 'CERRADA';
     public const ESTADO_ANULADA = 'ANULADA';
@@ -87,11 +88,32 @@ class Factura
 
     public function marcarComoTerminado(): void 
     { 
+        if ($this->estado !== self::ESTADO_PENDIENTE) {
+            throw new \Exception('Solo se puede terminar un pedido pendiente.');
+        }
+
         $this->estado = self::ESTADO_TERMINADO; 
+    }
+
+    public function marcarComoEntregado(): void
+    {
+        if ($this->estado !== self::ESTADO_TERMINADO) {
+            throw new \Exception('Solo se puede entregar un pedido terminado.');
+        }
+
+        if ($this->numeroFactura === null) {
+            throw new \Exception('No se puede entregar un pedido sin factura. Primero debe facturarlo e imprimir la factura.');
+        }
+
+        $this->estado = self::ESTADO_ENTREGADO;
     }
     
     public function facturar(string $numero, float $efectivo = 0, float $nequi = 0): void 
     { 
+        if ($this->numeroFactura !== null) {
+            throw new \Exception('Este pedido ya fue facturado anteriormente');
+        }
+
         if (abs(($efectivo + $nequi) - $this->total) > 0.01) {
             throw new \Exception("La suma de los pagos ($efectivo + $nequi) debe ser igual al total de la factura ({$this->total})");
         }
@@ -99,7 +121,8 @@ class Factura
         $this->numeroFactura = $numero;
         $this->pagoEfectivo = $efectivo;
         $this->pagoNequi = $nequi;
-        $this->estado = self::ESTADO_FACTURADO; 
+        // Facturar no termina el pedido: producción debe mantenerlo en cola.
+        $this->esPago = true;
     }
 
     public function cerrar(): void

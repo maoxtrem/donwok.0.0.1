@@ -33,7 +33,13 @@ class FacturaRepository extends ServiceEntityRepository implements FacturaReposi
      */
     public function findPendientesCierre(): array
     {
-        return $this->findBy(['estado' => Factura::ESTADO_FACTURADO]);
+        return $this->createQueryBuilder('f')
+            ->andWhere('f.numeroFactura IS NOT NULL')
+            ->andWhere('f.estado NOT IN (:estadosNoCobrables)')
+            ->setParameter('estadosNoCobrables', [Factura::ESTADO_ANULADA, Factura::ESTADO_CERRADA])
+            ->orderBy('f.id', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 
     public function getNextInvoiceNumber(): string

@@ -397,8 +397,9 @@
     function handleIncomingEvent(data) {
         if (data.type === 'NEW_ORDER') window.renderOrder(data.pedido, 'pending');
         else if (data.type === 'ORDER_READY') window.moveOrder(data.pedido);
-        else if (data.type === 'ORDER_INVOICED') window.removeOrder(data.pedido.id);
-        else if (data.type === 'ORDER_DELETED') window.removeOrder(data.pedidoId);
+        // Facturar no retira el pedido: producción aún debe prepararlo.
+        else if (data.type === 'ORDER_INVOICED') refreshBoardState();
+        else if (data.type === 'ORDER_DELIVERED' || data.type === 'ORDER_DELETED') window.removeOrder(data.pedidoId ?? data.pedido?.id);
     }
 
     window.renderOrder = (pedido, type) => {
