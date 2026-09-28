@@ -48,16 +48,13 @@ class PedidoController extends AbstractController
             return new JsonResponse(['message' => 'Pedido no encontrado'], 404);
         }
 
-        // Formato ESC/POS: encabezado y turno grandes; detalle en tamaño normal.
+        // Formato ESC/POS: número de orden destacado y detalle en tamaño normal.
         $esc = "\x1b";
         $gs = "\x1d";
         $ticket = $esc . "@"; // Inicializar impresora
         $ticket .= $esc . "a" . "\x01"; // Centrado
         $ticket .= $esc . "E" . "\x01" . $gs . "!" . "\x11" . "DONWOK\n";
         $ticket .= $gs . "!" . "\x00" . $esc . "E" . "\x00" . "COMANDA\n";
-        $ticket .= $esc . "E" . "\x01" . $gs . "!" . "\x11";
-        $ticket .= "TURNO: " . ($pedido->getNumeroTicket() ?? '---') . "\n";
-        $ticket .= $gs . "!" . "\x00" . $esc . "E" . "\x00";
         $ticket .= $esc . "E" . "\x01" . $gs . "!" . "\x22";
         $ticket .= "ORDEN #" . $pedido->getId() . "\n";
         $ticket .= $gs . "!" . "\x00" . $esc . "E" . "\x00";
@@ -85,25 +82,8 @@ class PedidoController extends AbstractController
         }
     }
 
-    #[Route('/{id}/imprimir-turno', name: 'app_pedidos_imprimir_turno', methods: ['POST'])]
-    public function imprimirTurno(int $id, FacturaRepository $repo): JsonResponse
-    {
-        $pedido = $repo->find($id);
-        if (!$pedido) {
-            return new JsonResponse(['message' => 'Pedido no encontrado'], 404);
-        }
-
-        try {
-            $this->enviarAImpresora($this->desprendibleTurno($pedido) . $this->prepararCorte());
-            return new JsonResponse(['message' => 'Turno enviado a la impresora ' . $this->printerName]);
-        } catch (\Throwable $e) {
-            error_log('Error imprimiendo turno: ' . $e->getMessage());
-            return new JsonResponse(['message' => 'No se pudo imprimir el turno: ' . $e->getMessage()], 500);
-        }
-    }
-
-    #[Route('/{id}/imprimir-comanda-turno', name: 'app_pedidos_imprimir_comanda_turno', methods: ['POST'])]
-    public function imprimirComandaYTurno(int $id, Request $request, FacturaRepository $repo): JsonResponse
+    #[Route('/{id}/imprimir-comanda', name: 'app_pedidos_imprimir_comanda', methods: ['POST'])]
+    public function imprimirComanda(int $id, Request $request, FacturaRepository $repo): JsonResponse
     {
         $pedido = $repo->find($id);
         if (!$pedido) {
@@ -120,9 +100,6 @@ class PedidoController extends AbstractController
         $comanda .= $esc . "a" . "\x01";
         $comanda .= $esc . "E" . "\x01" . $gs . "!" . "\x11" . "DONWOK\n";
         $comanda .= $gs . "!" . "\x00" . $esc . "E" . "\x00" . "COMANDA\n";
-        $comanda .= $esc . "E" . "\x01" . $gs . "!" . "\x11";
-        $comanda .= "TURNO: " . ($pedido->getNumeroTicket() ?? '---') . "\n";
-        $comanda .= $gs . "!" . "\x00" . $esc . "E" . "\x00";
         $comanda .= $esc . "E" . "\x01" . $gs . "!" . "\x22";
         $comanda .= "ORDEN #" . $pedido->getId() . "\n";
         $comanda .= $gs . "!" . "\x00" . $esc . "E" . "\x00";
@@ -140,15 +117,15 @@ class PedidoController extends AbstractController
         $comanda .= str_repeat('-', 32) . "\nTIPO: " . $pedido->getTipo() . "\n";
         $comanda .= $this->prepararCorte();
 
-        // La comanda se imprime y se corta antes de imprimir el desprendible.
-        $secuencia = $comanda . $this->desprendibleTurno($pedido, $cliente) . $this->prepararCorte();
+        // La comanda se imprime y se corta antes de imprimir el desprendible del cliente.
+        $secuencia = $comanda . $this->desprendibleCliente($pedido, $cliente) . $this->prepararCorte();
 
         try {
             $this->enviarAImpresora($secuencia);
-            return new JsonResponse(['message' => 'Comanda y turno enviados a la impresora ' . $this->printerName]);
+            return new JsonResponse(['message' => 'Comanda y desprendible enviados a la impresora ' . $this->printerName]);
         } catch (\Throwable $e) {
-            error_log('Error imprimiendo comanda y turno: ' . $e->getMessage());
-            return new JsonResponse(['message' => 'No se pudo imprimir la comanda y el turno: ' . $e->getMessage()], 500);
+            error_log('Error imprimiendo comanda y desprendible: ' . $e->getMessage());
+            return new JsonResponse(['message' => 'No se pudo imprimir la comanda y el desprendible: ' . $e->getMessage()], 500);
         }
     }
 
@@ -392,7 +369,7 @@ class PedidoController extends AbstractController
         }
     }
 
-    private function desprendibleTurno(Factura $pedido, string $cliente = ''): string
+    private function desprendibleCliente(Factura $pedido, string $cliente = ''): string
     {
         $ticket = "\x1b@"
             . "\x1ba\x01"
@@ -405,7 +382,6 @@ class PedidoController extends AbstractController
             $ticket .= $cliente . "\n";
         }
 
-        $ticket .= "TURNO: " . ($pedido->getNumeroTicket() ?? '---') . "\n";
         $ticket .= str_repeat('-', 32) . "\nDETALLE DEL PEDIDO\n" . str_repeat('-', 32) . "\n";
         $ticket .= "\x1ba\x00";
 

@@ -16,6 +16,4 @@ interface FacturaRepositoryInterface
         public function findPendientesCierre(): array;
     
         public function getNextInvoiceNumber(): string;
-    
-        public function getNextTicketNumber(): int;
     }

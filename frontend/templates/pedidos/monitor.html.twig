@@ -134,8 +134,8 @@
         box-shadow: 0 12px 28px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     }
 
-    .ready-ticket {
-        font-size: clamp(3rem, 6vw, 4.4rem);
+    .ready-order {
+        font-size: clamp(2rem, 4vw, 3rem);
         line-height: 1;
         font-weight: 900;
         color: #ecfdf5;
@@ -224,8 +224,8 @@
         border-color: rgba(245, 158, 11, 0.35);
     }
 
-    .pending-ticket {
-        font-size: 2rem;
+    .pending-order {
+        font-size: 1.5rem;
         font-weight: 900;
         color: #fef3c7;
         line-height: 1;
@@ -290,7 +290,7 @@
         .ready-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
         .pending-footer { padding: 0.55rem 0.65rem 0.75rem; }
         .order-pending { min-width: 96px; height: 62px; }
-        .pending-ticket { font-size: 1.55rem; }
+        .pending-order { font-size: 1.25rem; }
     }
 </style>
 {% endblock %}
@@ -407,19 +407,14 @@
         const container = type === 'pending'
             ? document.getElementById('pending-list')
             : document.getElementById('ready-list');
-        const ticket = pedido.numeroTicket ?? '---';
-
         const card = type === 'pending'
             ? `
             <div class="order-card order-pending" id="order-${pedido.id}">
-                <div class="pending-ticket">${ticket}</div>
-                <div class="pending-id">#${pedido.id}</div>
+                <div class="pending-order">${pedido.id}</div>
             </div>`
             : `
             <div class="order-card order-ready" id="order-${pedido.id}">
-                <div class="ready-ticket">${ticket}</div>
-                <div class="ready-meta">Listo para entrega</div>
-                <div class="ready-id">#${pedido.id}</div>
+                <div class="ready-order">${pedido.id}</div>
             </div>`;
 
         container.insertAdjacentHTML('beforeend', card);

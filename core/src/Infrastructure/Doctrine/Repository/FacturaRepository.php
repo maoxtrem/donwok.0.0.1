@@ -65,26 +65,4 @@ class FacturaRepository extends ServiceEntityRepository implements FacturaReposi
         return "#" . str_pad((string)$nextNumber, 6, '0', STR_PAD_LEFT);
     }
 
-    public function getNextTicketNumber(): int
-    {
-        // Buscamos los tiquetes ocupados por pedidos activos
-        $qb = $this->createQueryBuilder('f');
-        $ocupados = $qb->select('f.numeroTicket')
-            ->where('f.estado IN (:estados)')
-            ->setParameter('estados', [Factura::ESTADO_PENDIENTE, Factura::ESTADO_TERMINADO])
-            ->getQuery()
-            ->getScalarResult();
-
-        $tiquetesOcupados = array_column($ocupados, 'numeroTicket');
-
-        // Buscamos el primer número disponible del 1 al 20
-        for ($i = 1; $i <= 20; $i++) {
-            if (!in_array($i, $tiquetesOcupados)) {
-                return $i;
-            }
-        }
-
-        // Si todos están ocupados (raro), buscamos el máximo y seguimos (o reciclamos)
-        return 1; 
-    }
 }

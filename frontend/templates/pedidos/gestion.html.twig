@@ -499,8 +499,7 @@
         const isPending = p.estado === 'PENDIENTE';
         const isBilled = Boolean(p.numeroFactura);
         const badgeClass = isPending ? 'bg-warning-subtle text-warning' : 'bg-success-subtle text-success';
-        const labelNro = p.numeroTicket ? `T-${p.numeroTicket}` : `---`;
-        const labelId = `<div class="order-number">ORDEN #${p.id}</div><small class="text-muted">${labelNro}</small>`;
+        const labelId = `<div class="order-number">ORDEN #${p.id}</div>`;
 
         const tipoSelect = `
             <select class="form-select form-select-sm border-0 bg-light fw-bold" onchange="window.actualizarDatoPedido(${p.id}, {tipo: this.value})">
