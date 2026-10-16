@@ -34,7 +34,7 @@ class RegistrarEgresoHandler
         $categoria = $this->categoriaRepo->buscarPorId($categoriaId);
         $cuenta = $this->cuentaRepo->buscarPorId($cuentaId);
 
-        if (!$categoria || !$cuenta) {
+        if (!$categoria || !$cuenta || !$cuenta->estaActiva() || !$cuenta->usarEnEgresos()) {
             throw new \Exception("Categoría o Cuenta no válida.");
         }
 

@@ -47,6 +47,87 @@
             </div>
         </form>
     </div>
+
+    <div class="dw-card p-4 mx-auto mt-4" style="max-width: 1000px;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5 class="fw-bold mb-1">Deducciones de cierre</h5>
+                <p class="text-muted mb-0 small">Se aplican sobre el total de ventas al realizar el cierre de caja.</p>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="abrirDeduccion()">
+                <i class="bi bi-plus-lg me-1"></i>Agregar deducción
+            </button>
+        </div>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th class="text-end">Valor</th>
+                        <th class="text-center">Frecuencia</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Cierre</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="deducciones-body">
+                    <tr><td colspan="7" class="text-center text-muted py-4">Cargando deducciones...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deduccion-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold" id="deduccion-modal-title">Nueva deducción</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="deduccion-form">
+                <div class="modal-body">
+                    <input type="hidden" id="deduccion-id">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nombre</label>
+                        <input class="form-control" id="deduccion-nombre" maxlength="150" required placeholder="Ejemplo: Comisión bancaria">
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label fw-bold">Tipo</label>
+                            <select class="form-select" id="deduccion-tipo">
+                                <option value="PORCENTAJE">Porcentaje</option>
+                                <option value="VALOR">Valor fijo</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold">Valor</label>
+                            <input type="number" class="form-control" id="deduccion-valor" min="0" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch mt-3">
+                        <input class="form-check-input" type="checkbox" id="deduccion-activo" checked>
+                        <label class="form-check-label fw-bold">Activa para el cierre</label>
+                    </div>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="deduccion-cada-cierre" checked>
+                        <label class="form-check-label fw-bold">Aplicar en cada cierre</label>
+                        <small class="d-block text-muted">Desactivado: se genera como cuenta por pagar una sola vez al día.</small>
+                    </div>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="deduccion-mostrar-cierre" checked>
+                        <label class="form-check-label fw-bold">Mostrar e imprimir en el cierre</label>
+                        <small class="d-block text-muted">Desactivado: no aparece en pantalla ni en el ticket.</small>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -55,6 +136,7 @@
     import CoreAPI from '/js/core.js';
     const api = new CoreAPI();
     const byId = id => document.getElementById(id);
+    let deducciones = [];
 
     async function cargar() {
         try {
@@ -64,10 +146,82 @@
             byId('empresa-frase').value = empresa.fraseDia || '';
             byId('empresa-telefono').value = empresa.telefonoDomicilios || '';
             byId('empresa-impresora').checked = empresa.impresoraActiva !== false;
+            await cargarDeducciones();
         } catch (error) {
             console.error(error);
         }
     }
+
+    async function cargarDeducciones() {
+        deducciones = await api.get('/datos-empresa/deducciones');
+        renderDeducciones();
+    }
+
+    function renderDeducciones() {
+        const body = byId('deducciones-body');
+        body.innerHTML = deducciones.map(d => `
+            <tr>
+                <td class="fw-bold">${d.nombre}</td>
+                <td>${d.tipo === 'PORCENTAJE' ? 'Porcentaje' : 'Valor fijo'}</td>
+                <td class="text-end">${d.tipo === 'PORCENTAJE' ? `${Number(d.valor).toFixed(2)}%` : `$${Number(d.valor).toLocaleString('es-CO')}`}</td>
+                <td class="text-center">${d.cadaCierre ? 'Cada cierre' : 'Una vez al día'}</td>
+                <td class="text-center">
+                    <span class="badge ${d.activo ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}">${d.activo ? 'Activa' : 'Inactiva'}</span>
+                </td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary" onclick="editarDeduccion(${d.id})"><i class="bi bi-pencil"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarDeduccion(${d.id})"><i class="bi bi-trash"></i></button>
+                </td>
+            </tr>
+        `).join('') || '<tr><td colspan="6" class="text-center text-muted py-4">No hay deducciones configuradas.</td></tr>';
+    }
+
+    window.abrirDeduccion = () => {
+        byId('deduccion-form').reset();
+        byId('deduccion-id').value = '';
+        byId('deduccion-activo').checked = true;
+        byId('deduccion-cada-cierre').checked = true;
+        byId('deduccion-modal-title').innerText = 'Nueva deducción';
+        bootstrap.Modal.getOrCreateInstance(byId('deduccion-modal')).show();
+    };
+
+    window.editarDeduccion = id => {
+        const d = deducciones.find(item => item.id === id);
+        if (!d) return;
+        byId('deduccion-id').value = d.id;
+        byId('deduccion-nombre').value = d.nombre;
+        byId('deduccion-tipo').value = d.tipo;
+        byId('deduccion-valor').value = d.valor;
+        byId('deduccion-activo').checked = d.activo;
+        byId('deduccion-cada-cierre').checked = d.cadaCierre;
+        byId('deduccion-modal-title').innerText = 'Editar deducción';
+        bootstrap.Modal.getOrCreateInstance(byId('deduccion-modal')).show();
+    };
+
+    window.eliminarDeduccion = async id => {
+        if (!confirm('¿Eliminar esta deducción?')) return;
+        await api.delete(`/datos-empresa/deducciones/${id}`);
+        await cargarDeducciones();
+    };
+
+    byId('deduccion-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        const id = byId('deduccion-id').value;
+        const payload = {
+            nombre: byId('deduccion-nombre').value,
+            tipo: byId('deduccion-tipo').value,
+            valor: parseFloat(byId('deduccion-valor').value),
+            activo: byId('deduccion-activo').checked,
+            cadaCierre: byId('deduccion-cada-cierre').checked
+        };
+        if (id) {
+            await api.patch(`/datos-empresa/deducciones/${id}`, payload);
+        } else {
+            await api.post('/datos-empresa/deducciones', payload);
+        }
+        bootstrap.Modal.getInstance(byId('deduccion-modal')).hide();
+        await cargarDeducciones();
+    });
 
     byId('empresa-form').addEventListener('submit', async event => {
         event.preventDefault();

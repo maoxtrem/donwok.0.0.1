@@ -28,7 +28,6 @@ class UpdateProductoHandler
         } else {
             $producto->desactivar();
         }
-
         $this->repo->guardar($producto);
 
         return new ProductoResponseDTO(
@@ -36,7 +35,8 @@ class UpdateProductoHandler
             $producto->getNombre(),
             $producto->getPrecioActual(),
             $producto->getCostoActual(),
-            $producto->isActivo()
+            $producto->isActivo(),
+            $producto->getScore()
         );
     }
 }

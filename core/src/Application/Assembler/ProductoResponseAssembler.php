@@ -14,7 +14,8 @@ class ProductoResponseAssembler
             $producto->getNombre(),
             $producto->getPrecioActual(),
             $producto->getCostoActual(),
-            $producto->isActivo()
+            $producto->isActivo(),
+            $producto->getScore()
         );
     }
 }

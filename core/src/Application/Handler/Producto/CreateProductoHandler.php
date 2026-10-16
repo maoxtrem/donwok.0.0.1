@@ -18,7 +18,7 @@ class CreateProductoHandler
             $dto->nombre,
             $dto->precioActual,
             $dto->costoActual,
-            $dto->activo ?? true // por si no se envía activo
+            $dto->activo ?? true
         );
 
         // Guardar en el repositorio
@@ -30,7 +30,8 @@ class CreateProductoHandler
             $producto->getNombre(),
             $producto->getPrecioActual(),
             $producto->getCostoActual(),
-            $producto->isActivo()
+            $producto->isActivo(),
+            $producto->getScore()
         );
     }
 }

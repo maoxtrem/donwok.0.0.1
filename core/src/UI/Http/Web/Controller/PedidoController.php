@@ -8,6 +8,7 @@ use App\Application\Handler\Pedido\EliminarPedidoHandler;
 use App\Domain\Entity\DatosEmpresa;
 use App\Infrastructure\Doctrine\Repository\FacturaRepository;
 use App\Domain\Entity\Factura;
+use App\Domain\Repository\CuentaFinancieraRepositoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -25,7 +26,8 @@ class PedidoController extends AbstractController
         private EliminarPedidoHandler $eliminarHandler,
         private EntityManagerInterface $em,
         private HubInterface $hub,
-        private string $printerName
+        private string $printerName,
+        private CuentaFinancieraRepositoryInterface $cuentaRepo
     ) {}
 
     #[Route('/stats', name: 'app_pedidos_stats', methods: ['GET'])]
@@ -91,8 +93,8 @@ class PedidoController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true) ?? [];
-        // Este nombre solo vive durante esta impresión; nunca se persiste.
-        $cliente = trim(substr((string)($data['cliente'] ?? ''), 0, 80));
+        $cliente = $pedido->getClienteNombre() ?: '';
+        $domicilio = $pedido->getDomicilioDescripcion() ?: '';
 
         $esc = "\x1b";
         $gs = "\x1d";
@@ -103,9 +105,6 @@ class PedidoController extends AbstractController
         $comanda .= $esc . "E" . "\x01" . $gs . "!" . "\x22";
         $comanda .= "ORDEN #" . $pedido->getId() . "\n";
         $comanda .= $gs . "!" . "\x00" . $esc . "E" . "\x00";
-        if ($cliente !== '') {
-            $comanda .= "CLIENTE: " . $cliente . "\n";
-        }
         $comanda .= "FECHA: " . $this->fechaBogota($pedido->getFechaCreacion()) . "\n";
         $comanda .= str_repeat('-', 32) . "\nDETALLE DEL PEDIDO\n" . str_repeat('-', 32) . "\n";
         $comanda .= $esc . "a" . "\x00";
@@ -118,7 +117,7 @@ class PedidoController extends AbstractController
         $comanda .= $this->prepararCorte();
 
         // La comanda se imprime y se corta antes de imprimir el desprendible del cliente.
-        $secuencia = $comanda . $this->desprendibleCliente($pedido, $cliente) . $this->prepararCorte();
+        $secuencia = $comanda . $this->desprendibleCliente($pedido, $cliente, $domicilio) . $this->prepararCorte();
 
         try {
             $this->enviarAImpresora($secuencia);
@@ -203,7 +202,9 @@ class PedidoController extends AbstractController
         }
 
         try {
-            $this->enviarAImpresora($ticket);
+            // La decisión de imprimir se toma explícitamente desde Gestión;
+            // no debe quedar bloqueada por el interruptor general de empresa.
+            $this->enviarAImpresora($ticket, true);
             return new JsonResponse(['message' => 'Factura enviada a la impresora ' . $this->printerName]);
         } catch (\Throwable $e) {
             error_log('Error imprimiendo factura: ' . $e->getMessage());
@@ -267,12 +268,24 @@ class PedidoController extends AbstractController
         }
 
         $data = json_decode($request->getContent(), true) ?? [];
-        $efectivo = (float)($data['efectivo'] ?? 0);
-        $nequi = (float)($data['nequi'] ?? 0);
-
         try {
             $proximoNumero = $repo->getNextInvoiceNumber();
-            $pedido->facturar($proximoNumero, $efectivo, $nequi);
+            if (isset($data['pagos']) && is_array($data['pagos'])) {
+                $pagos = [];
+                foreach ($data['pagos'] as $pago) {
+                    $cuentaId = (int)($pago['cuenta_id'] ?? 0);
+                    $monto = (float)($pago['monto'] ?? 0);
+                    $cuenta = $this->cuentaRepo->buscarPorId($cuentaId);
+                    if (!$cuenta || !$cuenta->estaActiva() || !$cuenta->usarEnFacturacion() || $monto <= 0) {
+                        throw new \InvalidArgumentException('La cuenta seleccionada no está disponible para facturación.');
+                    }
+                    $pagos[] = ['cuenta_id' => $cuenta->getId(), 'monto' => round($monto, 2), 'tipo' => $cuenta->getTipo()];
+                }
+                if (!$pagos) throw new \InvalidArgumentException('Distribuye el total entre al menos una cuenta.');
+                $pedido->facturarConPagos($proximoNumero, $pagos);
+            } else {
+                $pedido->facturar($proximoNumero, (float)($data['efectivo'] ?? 0), (float)($data['nequi'] ?? 0));
+            }
             $this->em->flush();
             
             // La factura no saca el pedido de producción; solo actualiza la fila.
@@ -312,6 +325,8 @@ class PedidoController extends AbstractController
         );
         try {
             $factura = $this->createHandler->handle($dto);
+            $factura->setDatosCliente($data['cliente_nombre'] ?? null, $data['domicilio_descripcion'] ?? null);
+            $this->em->flush();
             $this->publishUpdate($factura, 'NEW_ORDER');
             return new JsonResponse(['message' => 'Pedido en cola', 'pedido' => $factura->toArray()], 201);
         } catch (\Exception $e) { return new JsonResponse(['message' => $e->getMessage()], 400); }
@@ -353,10 +368,10 @@ class PedidoController extends AbstractController
         $this->hub->publish($update);
     }
 
-    private function enviarAImpresora(string $contenido): void
+    private function enviarAImpresora(string $contenido, bool $forzar = false): void
     {
         $empresa = $this->em->getRepository(DatosEmpresa::class)->findOneBy([]);
-        if ($empresa && !$empresa->isImpresoraActiva()) {
+        if (!$forzar && $empresa && !$empresa->isImpresoraActiva()) {
             return;
         }
 
@@ -369,7 +384,7 @@ class PedidoController extends AbstractController
         }
     }
 
-    private function desprendibleCliente(Factura $pedido, string $cliente = ''): string
+    private function desprendibleCliente(Factura $pedido, string $cliente = '', string $domicilio = ''): string
     {
         $ticket = "\x1b@"
             . "\x1ba\x01"
@@ -380,6 +395,10 @@ class PedidoController extends AbstractController
 
         if ($cliente !== '') {
             $ticket .= $cliente . "\n";
+        }
+
+        if ($pedido->getTipo() === 'DOMICILIO' && $domicilio !== '') {
+            $ticket .= "DOMICILIO:\n" . $domicilio . "\n";
         }
 
         $ticket .= str_repeat('-', 32) . "\nDETALLE DEL PEDIDO\n" . str_repeat('-', 32) . "\n";

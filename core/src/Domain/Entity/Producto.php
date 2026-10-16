@@ -29,6 +29,9 @@ class Producto
     #[ORM\Column]
     private bool $activo = true;
 
+    #[ORM\Column(options: ['default' => 0])]
+    private int $score = 0;
+
     // Constructor
     public function __construct(
         string $nombre,
@@ -71,6 +74,20 @@ class Producto
         return $this->activo;
     }
 
+    public function getScore(): int
+    {
+        return $this->score;
+    }
+
+    public function incrementarScore(int $cantidad = 1): void
+    {
+        if ($cantidad < 1) {
+            return;
+        }
+
+        $this->score += $cantidad;
+    }
+
     // Métodos de negocio
     public function actualizarNombre(string $nuevoNombre): void
     {
@@ -105,4 +122,5 @@ class Producto
     {
         $this->activo = false;
     }
+
 }

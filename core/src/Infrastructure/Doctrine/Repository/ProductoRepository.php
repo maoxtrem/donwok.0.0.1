@@ -36,6 +36,8 @@ class ProductoRepository extends ServiceEntityRepository implements \App\Domain\
     {
         return $this->createQueryBuilder('p')
             ->andWhere('p.fechaEliminacion IS NULL')
+            ->orderBy('p.score', 'DESC')
+            ->addOrderBy('p.nombre', 'ASC')
             ->getQuery()
             ->getResult();
     }

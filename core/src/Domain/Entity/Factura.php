@@ -38,6 +38,9 @@ class Factura
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
     private float $pagoNequi = 0;
 
+    #[ORM\Column(type: 'json')]
+    private array $pagos = [];
+
     #[ORM\Column(length: 20, unique: true, nullable: true)]
     private ?string $numeroFactura = null;
 
@@ -46,6 +49,12 @@ class Factura
 
     #[ORM\Column(length: 20, options: ['default' => 'MESA'], nullable: true)]
     private ?string $tipo = 'MESA';
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $clienteNombre = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $domicilioDescripcion = null;
 
     #[ORM\OneToMany(mappedBy: 'factura', targetEntity: FacturaDetalle::class, cascade: ['persist', 'remove'])]
     private Collection $detalles;
@@ -65,12 +74,20 @@ class Factura
     public function getTotal(): float { return $this->total; }
     public function getPagoEfectivo(): float { return $this->pagoEfectivo; }
     public function getPagoNequi(): float { return $this->pagoNequi; }
+    public function getPagos(): array { return $this->pagos; }
     public function getNumeroFactura(): ?string { return $this->numeroFactura; }
     public function isEsPago(): bool { return (bool)($this->esPago ?? false); }
     public function setEsPago(?bool $esPago): void { $this->esPago = $esPago; }
 
     public function getTipo(): string { return $this->tipo ?? 'MESA'; }
     public function setTipo(?string $tipo): void { $this->tipo = $tipo; }
+    public function getClienteNombre(): ?string { return $this->clienteNombre; }
+    public function getDomicilioDescripcion(): ?string { return $this->domicilioDescripcion; }
+    public function setDatosCliente(?string $nombre, ?string $domicilio): void
+    {
+        $this->clienteNombre = $nombre ? trim(mb_substr($nombre, 0, 100)) : null;
+        $this->domicilioDescripcion = $domicilio ? trim(mb_substr($domicilio, 0, 2000)) : null;
+    }
     public function getDetalles(): Collection { return $this->detalles; }
 
     public function agregarItem(string $nombre, float $precio, float $costo, int $cantidad): void
@@ -119,6 +136,20 @@ class Factura
         $this->esPago = true;
     }
 
+    public function facturarConPagos(string $numero, array $pagos): void
+    {
+        $totalPagado = array_reduce($pagos, fn(float $total, array $p) => $total + (float)$p['monto'], 0.0);
+        if (abs($totalPagado - $this->total) > 0.01) {
+            throw new \Exception("La distribución de pagos ($totalPagado) debe coincidir con el total de la factura ({$this->total})");
+        }
+
+        $this->numeroFactura = $numero;
+        $this->pagos = array_values($pagos);
+        $this->pagoEfectivo = array_reduce($pagos, fn(float $total, array $p) => $total + (($p['tipo'] ?? null) === 'CAJA' ? (float)$p['monto'] : 0), 0.0);
+        $this->pagoNequi = array_reduce($pagos, fn(float $total, array $p) => $total + (($p['tipo'] ?? null) !== 'CAJA' ? (float)$p['monto'] : 0), 0.0);
+        $this->esPago = true;
+    }
+
     public function cerrar(): void
     {
         $this->estado = self::ESTADO_CERRADA;
@@ -142,6 +173,8 @@ class Factura
             'pagoNequi' => (float)$this->pagoNequi,
             'esPago' => $this->isEsPago(),
             'tipo' => $this->getTipo(),
+            'clienteNombre' => $this->getClienteNombre(),
+            'domicilioDescripcion' => $this->getDomicilioDescripcion(),
             'fecha' => $fecha?->format('Y-m-d H:i:s'),
             'items' => array_map(fn($d) => $d->toArray(), $this->detalles->toArray())
         ];

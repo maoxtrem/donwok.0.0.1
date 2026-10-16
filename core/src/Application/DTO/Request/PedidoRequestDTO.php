@@ -5,7 +5,7 @@ namespace App\Application\DTO\Request;
 class PedidoRequestDTO
 {
     /**
-     * @param array<array{id: int, qty: int}> $items
+     * @param array<array{id?: int, temporal?: bool, nombre?: string, precioActual?: float, costoActual?: float, qty: int}> $items
      */
     public function __construct(
         public readonly array $items,

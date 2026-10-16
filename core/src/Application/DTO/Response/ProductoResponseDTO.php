@@ -9,7 +9,8 @@ class ProductoResponseDTO
         public string $nombre,
         public float $precioActual,
         public float $costoActual,
-        public bool $activo
+        public bool $activo,
+        public int $score = 0
     ) {}
 
     public function toArray(): array
@@ -19,7 +20,8 @@ class ProductoResponseDTO
             'nombre' => $this->nombre,
             'precioActual' => $this->precioActual,
             'costoActual' => $this->costoActual,
-            'activo' => $this->activo
+            'activo' => $this->activo,
+            'score' => $this->score
         ];
     }
 }

@@ -43,6 +43,10 @@ class Prestamo
     #[ORM\JoinColumn(nullable: false)]
     private CategoriaFinanciera $categoriaFinanciera;
 
+    #[ORM\ManyToOne(targetEntity: DeduccionCaja::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?DeduccionCaja $deduccionCaja = null;
+
     #[ORM\Column(type: 'decimal', precision: 12, scale: 2)]
     private float $saldoPendiente;
 
@@ -90,4 +94,7 @@ class Prestamo
     public function getSaldoPendiente(): float { return $this->saldoPendiente; }
     public function getEstado(): string { return $this->estado; }
     public function getEntidad(): ?string { return $this->entidad; }
+    public function getObservaciones(): ?string { return $this->observaciones; }
+    public function setDeduccionCaja(?DeduccionCaja $deduccionCaja): void { $this->deduccionCaja = $deduccionCaja; }
+    public function getDeduccionCaja(): ?DeduccionCaja { return $this->deduccionCaja; }
 }

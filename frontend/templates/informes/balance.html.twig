@@ -40,6 +40,10 @@
                         <span class="fw-bold text-success" id="pend-ventas">$0.00</span>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="small">Egresos pendientes</span>
+                        <span class="fw-bold text-danger" id="pend-egresos">$0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
                         <span class="small">Deudas pagadas pendientes</span>
                         <span class="fw-bold text-danger" id="pend-deudas-pagadas">$0.00</span>
                     </div>
@@ -89,18 +93,26 @@
 
     <!-- 🏦 RESUMEN PATRIMONIAL -->
     <div class="row g-4 mb-4">
-        <div class="col-12">
+        <div class="col-lg-4">
+            <div class="dw-card h-100 shadow-sm border-0 p-4 d-flex flex-column justify-content-center">
+                <small class="text-muted fw-bold d-block mb-2 text-uppercase">Liquidez Neta</small>
+                <p class="text-muted small mb-2">Liquidez - Deudas pendientes</p>
+                <h2 class="fw-bold text-primary m-0" id="patrimonio-liquidez-neto">$0.00</h2>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="dw-card h-100 shadow-sm border-0 p-4 d-flex flex-column justify-content-center">
+                <small class="text-muted fw-bold d-block mb-2 text-uppercase">Liquidez + Cartera</small>
+                <p class="text-muted small mb-2">Liquidez + cuentas por cobrar - Deudas</p>
+                <h2 class="fw-bold text-info m-0" id="patrimonio-liquidez-cartera">$0.00</h2>
+            </div>
+        </div>
+        <div class="col-lg-4">
             <div class="dw-card p-4 shadow-sm bg-deep text-white border-0" style="background: var(--bg-deep) !important;">
-                <div class="row align-items-center">
-                    <div class="col-md-8">
-                        <h4 class="fw-bold mb-1" style="letter-spacing: -0.5px;">VALOR REAL DEL NEGOCIO (Patrimonio Neto)</h4>
-                        <p class="text-white-50 small mb-0">Calculado como: (Liquidez + Cartera + Inventario) - Deudas Pendientes</p>
-                        <p class="text-white-50 small mb-0 mt-1">Inventario valorizado: <span id="total-inventario-balance" class="fw-bold">$0.00</span></p>
-                    </div>
-                    <div class="col-md-4 text-center text-md-end">
-                        <h1 class="fw-bold m-0 text-warning" id="patrimonio-neto" style="font-size: clamp(1.8rem, 5vw, 3rem); letter-spacing: -1.5px;">$0.00</h1>
-                    </div>
-                </div>
+                <h6 class="fw-bold mb-2" style="letter-spacing: -0.5px;">VALOR REAL DEL NEGOCIO</h6>
+                <p class="text-white-50 small mb-1">Liquidez + Cartera + Inventario - Deudas</p>
+                <p class="text-white-50 small mb-3">Inventario: <span id="total-inventario-balance" class="fw-bold">$0.00</span></p>
+                <h2 class="fw-bold m-0 text-warning" id="patrimonio-neto" style="font-size: clamp(1.35rem, 3vw, 2.15rem); letter-spacing: -1px;">$0.00</h2>
             </div>
         </div>
     </div>
@@ -206,7 +218,7 @@
             renderCartera(data.cartera);
             renderPasivos(data.pasivos);
             renderInventario(data.inventario);
-            renderPatrimonio(data.patrimonio.neto);
+            renderPatrimonio(data.patrimonio);
             renderResultados(data.resultados);
             renderRentabilidad(rent, data.resultados.utilidad_bruta);
         } catch (err) { console.error(err); }
@@ -219,12 +231,17 @@
                 <span class="text-muted small fw-bold">${c.nombre}</span>
                 <span class="fw-bold">${fmt(c.saldo)}</span>
             </div>
+            <div class="d-flex justify-content-between align-items-center mb-2 ps-3">
+                <span class="text-muted small">Proyectado tras arqueo</span>
+                <span class="small fw-bold ${c.saldo_proyectado < 0 ? 'text-danger' : 'text-primary'}">${fmt(c.saldo_proyectado)}</span>
+            </div>
         `).join('');
         document.getElementById('total-liquidez').innerText = fmt(liquidez.total_efectivo);
     }
 
     function renderPendientesCierre(pendientes, liquidez) {
         document.getElementById('pend-ventas').innerText = fmt(pendientes?.ventas || 0);
+        document.getElementById('pend-egresos').innerText = fmt(pendientes?.egresos || 0);
         document.getElementById('pend-deudas-pagadas').innerText = fmt(pendientes?.deudas_pagadas || 0);
         document.getElementById('pend-neto').innerText = fmt(pendientes?.neto || 0);
         document.getElementById('total-liquidez-proyectada').innerText = fmt(liquidez?.proyectada_con_pendientes || 0);
@@ -266,8 +283,10 @@
         }
     }
 
-    function renderPatrimonio(neto) {
-        document.getElementById('patrimonio-neto').innerText = fmt(neto);
+    function renderPatrimonio(patrimonio) {
+        document.getElementById('patrimonio-liquidez-neto').innerText = fmt(patrimonio?.liquidez_menos_deudas || 0);
+        document.getElementById('patrimonio-liquidez-cartera').innerText = fmt(patrimonio?.liquidez_cartera_menos_deudas || 0);
+        document.getElementById('patrimonio-neto').innerText = fmt(patrimonio?.neto || 0);
     }
 
     function renderInventario(inventario) {

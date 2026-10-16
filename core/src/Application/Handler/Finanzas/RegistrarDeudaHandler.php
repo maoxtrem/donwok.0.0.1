@@ -29,7 +29,9 @@ class RegistrarDeudaHandler
         $cuenta = $this->cuentaRepo->buscarPorId($cuentaId);
         $categoria = $this->categoriaRepo->buscarPorId($categoriaId);
 
-        if (!$cuenta || !$categoria) throw new \Exception("Cuenta o Categoría no válida.");
+        if (!$cuenta || !$categoria || !$cuenta->estaActiva() || !$cuenta->usarEnCuentasPorPagar()) {
+            throw new \Exception("Cuenta o Categoría no válida.");
+        }
 
         $deuda = new Prestamo('RECIBIDO', $monto, $entidad, $cuenta, $categoria, $observaciones);
         $this->prestamoRepo->guardar($deuda);

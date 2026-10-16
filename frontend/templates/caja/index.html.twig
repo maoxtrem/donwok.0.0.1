@@ -188,6 +188,35 @@
         document.getElementById('btn-cerrar-caja').disabled = (totalIngresos === 0 && totalEgresos === 0);
     }
 
+    function esperadoPorCuenta() {
+        let efectivo = 0;
+        let nequi = 0;
+
+        currentFacturas.forEach(f => {
+            const pagos = Array.isArray(f.pagos) && f.pagos.length
+                ? f.pagos
+                : [
+                    { tipo: 'CAJA', monto: f.pagoEfectivo || 0 },
+                    { tipo: 'BANCO', monto: f.pagoNequi || 0 }
+                ];
+            pagos.forEach(p => {
+                if ((p.tipo || 'BANCO') === 'CAJA') efectivo += parseFloat(p.monto) || 0;
+                else nequi += parseFloat(p.monto) || 0;
+            });
+        });
+
+        currentAbonos.forEach(a => {
+            if (a.cuenta_tipo === 'CAJA') efectivo += parseFloat(a.monto) || 0;
+            else nequi += parseFloat(a.monto) || 0;
+        });
+        currentEgresos.forEach(e => {
+            if (e.cuenta_tipo === 'CAJA') efectivo -= parseFloat(e.monto) || 0;
+            else nequi -= parseFloat(e.monto) || 0;
+        });
+
+        return { efectivo, nequi };
+    }
+
     window.eliminarEgresoCola = async (id, tipo) => {
         const res = await Swal.fire({ title: '¿Eliminar de la cola?', text: "Este egreso se borrará permanentemente.", icon: 'warning', showCancelButton: true });
         if (res.isConfirmed) {
@@ -232,16 +261,87 @@
         const totalIngresos = currentFacturas.reduce((sum, f) => sum + parseFloat(f.total), 0) + 
                              currentAbonos.reduce((sum, a) => sum + parseFloat(a.monto), 0);
         const totalEgresos = currentEgresos.reduce((sum, e) => sum + parseFloat(e.monto), 0);
-        
+        const totalVentas = currentFacturas.reduce((sum, f) => sum + parseFloat(f.total), 0);
+        const balance = await api.get('/informes/balance-completo');
+        const cuentasArqueo = (balance.liquidez?.cuentas_arqueo || []).filter(c => c.activa !== false);
+        if (cuentasArqueo.length === 0) {
+            await Swal.fire('Sin cuentas', 'No hay cuentas activas para realizar el arqueo.', 'warning');
+            return;
+        }
+        let deduccionesHtml = '<div class="text-muted small">No hay deducciones activas.</div>';
+
+        try {
+            const deducciones = await api.get('/caja/deducciones-cierre');
+            const detalleDeducciones = deducciones.map(d => {
+                const monto = d.tipo === 'PORCENTAJE'
+                    ? totalVentas * (parseFloat(d.valor) / 100)
+                    : parseFloat(d.valor);
+                return { ...d, monto };
+            });
+            const totalDeducciones = detalleDeducciones.reduce((sum, d) => sum + d.monto, 0);
+            if (detalleDeducciones.length > 0) {
+                deduccionesHtml = `
+                    <div class="border rounded p-2 bg-light text-start">
+                        ${detalleDeducciones.map(d => `
+                            <div class="d-flex justify-content-between small">
+                                <span>${d.nombre} (${d.tipo === 'PORCENTAJE' ? `${Number(d.valor).toFixed(2)}%` : 'Valor fijo'})</span>
+                                <b>$${d.monto.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                            </div>
+                        `).join('')}
+                        <hr class="my-2">
+                        <div class="d-flex justify-content-between fw-bold small">
+                            <span>Total deducciones informativas</span>
+                            <span>$${totalDeducciones.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                    </div>`;
+            }
+        } catch (error) {
+            deduccionesHtml = '<div class="text-muted small">No se pudieron cargar las deducciones.</div>';
+        }
+
         const res = await Swal.fire({
             title: 'Confirmar Cierre',
-            html: `<div class="text-start">Ingresos Totales: <b>$${totalIngresos.toFixed(2)}</b><br>Egresos Totales: <b>$${totalEgresos.toFixed(2)}</b><hr>Balance: <b class="text-primary h4">$${(totalIngresos - totalEgresos).toFixed(2)}</b></div>`,
+            html: `
+                <div class="text-start">
+                    <div class="mb-3">Escriba el valor real contado en cada cuenta. Los valores esperados son solo informativos.</div>
+                    ${cuentasArqueo.map(c => `
+                        <div class="mb-3 border rounded p-2">
+                            <label class="form-label fw-bold mb-1">${c.nombre}</label>
+                            <input id="cierre-cuenta-${c.id}" type="number" min="0" step="0.01" class="swal2-input m-0 w-100" placeholder="Ingrese el valor contado">
+                            <small class="text-muted">Esperado: $${Number(c.saldo_proyectado || c.saldo || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</small>
+                        </div>
+                    `).join('')}
+                    <hr>
+                    <div class="mb-3">
+                        <div class="fw-bold mb-2">Deducciones de la empresa</div>
+                        ${deduccionesHtml}
+                        <small class="text-muted d-block mt-1">Son informativas y no afectan el balance del cierre.</small>
+                    </div>
+                    <hr>
+                    Ingresos Totales: <b>$${totalIngresos.toFixed(2)}</b><br>
+                    Egresos Totales: <b>$${totalEgresos.toFixed(2)}</b><br>
+                    Balance: <b class="text-primary h4">$${(totalIngresos - totalEgresos).toFixed(2)}</b>
+                </div>`,
             icon: 'info',
             showCancelButton: true,
-            confirmButtonText: 'Procesar Cierre Masivo'
+            confirmButtonText: 'Procesar Cierre Masivo',
+            preConfirm: () => {
+                const cuentas = {};
+                for (const cuenta of cuentasArqueo) {
+                    const input = document.getElementById(`cierre-cuenta-${cuenta.id}`);
+                    const valor = parseFloat(input.value);
+                    if (!Number.isFinite(valor) || valor < 0) {
+                        Swal.showValidationMessage(`Ingrese el valor real contado de ${cuenta.nombre}.`);
+                        return false;
+                    }
+                    cuentas[cuenta.id] = valor;
+                }
+                return { cuentas };
+            }
         });
 
         if (res.isConfirmed) {
+            const saldosContados = res.value;
             try {
                 await api.get('/impresora/estado');
             } catch (error) {
@@ -255,9 +355,16 @@
             }
 
             // Primero se imprime; si falla, no se realiza el cierre contable.
-            await api.post('/caja/imprimir-cierre');
-            const result = await api.post('/caja/cerrar');
-            Swal.fire('¡Cierre Exitoso!', 'Los movimientos se han guardado en el historial.', 'success').then(() => {
+            await api.post('/caja/imprimir-cierre', saldosContados);
+            const cierre = await api.post('/caja/cerrar', saldosContados);
+            const identificador = cierre.detalle?.identificador_cierre;
+            const copia = cierre.detalle?.copia_cierre;
+            Swal.fire({
+                icon: 'success',
+                title: '¡Cierre Exitoso!',
+                html: `Los movimientos se guardaron en el historial.<br><b>Identificador:</b> ${identificador || 'No disponible'}${copia ? `<br><a href="${copia}" target="_blank" rel="noopener">Ver copia del cierre</a>` : ''}`,
+                confirmButtonText: 'Continuar'
+            }).then(() => {
                 window.location.href = '/caja/movimientos';
             });
         }

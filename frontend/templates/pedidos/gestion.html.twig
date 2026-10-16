@@ -57,26 +57,10 @@
                     <h1 class="fw-extrabold text-primary m-0 display-4" id="pago-total-display">$0</h1>
                 </div>
                 
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold text-secondary text-uppercase">Transferencia (Nequi / Transf.)</label>
-                        <div class="input-group input-group-lg shadow-sm rounded-3 overflow-hidden">
-                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-phone text-info"></i></span>
-                            <input type="number" id="input-nequi" class="form-control border-start-0 ps-0 fw-bold" step="0.01" value="0">
-                            <button class="btn btn-info text-white fw-bold px-3" type="button" id="btn-nequi-todo">TODO</button>
-                        </div>
-                        <small class="text-muted mt-2 d-block">Monto pagado por medios digitales.</small>
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label small fw-bold text-secondary text-uppercase">Efectivo (A Recibir)</label>
-                        <div class="input-group input-group-lg shadow-sm rounded-3 overflow-hidden">
-                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-cash-stack text-success"></i></span>
-                            <input type="number" id="input-efectivo" class="form-control border-start-0 ps-0 fw-bold bg-light" readonly value="0">
-                            <button class="btn btn-success text-white fw-bold px-3" type="button" id="btn-efectivo-todo">TODO</button>
-                        </div>
-                        <small class="text-muted mt-2 d-block">Saldo pendiente en efectivo.</small>
-                    </div>
+                <div id="payment-accounts" class="row g-4">
+                    <div class="col-12 text-center text-muted py-3">Cargando cuentas configuradas...</div>
+                </div>
+                <div class="small text-muted mt-2"><i class="bi bi-info-circle me-1"></i> El saldo restante se asigna automáticamente a efectivo. Puedes repartir el pago entre las cuentas habilitadas desde Cajas.</div>
 
                     <div class="col-12" id="wrapper-recibido">
                         <hr class="my-2 opacity-10">
@@ -105,8 +89,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
                 <div class="p-4 bg-primary-subtle rounded-4 text-center mt-4 d-none" id="container-cambio" style="border: 2px dashed var(--bs-primary);">
                     <small class="text-primary d-block fw-bold text-uppercase mb-1" style="letter-spacing: 1px;">Cambio a Devolver</small>
                     <h2 class="fw-bold text-dark m-0 display-5" id="display-cambio">$0</h2>
@@ -117,6 +99,10 @@
                 </div>
             </div>
             <div class="modal-footer border-0 p-4 pt-0">
+                <div class="form-check form-switch w-100 mb-3">
+                    <input class="form-check-input" type="checkbox" id="imprimir-factura">
+                    <label class="form-check-label small fw-bold" for="imprimir-factura">Imprimir factura después de facturar</label>
+                </div>
                 <button type="button" class="btn btn-primary w-100 py-3 fs-5 fw-bold shadow-lg" id="btn-confirmar-pago" style="border-radius: 15px;">
                     <i class="bi bi-check-circle-fill me-2"></i> CONFIRMAR Y FACTURAR
                 </button>
@@ -136,19 +122,43 @@
     let filtroOrden = '';
 
     // Lógica de cálculos del modal
-    const inputNequi = document.getElementById('input-nequi');
-    const inputEfectivo = document.getElementById('input-efectivo');
     const inputRecibido = document.getElementById('input-recibido');
     const containerCambio = document.getElementById('container-cambio');
     const displayCambio = document.getElementById('display-cambio');
     const errorPago = document.getElementById('pago-error');
-    const btnNequiTodo = document.getElementById('btn-nequi-todo');
-    const btnEfectivoTodo = document.getElementById('btn-efectivo-todo');
     const wrapperRecibido = document.getElementById('wrapper-recibido');
     const orderFilter = document.getElementById('order-filter');
     const clearOrderFilter = document.getElementById('clear-order-filter');
 
     const fmt = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+    let cuentasFacturacion = [];
+
+    async function cargarCuentasFacturacion() {
+        cuentasFacturacion = await api.get('/caja/cuentas/facturacion');
+        document.getElementById('payment-accounts').innerHTML = cuentasFacturacion.length ? cuentasFacturacion.map(c => `
+            <div class="col-md-6">
+                <label class="form-label small fw-bold text-secondary text-uppercase">${c.nombre}</label>
+                <div class="input-group input-group-lg shadow-sm rounded-3 overflow-hidden">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi ${c.tipo === 'CAJA' ? 'bi-cash-stack text-success' : 'bi-phone text-info'}"></i></span>
+                    <input type="number" min="0" step="0.01" value="0" ${c.tipo === 'CAJA' ? 'readonly' : ''} class="form-control border-start-0 ps-0 fw-bold payment-account-input" data-account-id="${c.id}" data-account-type="${c.tipo}">
+                    <button class="btn ${c.tipo === 'CAJA' ? 'btn-success' : 'btn-info text-white'} fw-bold px-3 btn-account-todo" type="button" data-account-id="${c.id}">TODO</button>
+                </div>
+                <small class="text-muted mt-2 d-block">${c.tipo === 'CAJA' ? 'Efectivo a recibir.' : 'Pago digital.'}</small>
+            </div>`).join('') : '<div class="col-12"><div class="alert alert-warning small">No hay cuentas configuradas para facturación. Activa una desde Cajas.</div></div>';
+        document.querySelectorAll('.payment-account-input').forEach(input => input.addEventListener('input', () => actualizarPago(input)));
+        document.querySelectorAll('.btn-account-todo').forEach(button => button.addEventListener('click', () => {
+            document.querySelectorAll('.payment-account-input').forEach(input => input.value = '0');
+            const input = document.querySelector(`.payment-account-input[data-account-id="${button.dataset.accountId}"]`);
+            if (input) input.value = document.getElementById(`row-${selectedPedido}`)?.dataset.total || '0';
+            actualizarPago();
+        }));
+    }
+
+    function getDistribucion() {
+        return [...document.querySelectorAll('.payment-account-input')].map(input => ({ cuenta_id: Number(input.dataset.accountId), monto: parseFloat(input.value) || 0, tipo: input.dataset.accountType })).filter(p => p.monto > 0);
+    }
+
+    function montoCaja() { return getDistribucion().filter(p => p.tipo === 'CAJA').reduce((sum, p) => sum + p.monto, 0); }
 
     function updateOrderFilter() {
         filtroOrden = orderFilter.value.replace(/\D/g, '');
@@ -164,24 +174,31 @@
         orderFilter.focus();
     });
 
-    function calcularDistribucion() {
+    function inputCajaPrincipal() {
+        return document.querySelector('.payment-account-input[data-account-type="CAJA"]');
+    }
+
+    function actualizarPago(inputModificado = null) {
         const row = document.getElementById(`row-${selectedPedido}`);
         if (!row) return;
         const total = parseFloat(row.dataset.total);
-        let nequi = parseFloat(inputNequi.value) || 0;
 
-        if (nequi > total) {
-            nequi = total;
-            inputNequi.value = total;
-            errorPago.classList.remove('d-none');
-        } else {
-            errorPago.classList.add('d-none');
+        // El efectivo es el saldo restante cuando se modifica una cuenta digital.
+        // Así se conserva el flujo anterior: digital a la derecha, efectivo a la izquierda.
+        if (inputModificado && inputModificado.dataset.accountType !== 'CAJA') {
+            const totalDigital = [...document.querySelectorAll('.payment-account-input')]
+                .filter(input => input.dataset.accountType !== 'CAJA')
+                .reduce((sum, input) => sum + (parseFloat(input.value) || 0), 0);
+            const caja = inputCajaPrincipal();
+            if (caja) caja.value = Math.max(0, total - totalDigital).toFixed(2);
         }
 
-        const efectivo = total - nequi;
-        inputEfectivo.value = efectivo;
+        const distribuido = getDistribucion().reduce((sum, p) => sum + p.monto, 0);
+        errorPago.classList.toggle('d-none', distribuido <= total + 0.01);
+        errorPago.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i> La distribución supera el total de la factura.';
 
         // Mostrar/Ocultar sección de efectivo recibido
+        const efectivo = montoCaja();
         if (efectivo <= 0) {
             wrapperRecibido.classList.add('d-none');
             inputRecibido.value = "";
@@ -193,7 +210,7 @@
     }
 
     function calcularCambio() {
-        const efectivoARegistrar = parseFloat(inputEfectivo.value) || 0;
+        const efectivoARegistrar = montoCaja();
         const recibido = parseFloat(inputRecibido.value) || 0;
 
         if (recibido >= efectivoARegistrar && efectivoARegistrar > 0) {
@@ -205,7 +222,6 @@
         }
     }
 
-    inputNequi.addEventListener('input', calcularDistribucion);
     inputRecibido.addEventListener('input', calcularCambio);
     
     // Botones de efectivo rápido
@@ -225,19 +241,6 @@
         calcularCambio();
     });
 
-    btnNequiTodo.addEventListener('click', () => {
-        const row = document.getElementById(`row-${selectedPedido}`);
-        if (row) {
-            inputNequi.value = row.dataset.total;
-            calcularDistribucion();
-        }
-    });
-
-    btnEfectivoTodo.addEventListener('click', () => {
-        inputNequi.value = 0;
-        calcularDistribucion();
-    });
-
     function updateWSStatus(text, colorClass) {
         const container = document.getElementById('sse-status-badge');
         if (container) container.innerHTML = `<span class="badge ${colorClass} animate-pulse">${text}</span>`;
@@ -249,12 +252,17 @@
         selectedPedido = id;
 
         document.getElementById('pago-total-display').innerText = fmt(total);
-        inputNequi.value = 0;
+        document.querySelectorAll('.payment-account-input').forEach(input => input.value = '0');
+        const caja = inputCajaPrincipal();
+        if (caja) caja.value = total.toFixed(2);
         inputRecibido.value = "";
+        // Por defecto se conserva el flujo anterior: facturar también imprime.
+        // Se puede desactivar manualmente para facturar sin imprimir.
+        document.getElementById('imprimir-factura').checked = true;
         errorPago.classList.add('d-none');
         containerCambio.classList.add('d-none');
         
-        calcularDistribucion();
+        actualizarPago();
         
         const modalEl = document.getElementById('modalPago');
         let modal = bootstrap.Modal.getInstance(modalEl);
@@ -265,28 +273,35 @@
     };
 
     document.getElementById('btn-confirmar-pago').addEventListener('click', async () => {
-        const efectivo = parseFloat(inputEfectivo.value) || 0;
-        const nequi = parseFloat(inputNequi.value) || 0;
+        const pagos = getDistribucion();
+        const total = parseFloat(document.getElementById(`row-${selectedPedido}`)?.dataset.total || 0);
+        const distribuido = pagos.reduce((sum, p) => sum + p.monto, 0);
+        const efectivo = montoCaja();
         const recibido = parseFloat(inputRecibido.value) || 0;
         const cambio = recibido > efectivo ? recibido - efectivo : 0;
+        if (Math.abs(distribuido - total) > 0.01) {
+            errorPago.classList.remove('d-none');
+            return;
+        }
         
         const btn = document.getElementById('btn-confirmar-pago');
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> PROCESANDO...';
 
         try {
-            const facturaResponse = await api.post(`/pedidos/${selectedPedido}/facturar`, { efectivo, nequi });
+            const facturaResponse = await api.post(`/pedidos/${selectedPedido}/facturar`, { pagos });
 
-            // La factura ya quedó registrada; la enviamos directamente a la T86LR.
-            try {
-                await api.post(`/pedidos/${selectedPedido}/imprimir-factura`, { recibido });
-            } catch (printError) {
-                console.error('Factura generada, pero no se pudo imprimir:', printError);
-                await Swal.fire({
-                    icon: 'warning',
-                    title: 'Factura generada',
-                    text: 'La factura quedó registrada, pero no se pudo enviar a la impresora.'
-                });
+            if (document.getElementById('imprimir-factura').checked) {
+                try {
+                    await api.post(`/pedidos/${selectedPedido}/imprimir-factura`, { recibido });
+                } catch (printError) {
+                    console.error('Factura generada, pero no se pudo imprimir:', printError);
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'Factura generada',
+                        text: 'La factura quedó registrada, pero no se pudo enviar a la impresora.'
+                    });
+                }
             }
             
             const modalEl = document.getElementById('modalPago');
@@ -324,6 +339,8 @@
             btn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> CONFIRMAR Y FACTURAR';
         }
     });
+
+    cargarCuentasFacturacion().catch(error => console.error('No se pudieron cargar las cuentas de facturación:', error));
 
     window.actualizarDatoPedido = async (id, data) => {
         try {
@@ -393,6 +410,21 @@
             btn.innerText = 'ENTREGAR';
             Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'No se pudo entregar el pedido.' });
         }
+    };
+
+    window.imprimirComanda = async (id) => {
+        const result = await Swal.fire({
+            title: '¿Imprimir comanda?',
+            text: 'Se imprimirá la comanda de cocina y la copia con los datos del cliente.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Imprimir',
+            cancelButtonText: 'Cancelar'
+        });
+        if (!result.isConfirmed) return;
+        try {
+            await api.post(`/pedidos/${id}/imprimir-comanda`, {});
+        } catch (error) { console.error(error); }
     };
 
     window.eliminarPedido = async (id) => {
@@ -525,6 +557,12 @@
         const facturaLabel = isBilled
             ? `<small class="d-block text-success fw-bold mt-1">Factura ${p.numeroFactura}</small>`
             : '';
+        const clienteLabel = p.clienteNombre
+            ? `<small class="d-block text-muted mt-1"><i class="bi bi-person me-1"></i>${p.clienteNombre}</small>`
+            : '';
+        const domicilioLabel = p.tipo === 'DOMICILIO' && p.domicilioDescripcion
+            ? `<small class="d-block text-primary mt-1" title="${p.domicilioDescripcion}"><i class="bi bi-geo-alt me-1"></i>${p.domicilioDescripcion}</small>`
+            : '';
         const eliminarButton = isBilled
             ? ''
             : `<button class="btn btn-outline-danger btn-sm px-2 border-0" onclick="window.eliminarPedido(${p.id})" title="Eliminar Pedido"><i class="bi bi-trash"></i></button>`;
@@ -532,7 +570,7 @@
         return `
             <tr id="row-${p.id}" data-total="${p.total}">
                 <td class="ps-4">${labelId}</td>
-                <td class="small text-muted">${items}</td>
+                <td class="small text-muted">${items}${clienteLabel}${domicilioLabel}</td>
                 <td style="width: 120px;">${tipoSelect}</td>
                 <td class="text-center">${pagoLabel}</td>
                 <td class="text-center fw-bold text-dark">$${parseFloat(p.total).toLocaleString('es-CO')}</td>
@@ -544,6 +582,7 @@
                     <div class="d-inline-flex flex-wrap justify-content-end gap-1">
                         ${terminarButton}
                         ${facturarButton}
+                        <button class="btn btn-outline-primary btn-sm px-2 fw-bold" onclick="window.imprimirComanda(${p.id})" title="Imprimir comanda y copia del cliente"><i class="bi bi-printer me-1"></i>COMANDA</button>
                     </div>
                     ${eliminarButton}
                 </td>

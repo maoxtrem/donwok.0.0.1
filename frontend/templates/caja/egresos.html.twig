@@ -85,7 +85,7 @@
         try {
             const [cats, cuentas, egresosPendientes] = await Promise.all([
                 api.get('/caja/categorias'),
-                api.get('/caja/cuentas'),
+                api.get('/caja/cuentas/egresos'),
                 api.get('/caja/egresos-pendientes')
             ]);
 

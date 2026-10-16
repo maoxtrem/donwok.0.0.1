@@ -1,0 +1,185 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Cajas y cuentas - DonWok{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold m-0 text-dark">Cajas y cuentas</h2>
+            <p class="text-muted mb-0">Administra dónde está el dinero del negocio y mueve saldos entre cuentas.</p>
+        </div>
+        <span class="badge bg-primary-subtle text-primary px-3 py-2"><i class="bi bi-shield-check me-1"></i> Control financiero</span>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-5">
+            <div class="dw-card p-4 shadow-sm border-0 h-100">
+                <h5 class="fw-bold mb-1">Nueva cuenta</h5>
+                <p class="text-muted small mb-4">Agrega una caja, banco o billetera adicional.</p>
+                <form id="form-cuenta">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Nombre</label>
+                        <input id="cuenta-nombre" class="form-control bg-light border-0" maxlength="100" placeholder="Ej: Bancolombia" required>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Tipo</label>
+                            <select id="cuenta-tipo" class="form-select bg-light border-0" required>
+                                <option value="CAJA">Caja</option>
+                                <option value="BANCO">Banco</option>
+                                <option value="BILLETERA">Billetera digital</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Saldo inicial</label>
+                            <input id="cuenta-saldo" type="number" min="0" step="0.01" value="0" class="form-control bg-light border-0" required>
+                        </div>
+                    </div>
+                    <button class="dw-btn-primary text-white w-100 py-2" type="submit"><i class="bi bi-plus-circle me-2"></i>Crear cuenta</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="dw-card p-4 shadow-sm border-0 h-100">
+                <h5 class="fw-bold mb-1">Transferir entre cuentas</h5>
+                <p class="text-muted small mb-4">Registra la salida y entrada para mantener el saldo total intacto.</p>
+                <form id="form-transferencia">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold">Desde</label>
+                            <select id="transfer-origen" class="form-select bg-light border-0" required></select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end justify-content-center pb-2 text-primary"><i class="bi bi-arrow-right fs-3"></i></div>
+                        <div class="col-md-5">
+                            <label class="form-label small fw-bold">Hacia</label>
+                            <select id="transfer-destino" class="form-select bg-light border-0" required></select>
+                        </div>
+                    </div>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-7">
+                            <label class="form-label small fw-bold">Monto</label>
+                            <div class="input-group"><span class="input-group-text bg-light border-0">$</span><input id="transfer-monto" type="number" min="0.01" step="0.01" class="form-control bg-light border-0" required></div>
+                            <small class="text-muted" id="transfer-disponible"></small>
+                        </div>
+                        <div class="col-md-5"><button class="btn btn-outline-primary w-100 py-2" type="submit"><i class="bi bi-arrow-left-right me-2"></i>Transferir</button></div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="dw-card shadow-sm overflow-hidden border-0">
+        <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+            <div><h6 class="m-0 fw-bold text-muted small text-uppercase">Cuentas registradas</h6><small class="text-muted">Configura facturación, arqueo y balance. Las deshabilitadas conservan su historial.</small></div>
+            <span class="badge bg-dark" id="total-cuentas">0</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="small text-muted"><tr><th class="ps-4">Cuenta</th><th>Tipo</th><th class="text-end">Saldo actual</th><th class="text-center">Facturación</th><th class="text-center">Arqueo</th><th class="text-center">Balance</th><th class="text-center">Egresos</th><th class="text-center">Cuentas por pagar</th><th class="text-center">Estado</th><th class="pe-4 text-end">Acción</th></tr></thead>
+                <tbody id="cuentas-list"><tr><td colspan="10" class="text-center py-5 text-muted">Cargando cuentas...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script type="module">
+    import CoreAPI from '/js/core.js';
+    const api = new CoreAPI();
+    let cuentas = [];
+    const fmt = value => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(value || 0);
+    const tipoLabel = { CAJA: 'Caja', BANCO: 'Banco', BILLETERA: 'Billetera' };
+
+    async function cargarCuentas() {
+        cuentas = await api.get('/caja/cuentas/gestion');
+        const activas = cuentas.filter(c => c.activa);
+        const options = activas.map(c => `<option value="${c.id}">${c.nombre} · ${fmt(c.saldo)}</option>`).join('');
+        document.getElementById('transfer-origen').innerHTML = options || '<option value="">No hay cuentas activas</option>';
+        actualizarDestino();
+        document.getElementById('total-cuentas').innerText = cuentas.length;
+        document.getElementById('cuentas-list').innerHTML = cuentas.length ? cuentas.map(c => `
+            <tr>
+                <td class="ps-4"><div class="fw-bold">${c.nombre} ${c.es_temporal ? '<span class="badge bg-warning text-dark ms-1">Temporal</span>' : ''}</div><small class="text-muted">ID #${c.id}</small></td>
+                <td><span class="badge bg-light text-dark">${tipoLabel[c.tipo] || c.tipo}</span></td>
+                <td class="text-end fw-bold ${c.saldo < 0 ? 'text-danger' : 'text-dark'}">${fmt(c.saldo)}</td>
+                <td class="text-center"><button class="btn btn-sm ${c.usar_en_facturacion ? 'btn-primary' : 'btn-outline-secondary'}" ${!c.activa || c.es_temporal ? 'disabled' : ''} onclick="cambiarFacturacion(${c.id})"><i class="bi ${c.usar_en_facturacion ? 'bi-check-circle' : 'bi-circle'} me-1"></i>${c.usar_en_facturacion ? 'Sí' : 'No'}</button></td>
+                <td class="text-center"><button class="btn btn-sm ${c.incluir_en_arqueo ? 'btn-success' : 'btn-outline-secondary'}" ${c.es_temporal ? 'disabled' : ''} onclick="cambiarArqueo(${c.id})"><i class="bi ${c.incluir_en_arqueo ? 'bi-check-circle' : 'bi-circle'} me-1"></i>${c.incluir_en_arqueo ? 'Sí' : 'No'}</button></td>
+                <td class="text-center"><button class="btn btn-sm ${c.mostrar_en_balance ? 'btn-info text-white' : 'btn-outline-secondary'}" ${c.es_temporal ? 'disabled' : ''} onclick="cambiarBalance(${c.id})"><i class="bi ${c.mostrar_en_balance ? 'bi-eye' : 'bi-eye-slash'} me-1"></i>${c.mostrar_en_balance ? 'Sí' : 'No'}</button></td>
+                <td class="text-center"><button class="btn btn-sm ${c.usar_en_egresos ? 'btn-danger' : 'btn-outline-secondary'}" ${c.es_temporal ? 'disabled' : ''} onclick="cambiarEgresos(${c.id})"><i class="bi ${c.usar_en_egresos ? 'bi-check-circle' : 'bi-circle'} me-1"></i>${c.usar_en_egresos ? 'Sí' : 'No'}</button></td>
+                <td class="text-center"><button class="btn btn-sm ${c.usar_en_cuentas_por_pagar ? 'btn-warning text-dark' : 'btn-outline-secondary'}" ${c.es_temporal ? 'disabled' : ''} onclick="cambiarCuentasPorPagar(${c.id})"><i class="bi ${c.usar_en_cuentas_por_pagar ? 'bi-check-circle' : 'bi-circle'} me-1"></i>${c.usar_en_cuentas_por_pagar ? 'Sí' : 'No'}</button></td>
+                <td class="text-center"><span class="badge ${c.activa ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}">${c.activa ? 'Activa' : 'Deshabilitada'}</span></td>
+                <td class="pe-4 text-end"><button class="btn btn-sm ${c.activa ? 'btn-outline-danger' : 'btn-outline-success'}" ${c.es_temporal ? 'disabled' : ''} onclick="cambiarEstado(${c.id})">${c.activa ? '<i class="bi bi-pause-circle me-1"></i>Deshabilitar' : '<i class="bi bi-play-circle me-1"></i>Habilitar'}</button></td>
+            </tr>`).join('') : '<tr><td colspan="10" class="text-center py-5 text-muted">No hay cuentas registradas</td></tr>';
+    }
+
+    function actualizarDestino() {
+        const origenId = Number(document.getElementById('transfer-origen').value);
+        const activas = cuentas.filter(c => c.activa && !c.es_temporal && String(c.id) !== String(origenId));
+        document.getElementById('transfer-destino').innerHTML = activas.map(c => `<option value="${c.id}">${c.nombre} · ${fmt(c.saldo)}</option>`).join('') || '<option value="">No hay otra cuenta activa</option>';
+        const origen = cuentas.find(c => c.id === origenId);
+        const monto = document.getElementById('transfer-monto');
+        monto.max = Math.max(0, origen?.saldo || 0);
+        document.getElementById('transfer-disponible').innerText = origen ? `Disponible en origen: ${fmt(origen.saldo)}` : '';
+    }
+
+    document.getElementById('transfer-origen').addEventListener('change', actualizarDestino);
+
+    document.getElementById('form-cuenta').addEventListener('submit', async event => {
+        event.preventDefault();
+        try {
+            await api.post('/caja/cuentas', { nombre: document.getElementById('cuenta-nombre').value, tipo: document.getElementById('cuenta-tipo').value, saldo_inicial: parseFloat(document.getElementById('cuenta-saldo').value) || 0 });
+            event.target.reset();
+            document.getElementById('cuenta-saldo').value = '0';
+            await cargarCuentas();
+        } catch (error) { console.error(error); }
+    });
+
+    document.getElementById('form-transferencia').addEventListener('submit', async event => {
+        event.preventDefault();
+        const origen = document.getElementById('transfer-origen').value;
+        const destino = document.getElementById('transfer-destino').value;
+        const monto = parseFloat(document.getElementById('transfer-monto').value);
+        const cuentaOrigen = cuentas.find(c => String(c.id) === String(origen));
+        if (!destino || origen === destino) { api.notify('error', 'Cuentas iguales', 'Selecciona una cuenta de origen y otra de destino.'); return; }
+        if (!Number.isFinite(monto) || monto <= 0 || monto > (cuentaOrigen?.saldo || 0)) { api.notify('error', 'Saldo insuficiente', 'El monto no puede superar el saldo disponible de la cuenta de origen.'); return; }
+        try {
+            await api.post('/caja/transferencias', { origen_id: Number(origen), destino_id: Number(destino), monto });
+            event.target.reset();
+            await cargarCuentas();
+        } catch (error) { console.error(error); }
+    });
+
+    window.cambiarEstado = async id => {
+        const cuenta = cuentas.find(item => item.id === id);
+        const accion = cuenta?.activa ? 'deshabilitar' : 'habilitar';
+        const confirmacion = await Swal.fire({ title: `¿${accion[0].toUpperCase() + accion.slice(1)} cuenta?`, text: cuenta?.activa ? 'No aparecerá en nuevos registros, pero conservará su historial.' : 'Volverá a estar disponible para nuevos movimientos.', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, continuar', cancelButtonText: 'Cancelar' });
+        if (!confirmacion.isConfirmed) return;
+        try { await api.patch(`/caja/cuentas/${id}/estado`); await cargarCuentas(); } catch (error) { console.error(error); }
+    };
+
+    window.cambiarFacturacion = async id => {
+        try { await api.patch(`/caja/cuentas/${id}/facturacion`); await cargarCuentas(); } catch (error) { console.error(error); }
+    };
+
+    window.cambiarArqueo = async id => {
+        try { await api.patch(`/caja/cuentas/${id}/arqueo`); await cargarCuentas(); } catch (error) { console.error(error); }
+    };
+
+    window.cambiarBalance = async id => {
+        try { await api.patch(`/caja/cuentas/${id}/balance`); await cargarCuentas(); } catch (error) { console.error(error); }
+    };
+
+    window.cambiarEgresos = async id => {
+        try { await api.patch(`/caja/cuentas/${id}/egresos`); await cargarCuentas(); } catch (error) { console.error(error); }
+    };
+
+    window.cambiarCuentasPorPagar = async id => {
+        try { await api.patch(`/caja/cuentas/${id}/cuentas-por-pagar`); await cargarCuentas(); } catch (error) { console.error(error); }
+    };
+
+    cargarCuentas().catch(error => console.error(error));
+</script>
+{% endblock %}

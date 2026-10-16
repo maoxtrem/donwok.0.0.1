@@ -43,6 +43,32 @@ class FacturaDetalleRepository extends ServiceEntityRepository implements Factur
             ->getResult();
     }
 
+    public function obtenerTotalesPorFecha(\DateTimeInterface $desde, \DateTimeInterface $hasta): array
+    {
+        $fechaDesde = (clone $desde)->setTime(0, 0, 0)->format('Y-m-d H:i:s');
+        $fechaHasta = (clone $hasta)->setTime(23, 59, 59)->format('Y-m-d H:i:s');
+
+        $sql = <<<SQL
+            SELECT
+                DATE(f.fecha_creacion) AS fecha,
+                SUM(fd.precio_unitario * fd.cantidad) AS total_venta,
+                SUM(fd.costo_unitario * fd.cantidad) AS total_costo
+            FROM factura_detalles fd
+            INNER JOIN facturas f ON f.id = fd.factura_id
+            WHERE f.fecha_creacion >= :desde
+              AND f.fecha_creacion <= :hasta
+              AND f.estado != :anulada
+            GROUP BY DATE(f.fecha_creacion)
+            ORDER BY fecha ASC
+        SQL;
+
+        return $this->getEntityManager()->getConnection()->fetchAllAssociative($sql, [
+            'desde' => $fechaDesde,
+            'hasta' => $fechaHasta,
+            'anulada' => Factura::ESTADO_ANULADA,
+        ]);
+    }
+
     //    /**
     //     * @return FacturaDetalle[] Returns an array of FacturaDetalle objects
     //     */

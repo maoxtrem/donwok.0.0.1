@@ -442,6 +442,10 @@
                 <input type="text" id="productSearch" placeholder="Buscar producto por nombre..." onkeyup="filterProducts()">
             </div>
 
+            <button type="button" class="btn btn-warning mb-3 align-self-start" onclick="openTemporaryProductModal()">
+                <i class="bi bi-clock-history me-1"></i> PRODUCTO TEMPORAL
+            </button>
+
             <div class="products-grid">
                 <div class="row" id="menu-items">
                     <!-- Cargado por JS -->
@@ -490,6 +494,10 @@
                         <span class="label">Total a Pagar</span>
                         <span class="amount" id="grand-total">$0.00</span>
                     </div>
+                    <div class="form-check form-switch my-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="imprimir-comanda-ventas" checked>
+                        <label class="form-check-label small fw-bold" for="imprimir-comanda-ventas">Imprimir comanda ahora</label>
+                    </div>
                     <button class="btn-checkout" id="btn-process" disabled onclick="processOrder()">
                         PROCESAR PEDIDO
                     </button>
@@ -497,6 +505,52 @@
             </div>
         </div>
 
+    </div>
+</div>
+
+<div class="modal fade" id="temporaryProductModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Agregar producto temporal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form id="temporaryProductForm">
+                <div class="modal-body p-4">
+                    <p class="small text-muted">Este producto solo estará en el pedido actual y no se guardará en el catálogo.</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold" for="temporaryName">Nombre</label>
+                        <input type="text" class="form-control" id="temporaryName" maxlength="150" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <label class="form-label fw-bold" for="temporaryCost">Costo</label>
+                            <input type="number" class="form-control" id="temporaryCost" min="0" step="0.01" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold" for="temporaryPrice">Precio de venta</label>
+                            <input type="number" class="form-control" id="temporaryPrice" min="0.01" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch mt-3">
+                        <input class="form-check-input" type="checkbox" id="temporaryMarginEnabled">
+                        <label class="form-check-label fw-bold" for="temporaryMarginEnabled">Calcular costo por utilidad</label>
+                    </div>
+                    <div class="mt-2 d-none" id="temporaryMarginGroup">
+                        <label class="form-label fw-bold" for="temporaryMargin">Utilidad sobre venta (%)</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="temporaryMargin" min="0" max="100" step="0.01" value="15">
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <small class="text-muted">Ejemplo: 15% de utilidad deja un costo equivalente al 85% del precio de venta.</small>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0 p-4">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">Agregar al carrito</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -512,6 +566,7 @@
     
     let allProducts = [];
     let cart = [];
+    let temporaryProductSequence = 0;
 
     // Reloj
     setInterval(() => {
@@ -595,12 +650,60 @@
         renderInvoice();
     };
 
+    window.openTemporaryProductModal = () => {
+        document.getElementById('temporaryProductForm').reset();
+        document.getElementById('temporaryMarginGroup').classList.add('d-none');
+        document.getElementById('temporaryCost').disabled = false;
+        document.getElementById('temporaryCost').required = true;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('temporaryProductModal')).show();
+    };
+
+    const temporaryMarginEnabled = document.getElementById('temporaryMarginEnabled');
+    const temporaryMarginGroup = document.getElementById('temporaryMarginGroup');
+    const temporaryCost = document.getElementById('temporaryCost');
+    const temporaryPrice = document.getElementById('temporaryPrice');
+    const temporaryMargin = document.getElementById('temporaryMargin');
+
+    function updateTemporaryCost() {
+        if (!temporaryMarginEnabled.checked) return;
+        const price = parseFloat(temporaryPrice.value);
+        const margin = parseFloat(temporaryMargin.value);
+        if (Number.isFinite(price) && Number.isFinite(margin) && margin >= 0 && margin <= 100) {
+            temporaryCost.value = (price * (1 - margin / 100)).toFixed(2);
+        }
+    }
+
+    temporaryMarginEnabled.addEventListener('change', () => {
+        const enabled = temporaryMarginEnabled.checked;
+        temporaryMarginGroup.classList.toggle('d-none', !enabled);
+        temporaryCost.disabled = enabled;
+        temporaryCost.required = !enabled;
+        if (enabled) updateTemporaryCost();
+    });
+    temporaryPrice.addEventListener('input', updateTemporaryCost);
+    temporaryMargin.addEventListener('input', updateTemporaryCost);
+
+    document.getElementById('temporaryProductForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        temporaryProductSequence++;
+        cart.push({
+            id: `temporary-${Date.now()}-${temporaryProductSequence}`,
+            temporal: true,
+            nombre: document.getElementById('temporaryName').value.trim(),
+            precioActual: parseFloat(document.getElementById('temporaryPrice').value),
+            costoActual: parseFloat(document.getElementById('temporaryCost').value),
+            qty: 1
+        });
+        bootstrap.Modal.getInstance(document.getElementById('temporaryProductModal')).hide();
+        renderInvoice();
+    });
+
     window.updateQty = (id, delta) => {
-        const item = cart.find(i => i.id === id);
+        const item = cart.find(i => String(i.id) === String(id));
         if (!item) return;
         item.qty += delta;
         if (item.qty <= 0) {
-            cart = cart.filter(i => i.id !== id);
+            cart = cart.filter(i => String(i.id) !== String(id));
         }
         renderInvoice();
     };
@@ -628,9 +731,9 @@
                         <small>$${parseFloat(item.precioActual).toFixed(2)} x ${item.qty}</small>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <button class="btn-qty-pos" onclick="window.updateQty(${item.id}, -1)">-</button>
+                        <button class="btn-qty-pos" onclick="window.updateQty('${item.id}', -1)">-</button>
                         <span class="qty-badge">${item.qty}</span>
-                        <button class="btn-qty-pos" onclick="window.updateQty(${item.id}, 1)">+</button>
+                        <button class="btn-qty-pos" onclick="window.updateQty('${item.id}', 1)">+</button>
                         <div class="ms-3 fw-bold text-dark" style="min-width: 70px; text-align: right;">$${subtotal.toFixed(2)}</div>
                     </div>
                 </div>
@@ -755,35 +858,53 @@
         btn.innerText = 'PROCESANDO...';
 
         try {
-            if (!await impresoraDisponible()) return;
+            const tipo = document.getElementById('order-type').value;
+            let domicilioDescripcion = '';
+            if (tipo === 'DOMICILIO') {
+                const domicilio = await Swal.fire({
+                    title: 'Datos del domicilio',
+                    input: 'textarea',
+                    inputLabel: 'Descripción del domicilio',
+                    inputPlaceholder: 'Dirección, teléfono, barrio, referencia u otra indicación...',
+                    inputAttributes: { maxlength: 2000, 'aria-label': 'Descripción del domicilio' },
+                    showCancelButton: true,
+                    confirmButtonText: 'Guardar domicilio',
+                    cancelButtonText: 'Cancelar',
+                    inputValidator: value => !value.trim() ? 'Escribe la descripción del domicilio.' : undefined
+                });
+                if (!domicilio.isConfirmed) return;
+                domicilioDescripcion = domicilio.value.trim();
+            }
 
             const payload = {
-                items: cart.map(item => ({
+                items: cart.map(item => item.temporal ? ({
+                    temporal: true,
+                    nombre: item.nombre,
+                    precioActual: item.precioActual,
+                    costoActual: item.costoActual,
+                    qty: item.qty
+                }) : ({
                     id: item.id,
                     qty: item.qty
                 })),
-                tipo: document.getElementById('order-type').value
+                tipo,
+                cliente_nombre: cliente || null,
+                domicilio_descripcion: domicilioDescripcion || null
             };
 
             const response = await api.post('/pedidos', payload);
             pedidoCreado = response.pedido;
-            
-            if (response.pedido) {
-                const impreso = await showPrintSteps(response.pedido, cliente);
 
-                if (!impreso) {
-                    // No se permite dejar un pedido en cola sin impresión.
-                    await api.delete(`/pedidos/${response.pedido.id}/eliminar`);
-                    Swal.fire({
-                        icon: 'info',
-                        title: 'Pedido cancelado',
-                        text: 'El pedido no se registró porque no se imprimió.',
-                        timer: 2200,
-                        showConfirmButton: false,
-                        toast: true,
-                        position: 'top-end'
+            if (pedidoCreado?.id && document.getElementById('imprimir-comanda-ventas').checked) {
+                try {
+                    await api.post(`/pedidos/${pedidoCreado.id}/imprimir-comanda`, {});
+                } catch (printError) {
+                    console.error('Pedido creado, pero no se pudo imprimir la comanda:', printError);
+                    await Swal.fire({
+                        icon: 'warning',
+                        title: 'Pedido registrado',
+                        text: 'El pedido quedó en Gestión, pero no se pudo imprimir la comanda.'
                     });
-                    return;
                 }
             }
             

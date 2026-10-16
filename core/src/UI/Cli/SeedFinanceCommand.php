@@ -48,12 +48,12 @@ class SeedFinanceCommand extends Command
             }
         }
 
-        // Cuenta Caja Principal (Efectivo)
+        // Cuenta Caja Registradora (Efectivo)
         $repoCuenta = $this->em->getRepository(CuentaFinanciera::class);
-        if (!$repoCuenta->findOneBy(['nombre' => 'Caja Principal'])) {
-            $cuenta = new CuentaFinanciera('Caja Principal', 'CAJA', 0);
+        if (!$repoCuenta->findOneBy(['nombre' => 'Caja Registradora'])) {
+            $cuenta = new CuentaFinanciera('Caja Registradora', 'CAJA', 0);
             $this->em->persist($cuenta);
-            $io->info('Cuenta "Caja Principal" creada.');
+            $io->info('Cuenta "Caja Registradora" creada.');
         }
 
         // Cuenta Nequi (Banco)
@@ -61,6 +61,13 @@ class SeedFinanceCommand extends Command
             $cuenta = new CuentaFinanciera('Cuenta Nequi', 'BANCO', 0);
             $this->em->persist($cuenta);
             $io->info('Cuenta "Cuenta Nequi" creada.');
+        }
+
+        // Cuenta Bancaria
+        if (!$repoCuenta->findOneBy(['nombre' => 'Cuenta Bancaria'])) {
+            $cuenta = new CuentaFinanciera('Cuenta Bancaria', 'BANCO', 0);
+            $this->em->persist($cuenta);
+            $io->info('Cuenta "Cuenta Bancaria" creada.');
         }
 
         $this->em->flush();

@@ -77,13 +77,14 @@
                         <thead class="bg-light small">
                             <tr>
                                 <th class="ps-4 py-3 text-muted fw-bold">Entidad / Tipo</th>
+                                <th class="py-3 text-muted fw-bold">Observaciones</th>
                                 <th class="text-center py-3 text-muted fw-bold">Monto Inicial</th>
                                 <th class="text-center py-3 text-muted fw-bold">Saldo Pendiente</th>
                                 <th class="pe-4 text-end py-3 text-muted fw-bold">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="deudas-list">
-                            <tr><td colspan="4" class="text-center py-5 text-muted">Cargando obligaciones...</td></tr>
+                            <tr><td colspan="5" class="text-center py-5 text-muted">Cargando obligaciones...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -132,7 +133,7 @@
         try {
             const [deudas, cuentas, cats] = await Promise.all([
                 api.get('/caja/deudas'),
-                api.get('/caja/cuentas'),
+                api.get('/caja/cuentas/cuentas-por-pagar'),
                 api.get('/caja/categorias')
             ]);
             
@@ -141,6 +142,10 @@
             renderDeudas(deudas);
             renderSelect('cuenta_id', cuentas);
             renderSelect('abono-cuenta', cuentas);
+            const cajaMenor = cuentas.find(c => c.nombre.trim().toLowerCase() === 'caja menor');
+            if (cajaMenor) {
+                document.getElementById('abono-cuenta').value = cajaMenor.id;
+            }
             
             // Filtro robusto para categorías de pasivo
             const catsPasivoNombres = ['Inversión', 'Gasto Pendiente', 'Crédito'];
@@ -200,7 +205,7 @@
         totalDisplay.innerText = fmt(totalAcumulado);
 
         if (data.length === 0) {
-            body.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted">No hay deudas pendientes</td></tr>';
+            body.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">No hay deudas pendientes</td></tr>';
             return;
         }
 
@@ -210,6 +215,7 @@
                     <div class="fw-bold text-dark">${d.entidad}</div>
                     <div class="badge bg-light text-dark border small" style="font-size: 0.65rem;">${d.categoria}</div>
                 </td>
+                <td class="small text-muted" style="max-width: 240px;">${d.observaciones ? d.observaciones : '<span class="opacity-50">Sin observaciones</span>'}</td>
                 <td class="text-center text-muted small">${fmt(d.montoTotal)}</td>
                 <td class="text-center fw-bold text-danger">${fmt(d.saldoPendiente)}</td>
                 <td class="pe-4 text-end">
