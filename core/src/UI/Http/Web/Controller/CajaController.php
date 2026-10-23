@@ -61,6 +61,49 @@ class CajaController extends AbstractController
         ], $deudas));
     }
 
+    #[Route('/deudas/{id}', name: 'app_caja_deuda_anular', methods: ['DELETE'])]
+    public function anularDeuda(int $id, PrestamoRepositoryInterface $repo): JsonResponse
+    {
+        $deuda = $repo->buscarPorId($id);
+        if (!$deuda) {
+            return new JsonResponse(['message' => 'Obligación no encontrada.'], 404);
+        }
+        if ($deuda->getTipo() !== 'RECIBIDO' || $deuda->getEstado() !== 'PENDIENTE') {
+            return new JsonResponse(['message' => 'Solo se pueden anular obligaciones pendientes.'], 400);
+        }
+        if ($deuda->getSaldoPendiente() < $deuda->getMontoTotal()) {
+            return new JsonResponse(['message' => 'No se puede anular una obligación que ya tiene abonos registrados.'], 400);
+        }
+
+        $categoria = $this->em->getRepository(CategoriaFinanciera::class)
+            ->findOneBy(['nombre' => 'Anulación de obligación']);
+        if (!$categoria) {
+            $categoria = new CategoriaFinanciera(
+                'Anulación de obligación',
+                'MIXTO',
+                'Registro de eliminación lógica de obligaciones'
+            );
+            $this->em->persist($categoria);
+        }
+
+        $deuda->anular();
+        $this->em->persist(new MovimientoFinanciero(
+            'ANULACION',
+            $deuda->getMontoTotal(),
+            $categoria,
+            $deuda->getCuentaFinanciera(),
+            'anulacion_obligacion',
+            $deuda->getId(),
+            'Obligación anulada lógicamente: ' . ($deuda->getEntidad() ?: 'Sin entidad')
+        ));
+        $this->em->flush();
+
+        return new JsonResponse([
+            'message' => 'Obligación anulada lógicamente y registrada en el libro mayor.',
+            'id' => $deuda->getId()
+        ]);
+    }
+
     #[Route('/deudas/registrar', name: 'app_caja_deuda_registrar', methods: ['POST'])]
     public function registrarDeuda(Request $request): JsonResponse
     {
@@ -76,8 +119,14 @@ class CajaController extends AbstractController
     #[Route('/egresos-pendientes', name: 'app_caja_egresos_pendientes', methods: ['GET'])]
     public function egresosPendientes(): JsonResponse
     {
-        $gastos = $this->gastoRepo->findPendientesCierre();
-        $abonos = $this->pagoRepo->findPendientesCierre();
+        $gastos = array_values(array_filter(
+            $this->gastoRepo->findPendientesCierre(),
+            fn($gasto) => $gasto->getCuentaFinanciera()->incluirEnArqueo()
+        ));
+        $abonos = array_values(array_filter(
+            $this->pagoRepo->findPendientesCierre(),
+            fn($abono) => $abono->getCuentaFinanciera()->incluirEnArqueo()
+        ));
 
         $data = [];
         foreach ($gastos as $g) {
@@ -176,7 +225,9 @@ class CajaController extends AbstractController
             'usar_en_egresos' => $c->usarEnEgresos(),
             'usar_en_cuentas_por_pagar' => $c->usarEnCuentasPorPagar(),
             'es_temporal' => $c->esTemporal(),
-            'saldo' => $saldos[(string)$c->getId()] ?? 0
+            'editable' => $c->esEditable(),
+            'saldo' => $saldos[(string)$c->getId()] ?? 0,
+            'saldo_base' => $c->getSaldoBase()
         ], $repo->listarTodas()));
     }
 
@@ -208,6 +259,19 @@ class CajaController extends AbstractController
             'nombre' => $c->getNombre(),
             'tipo' => $c->getTipo()
         ], $repo->listarParaCuentasPorPagar()));
+    }
+
+    #[Route('/cuentas/pago-obligaciones', name: 'app_caja_cuentas_pago_obligaciones', methods: ['GET'])]
+    public function cuentasPagoObligaciones(CuentaFinancieraRepositoryInterface $repo): JsonResponse
+    {
+        return new JsonResponse(array_map(fn($c) => [
+            'id' => $c->getId(),
+            'nombre' => $c->getNombre(),
+            'tipo' => $c->getTipo()
+        ], array_values(array_filter(
+            $repo->listarActivas(),
+            fn($c) => !$c->esTemporal()
+        ))));
     }
 
     #[Route('/cuentas/{id}/facturacion', name: 'app_caja_cuenta_facturacion', methods: ['PATCH'])]
@@ -310,6 +374,7 @@ class CajaController extends AbstractController
         $nombre = trim((string)($data['nombre'] ?? ''));
         $tipo = strtoupper(trim((string)($data['tipo'] ?? '')));
         $saldoInicial = (float)($data['saldo_inicial'] ?? 0);
+        $saldoBase = (float)($data['saldo_base'] ?? 0);
 
         if ($nombre === '' || mb_strlen($nombre) > 100) {
             return new JsonResponse(['message' => 'El nombre de la cuenta es obligatorio.'], 400);
@@ -320,15 +385,162 @@ class CajaController extends AbstractController
         if ($saldoInicial < 0) {
             return new JsonResponse(['message' => 'El saldo inicial no puede ser negativo.'], 400);
         }
+        if ($saldoBase < 0) {
+            return new JsonResponse(['message' => 'El saldo base no puede ser negativo.'], 400);
+        }
         if ($repo->buscarPorNombre($nombre)) {
             return new JsonResponse(['message' => 'Ya existe una cuenta con ese nombre.'], 409);
         }
 
-        $cuenta = new CuentaFinanciera($nombre, $tipo, $saldoInicial);
+        $cuenta = new CuentaFinanciera($nombre, $tipo, $saldoInicial, $saldoBase);
+        if (($data['editable'] ?? false) === true) {
+            $cuenta->activarEdicion();
+        }
         $this->em->persist($cuenta);
         $this->em->flush();
 
         return new JsonResponse(['message' => 'Cuenta creada correctamente.', 'id' => $cuenta->getId()], 201);
+    }
+
+    #[Route('/cuentas/{id}/saldo-base', name: 'app_caja_cuenta_saldo_base', methods: ['PATCH'])]
+    public function cambiarSaldoBase(int $id, Request $request, CuentaFinancieraRepositoryInterface $repo): JsonResponse
+    {
+        $cuenta = $repo->buscarPorId($id);
+        if (!$cuenta) {
+            return new JsonResponse(['message' => 'Cuenta no encontrada.'], 404);
+        }
+        if ($cuenta->esTemporal()) {
+            return new JsonResponse(['message' => 'Las cuentas temporales no tienen saldo base editable.'], 400);
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        $saldoBase = (float)($data['saldo_base'] ?? -1);
+        if ($saldoBase < 0 || !is_finite($saldoBase)) {
+            return new JsonResponse(['message' => 'El saldo base debe ser un número no negativo.'], 400);
+        }
+
+        $cuenta->setSaldoBase($saldoBase);
+        $this->em->flush();
+
+        return new JsonResponse(['message' => 'Saldo base actualizado.', 'saldo_base' => $cuenta->getSaldoBase()]);
+    }
+
+    #[Route('/cuentas/{id}/editable', name: 'app_caja_cuenta_editable', methods: ['PATCH'])]
+    public function cambiarEditable(int $id, CuentaFinancieraRepositoryInterface $repo): JsonResponse
+    {
+        $cuenta = $repo->buscarPorId($id);
+        if (!$cuenta) return new JsonResponse(['message' => 'Cuenta no encontrada.'], 404);
+        if ($cuenta->esTemporal()) return new JsonResponse(['message' => 'Las cuentas temporales no se pueden editar.'], 400);
+
+        $cuenta->esEditable() ? $cuenta->desactivarEdicion() : $cuenta->activarEdicion();
+        $this->em->flush();
+        return new JsonResponse(['message' => $cuenta->esEditable() ? 'Cuenta editable.' : 'Edición de cuenta bloqueada.']);
+    }
+
+    #[Route('/cuentas/{id}/editar', name: 'app_caja_cuenta_editar', methods: ['PATCH'])]
+    public function editarCuenta(int $id, Request $request, CuentaFinancieraRepositoryInterface $repo): JsonResponse
+    {
+        $cuenta = $repo->buscarPorId($id);
+        if (!$cuenta) return new JsonResponse(['message' => 'Cuenta no encontrada.'], 404);
+        if ($cuenta->esTemporal()) return new JsonResponse(['message' => 'Las cuentas temporales no se pueden editar.'], 400);
+        if (!$cuenta->esEditable()) return new JsonResponse(['message' => 'Activa la bandera editable para modificar esta cuenta.'], 400);
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        $nombre = trim((string)($data['nombre'] ?? $cuenta->getNombre()));
+        $operacion = strtoupper(trim((string)($data['operacion'] ?? '')));
+        $montoAjuste = array_key_exists('monto', $data) ? (float)$data['monto'] : 0.0;
+        if ($nombre === '' || mb_strlen($nombre) > 100) {
+            return new JsonResponse(['message' => 'El nombre de la cuenta no es válido.'], 400);
+        }
+        if (!in_array($operacion, ['', 'INGRESO', 'EGRESO'], true)) {
+            return new JsonResponse(['message' => 'La operación debe ser INGRESO o EGRESO.'], 400);
+        }
+        if (!is_finite($montoAjuste) || $montoAjuste < 0) {
+            return new JsonResponse(['message' => 'El monto debe ser un número no negativo.'], 400);
+        }
+        if ($montoAjuste > 0 && $operacion === '') {
+            return new JsonResponse(['message' => 'Selecciona si el monto se agrega o se retira.'], 400);
+        }
+        $otra = $repo->buscarPorNombre($nombre);
+        if ($otra && $otra->getId() !== $cuenta->getId()) {
+            return new JsonResponse(['message' => 'Ya existe una cuenta con ese nombre.'], 409);
+        }
+
+        $saldoActual = null;
+        foreach ($repo->obtenerSaldosActuales() as $saldo) {
+            if ((int)$saldo['id'] === $id) {
+                $saldoActual = (float)$saldo['saldo'];
+                break;
+            }
+        }
+        if ($saldoActual === null) return new JsonResponse(['message' => 'No se pudo consultar el saldo actual.'], 400);
+
+        $cuenta->setNombre($nombre);
+        $montoAjuste = round($montoAjuste, 2);
+        $saldoNuevo = $saldoActual;
+        if ($montoAjuste > 0.0) {
+            $categoria = $this->em->getRepository(CategoriaFinanciera::class)->findOneBy(['nombre' => 'Ajuste de saldo']);
+            if (!$categoria) {
+                $categoria = new CategoriaFinanciera('Ajuste de saldo', 'MIXTO', 'Ajustes manuales auditables de cuentas');
+                $this->em->persist($categoria);
+            }
+            $saldoNuevo = round($saldoActual + ($operacion === 'INGRESO' ? $montoAjuste : -$montoAjuste), 2);
+            if ($saldoNuevo < 0) {
+                return new JsonResponse(['message' => 'El egreso no puede superar el saldo actual de la cuenta.'], 400);
+            }
+            $this->em->persist(new MovimientoFinanciero(
+                $operacion,
+                $montoAjuste,
+                $categoria,
+                $cuenta,
+                'ajuste_cuenta',
+                $cuenta->getId(),
+                ($operacion === 'INGRESO' ? 'Ingreso' : 'Egreso') . ' manual en ' . $cuenta->getNombre()
+            ));
+        }
+        $this->em->flush();
+
+        $impresion = '';
+        if ($montoAjuste > 0.0) {
+            try {
+                $this->imprimirAjusteCuenta($cuenta, $operacion, $montoAjuste, $saldoActual, $saldoNuevo);
+                $impresion = ' Comprobante enviado a impresión.';
+            } catch (\Throwable $e) {
+                error_log('Error imprimiendo ajuste de cuenta: ' . $e->getMessage());
+                $impresion = ' No se pudo imprimir el comprobante: ' . $e->getMessage();
+            }
+        }
+
+        return new JsonResponse([
+            'message' => 'Cuenta actualizada y movimiento registrado.' . $impresion,
+            'saldo_anterior' => $saldoActual,
+            'saldo' => $saldoNuevo,
+            'operacion' => $operacion ?: null,
+            'monto' => $montoAjuste
+        ]);
+    }
+
+    private function imprimirAjusteCuenta(CuentaFinanciera $cuenta, string $operacion, float $monto, float $saldoAnterior, float $saldoNuevo): void
+    {
+        $ticket = "\x1b@\x1ba\x01\x1bE\x01DON WOK\n";
+        $ticket .= "\x1bE\x00AJUSTE DE CAJA\n";
+        $ticket .= "FECHA: " . (new \DateTimeImmutable('now', new \DateTimeZone('America/Bogota')))->format('Y-m-d H:i:s') . "\n";
+        $ticket .= str_repeat('-', 32) . "\n";
+        $ticket .= 'CUENTA: ' . $cuenta->getNombre() . "\n";
+        $ticket .= 'OPERACION: ' . ($operacion === 'INGRESO' ? 'INGRESO / AGREGAR' : 'EGRESO / RETIRAR') . "\n";
+        $ticket .= 'MONTO: COP ' . number_format($monto, 0, ',', '.') . "\n";
+        $ticket .= 'SALDO ANTERIOR: COP ' . number_format($saldoAnterior, 0, ',', '.') . "\n";
+        $ticket .= 'SALDO NUEVO: COP ' . number_format($saldoNuevo, 0, ',', '.') . "\n";
+        $ticket .= str_repeat('-', 32) . "\n";
+        $ticket .= "REGISTRADO EN LIBRO MAYOR\n";
+        $ticket .= "\x1bd\x06\x1d\x56\x00";
+
+        $process = new Process(['lp', '-o', 'raw', '-d', $this->printerName], null, null, $ticket);
+        $process->setTimeout(15);
+        $process->run();
+        if (!$process->isSuccessful()) {
+            throw new \RuntimeException(trim($process->getErrorOutput()) ?: 'La impresora no aceptó el ajuste.');
+        }
     }
 
     #[Route('/cuentas/{id}/estado', name: 'app_caja_cuenta_estado', methods: ['PATCH'])]
@@ -374,6 +586,7 @@ class CajaController extends AbstractController
             'cuentas' => array_map(fn(TransferenciaArqueo $a) => [
                 'cuenta_origen' => $a->getCuentaOrigenNombre(),
                 'cuenta_temporal' => $a->getCuentaTemporalNombre(),
+                'valor_contado' => $a->getValorContado(),
                 'monto' => $a->getMonto(),
                 'estado' => $a->getEstado(),
                 'destino' => $a->getCuentaDestinoNombre(),
@@ -400,8 +613,14 @@ class CajaController extends AbstractController
         if (!$origen || !$destino) {
             return new JsonResponse(['message' => 'Una de las cuentas no existe.'], 404);
         }
+        if (!$origen->esTemporal() && $origen->incluirEnArqueo()) {
+            return new JsonResponse(['message' => 'Las cuentas incluidas en arqueo solo pueden mover dinero mediante el cierre de caja.'], 400);
+        }
         if ($origen->esTemporal() && $destino->esTemporal()) {
             return new JsonResponse(['message' => 'Una cuenta temporal solo puede trasladarse a una cuenta no temporal.'], 400);
+        }
+        if (!$destino->esTemporal() && $destino->incluirEnArqueo()) {
+            return new JsonResponse(['message' => 'Las cuentas seleccionadas para arqueo no pueden recibir transferencias manuales.'], 400);
         }
         if (!$origen->esTemporal() && $destino->esTemporal()) {
             return new JsonResponse(['message' => 'Las cuentas temporales solo reciben el traslado automático de un arqueo.'], 400);
@@ -424,12 +643,20 @@ class CajaController extends AbstractController
 
         $saldos = [];
         foreach ($repo->obtenerSaldosActuales() as $saldo) {
-            $saldos[(string)$saldo['id']] = (float)$saldo['saldo'];
+            $saldos[(string)$saldo['id']] = [
+                'saldo' => (float)$saldo['saldo'],
+                'saldo_base' => (float)$saldo['saldo_base'],
+                'es_temporal' => (bool)$saldo['es_temporal'],
+            ];
         }
-        if (($saldos[(string)$origenId] ?? 0) < $monto) {
-            return new JsonResponse(['message' => 'La cuenta de origen no tiene saldo suficiente.'], 400);
+        $saldoOrigen = $saldos[(string)$origenId]['saldo'] ?? 0.0;
+        $saldoBaseOrigen = $saldos[(string)$origenId]['saldo_base'] ?? 0.0;
+        $esTemporalOrigen = $saldos[(string)$origenId]['es_temporal'] ?? $origen->esTemporal();
+        $disponibleOrigen = $esTemporalOrigen ? $saldoOrigen : max(0, $saldoOrigen - $saldoBaseOrigen);
+        if ($monto > $disponibleOrigen) {
+            return new JsonResponse(['message' => 'La cuenta de origen no tiene saldo disponible suficiente, respetando su saldo base.'], 400);
         }
-        if ($origen->esTemporal() && abs((float)$saldos[(string)$origenId] - $monto) > 0.01) {
+        if ($origen->esTemporal() && abs($saldoOrigen - $monto) > 0.01) {
             return new JsonResponse(['message' => 'La cuenta temporal debe trasladarse por el total auditado.'], 400);
         }
 
@@ -439,10 +666,12 @@ class CajaController extends AbstractController
             $this->em->persist($categoria);
         }
 
-        $this->em->persist(new MovimientoFinanciero(
-            'EGRESO', $monto, $categoria, $origen, 'transferencia', null,
-            'Transferencia a ' . $destino->getNombre()
-        ));
+        if (!$origen->esTemporal()) {
+            $this->em->persist(new MovimientoFinanciero(
+                'EGRESO', $monto, $categoria, $origen, 'transferencia', null,
+                'Transferencia a ' . $destino->getNombre()
+            ));
+        }
         $this->em->persist(new MovimientoFinanciero(
             'INGRESO', $monto, $categoria, $destino, 'transferencia', null,
             'Transferencia desde ' . $origen->getNombre()
@@ -474,9 +703,68 @@ class CajaController extends AbstractController
         $data = json_decode($request->getContent(), true) ?? [];
         try {
             $res = $this->egresoHandler->handle($data);
-            return new JsonResponse(['message' => 'Egreso registrado con éxito', 'detalle' => $res]);
+            $mensaje = ($res['status'] ?? '') === 'REGISTRADO_EN_LIBRO_MAYOR'
+                ? 'Egreso registrado directamente en el libro mayor.'
+                : 'Egreso registrado con éxito; quedará pendiente del cierre.';
+            if (($res['status'] ?? '') === 'REGISTRADO_EN_LIBRO_MAYOR') {
+                try {
+                    $this->imprimirEgresoDirecto($res);
+                    $mensaje .= ' Comprobante enviado a impresión.';
+                } catch (\Throwable $e) {
+                    error_log('Error imprimiendo egreso directo: ' . $e->getMessage());
+                    $mensaje .= ' No se pudo imprimir el comprobante: ' . $e->getMessage();
+                }
+            }
+            return new JsonResponse(['message' => $mensaje, 'detalle' => $res]);
         } catch (\Exception $e) {
             return new JsonResponse(['message' => $e->getMessage()], 400);
+        }
+    }
+
+    private function imprimirAbonoPrestamo(array $abono): void
+    {
+        $esIngreso = ($abono['tipo_movimiento'] ?? 'EGRESO') === 'INGRESO';
+        $ticket = "\x1b@\x1ba\x01\x1bE\x01DON WOK\n";
+        $ticket .= "\x1bE\x00" . ($esIngreso ? "COMPROBANTE DE PAGO\n" : "PAGO DE OBLIGACION\n");
+        $ticket .= "FECHA: " . (new \DateTimeImmutable('now', new \DateTimeZone('America/Bogota')))->format('Y-m-d H:i:s') . "\n";
+        $ticket .= str_repeat('-', 32) . "\n";
+        $ticket .= ($abono['referencia_label'] ?? 'ID PAGO') . ': ' . ($abono['pago_id'] ?? '-') . "\n";
+        $ticket .= 'CONCEPTO: ' . ($abono['concepto'] ?? '-') . "\n";
+        $ticket .= 'CATEGORIA: ' . ($abono['categoria'] ?? '-') . "\n";
+        $ticket .= 'CUENTA: ' . ($abono['cuenta'] ?? '-') . "\n";
+        $ticket .= 'MONTO: COP ' . number_format((float)($abono['monto'] ?? 0), 0, ',', '.') . "\n";
+        $ticket .= str_repeat('-', 32) . "\n";
+        $ticket .= ($abono['status'] ?? '') === 'REGISTRADO_EN_LIBRO_MAYOR'
+            ? "REGISTRADO EN LIBRO MAYOR\n"
+            : "PENDIENTE DE CIERRE DE CAJA\n";
+        $ticket .= "\x1bd\x06\x1d\x56\x00";
+
+        $process = new Process(['lp', '-o', 'raw', '-d', $this->printerName], null, null, $ticket);
+        $process->setTimeout(15);
+        $process->run();
+        if (!$process->isSuccessful()) {
+            throw new \RuntimeException(trim($process->getErrorOutput()) ?: 'La impresora no aceptó el egreso.');
+        }
+    }
+
+    private function imprimirEgresoDirecto(array $egreso): void
+    {
+        $ticket = "\x1b@\x1ba\x01\x1bE\x01DON WOK\n";
+        $ticket .= "\x1bE\x00EGRESO DIRECTO\n";
+        $ticket .= "FECHA: " . (new \DateTimeImmutable('now', new \DateTimeZone('America/Bogota')))->format('Y-m-d H:i:s') . "\n";
+        $ticket .= str_repeat('-', 32) . "\n";
+        $ticket .= ($egreso['referencia_label'] ?? 'ID GASTO') . ': ' . ($egreso['gasto_id'] ?? $egreso['pago_id'] ?? '-') . "\n";
+        $ticket .= 'CONCEPTO: ' . ($egreso['concepto'] ?? '-') . "\n";
+        $ticket .= 'CATEGORIA: ' . ($egreso['categoria'] ?? '-') . "\n";
+        $ticket .= 'CUENTA: ' . ($egreso['cuenta'] ?? '-') . "\n";
+        $ticket .= 'MONTO: COP ' . number_format((float)($egreso['monto'] ?? 0), 0, ',', '.') . "\n";
+        $ticket .= str_repeat('-', 32) . "\nREGISTRADO EN LIBRO MAYOR\n\x1bd\x06\x1d\x56\x00";
+
+        $process = new Process(['lp', '-o', 'raw', '-d', $this->printerName], null, null, $ticket);
+        $process->setTimeout(15);
+        $process->run();
+        if (!$process->isSuccessful()) {
+            throw new \RuntimeException(trim($process->getErrorOutput()) ?: 'La impresora no aceptó el egreso.');
         }
     }
 
@@ -498,8 +786,18 @@ class CajaController extends AbstractController
     {
         $data = json_decode($request->getContent(), true) ?? [];
         try {
-            $this->abonoHandler->handle($id, (float)$data['monto'], (int)$data['cuenta_id']);
-            return new JsonResponse(['message' => 'Abono registrado con éxito']);
+            $resultado = $this->abonoHandler->handle($id, (float)$data['monto'], (int)$data['cuenta_id']);
+            $mensaje = $resultado['status'] === 'REGISTRADO_EN_LIBRO_MAYOR'
+                ? 'Pago registrado directamente en el libro mayor.'
+                : 'Pago registrado; quedará pendiente del cierre.';
+            try {
+                $this->imprimirAbonoPrestamo($resultado);
+                $mensaje .= ' Comprobante enviado a impresión.';
+            } catch (\Throwable $e) {
+                error_log('Error imprimiendo pago de préstamo: ' . $e->getMessage());
+                $mensaje .= ' No se pudo imprimir el comprobante: ' . $e->getMessage();
+            }
+            return new JsonResponse(['message' => $mensaje, 'detalle' => $resultado]);
         } catch (\Exception $e) {
             return new JsonResponse(['message' => $e->getMessage()], 400);
         }
@@ -509,7 +807,10 @@ class CajaController extends AbstractController
     public function facturasEmitidas(FacturaRepositoryInterface $repo): JsonResponse
     {
         $facturas = $repo->findPendientesCierre();
-        $abonos = $this->pagoRepo->findPendientesCierre();
+        $abonos = array_values(array_filter(
+            $this->pagoRepo->findPendientesCierre(),
+            fn($abono) => $abono->getCuentaFinanciera()->incluirEnArqueo()
+        ));
 
         $data = [
             'facturas' => array_map(fn($f) => $f->toArray(), $facturas),
@@ -583,7 +884,7 @@ class CajaController extends AbstractController
     }
 
     #[Route('/imprimir-cierre', name: 'app_caja_imprimir_cierre', methods: ['POST'])]
-    public function imprimirCierre(Request $request, FacturaRepositoryInterface $repo, CalcularDeduccionesCierre $deduccionesCalculator, DeduccionesCierreService $deduccionesCierreService): JsonResponse
+    public function imprimirCierre(Request $request, FacturaRepositoryInterface $repo, CuentaFinancieraRepositoryInterface $cuentaRepo, CalcularDeduccionesCierre $deduccionesCalculator, DeduccionesCierreService $deduccionesCierreService): JsonResponse
     {
         try {
             $saldosContados = $this->obtenerSaldosContados($request);
@@ -592,8 +893,14 @@ class CajaController extends AbstractController
         }
 
         $facturas = $repo->findPendientesCierre();
-        $abonos = $this->pagoRepo->findPendientesCierre();
-        $gastos = $this->gastoRepo->findPendientesCierre();
+        $abonos = array_values(array_filter(
+            $this->pagoRepo->findPendientesCierre(),
+            fn($abono) => $abono->getCuentaFinanciera()->incluirEnArqueo()
+        ));
+        $gastos = array_values(array_filter(
+            $this->gastoRepo->findPendientesCierre(),
+            fn($gasto) => $gasto->getCuentaFinanciera()->incluirEnArqueo()
+        ));
 
         $ingresosAbonos = [];
         foreach ($abonos as $abono) {
@@ -624,14 +931,85 @@ class CajaController extends AbstractController
         ));
         $detalleDeducciones = $deduccionesCalculator->calcular($totalFacturas, $deduccionesVisibles);
         $totalDeducciones = array_sum(array_column($detalleDeducciones, 'monto'));
-        $esperadoEfectivo = array_reduce($facturas, fn(float $total, Factura $factura) => $total + $factura->getPagoEfectivo(), 0.0);
-        $esperadoNequi = array_reduce($facturas, fn(float $total, Factura $factura) => $total + $factura->getPagoNequi(), 0.0);
+        $saldosEsperados = [];
+        foreach ($cuentaRepo->obtenerSaldosActuales() as $cuenta) {
+            $saldosEsperados[(string)$cuenta['id']] = [
+                'nombre' => $cuenta['nombre'],
+                'saldo' => (float)$cuenta['saldo'],
+                'saldo_retenido' => (float)$cuenta['saldo'],
+                'tipo' => $cuenta['tipo'],
+                'incluir_en_arqueo' => (bool)$cuenta['incluir_en_arqueo'],
+                'ventas' => 0.0,
+                'otros_ingresos' => 0.0,
+                'egresos' => 0.0,
+            ];
+        }
+        $sumarMovimientoEsperado = static function (?int $cuentaId, float $monto, int $factor) use (&$saldosEsperados): void {
+            if (!$cuentaId || !isset($saldosEsperados[(string)$cuentaId])) {
+                return;
+            }
+            $saldosEsperados[(string)$cuentaId]['saldo'] += $factor * $monto;
+        };
+        foreach ($facturas as $factura) {
+            $pagos = $factura->getPagos();
+            if ($pagos) {
+                foreach ($pagos as $pago) {
+                    $sumarMovimientoEsperado((int)($pago['cuenta_id'] ?? 0), (float)($pago['monto'] ?? 0), 1);
+                    $cuentaPagoId = (string)($pago['cuenta_id'] ?? 0);
+                    if (isset($saldosEsperados[$cuentaPagoId])) {
+                        $saldosEsperados[$cuentaPagoId]['ventas'] += (float)($pago['monto'] ?? 0);
+                    }
+                }
+            } else {
+                $cuentaEfectivoId = $cuentaRepo->buscarPorNombre('Caja Registradora')?->getId();
+                $cuentaNequiId = $cuentaRepo->buscarPorNombre('Cuenta Nequi')?->getId();
+                $sumarMovimientoEsperado($cuentaEfectivoId, $factura->getPagoEfectivo(), 1);
+                $sumarMovimientoEsperado($cuentaNequiId, $factura->getPagoNequi(), 1);
+                if ($cuentaEfectivoId && isset($saldosEsperados[(string)$cuentaEfectivoId])) {
+                    $saldosEsperados[(string)$cuentaEfectivoId]['ventas'] += $factura->getPagoEfectivo();
+                }
+                if ($cuentaNequiId && isset($saldosEsperados[(string)$cuentaNequiId])) {
+                    $saldosEsperados[(string)$cuentaNequiId]['ventas'] += $factura->getPagoNequi();
+                }
+            }
+        }
+        foreach ($abonos as $abono) {
+            $esIngreso = $abono->getPrestamo()->getTipo() === 'OTORGADO'
+                || ($abono->getPrestamo()->getTipo() === 'RECIBIDO' && $abono->esDesembolso());
+            $sumarMovimientoEsperado($abono->getCuentaFinanciera()->getId(), $abono->getMonto(), $esIngreso ? 1 : -1);
+            $cuentaAbonoId = (string)$abono->getCuentaFinanciera()->getId();
+            if (isset($saldosEsperados[$cuentaAbonoId])) {
+                $saldosEsperados[$cuentaAbonoId][$esIngreso ? 'otros_ingresos' : 'egresos'] += $abono->getMonto();
+            }
+        }
+        foreach ($gastos as $gasto) {
+            $sumarMovimientoEsperado($gasto->getCuentaFinanciera()->getId(), $gasto->getMonto(), -1);
+            $cuentaGastoId = (string)$gasto->getCuentaFinanciera()->getId();
+            if (isset($saldosEsperados[$cuentaGastoId])) {
+                $saldosEsperados[$cuentaGastoId]['egresos'] += $gasto->getMonto();
+            }
+        }
+        $esperadoEfectivo = 0.0;
+        $esperadoNequi = 0.0;
+        foreach ($saldosEsperados as $cuenta) {
+            if (!$cuenta['incluir_en_arqueo']) {
+                continue;
+            }
+            if ($cuenta['tipo'] === 'CAJA') {
+                $esperadoEfectivo += $cuenta['saldo'];
+            } else {
+                $esperadoNequi += $cuenta['saldo'];
+            }
+        }
         $contadoEfectivo = (float)($saldosContados['efectivo'] ?? 0);
         $contadoNequi = (float)($saldosContados['nequi'] ?? 0);
         if (isset($saldosContados['cuentas'])) {
             $contadoEfectivo = 0.0;
             $contadoNequi = 0.0;
             foreach ($this->em->getRepository(CuentaFinanciera::class)->findAll() as $cuenta) {
+                if (!$cuenta->incluirEnArqueo()) {
+                    continue;
+                }
                 $contado = (float)($saldosContados['cuentas'][(string)$cuenta->getId()] ?? 0);
                 if ($cuenta->getTipo() === 'CAJA') {
                     $contadoEfectivo += $contado;
@@ -642,6 +1020,7 @@ class CajaController extends AbstractController
         }
         $descuadreEfectivo = round($contadoEfectivo - $esperadoEfectivo, 2);
         $descuadreNequi = round($contadoNequi - $esperadoNequi, 2);
+        $diferenciaNetaCotejada = round($descuadreEfectivo + $descuadreNequi, 2);
         $nombreEmpresa = $empresa?->getNombre() ?: 'DON WOK';
 
         if ($empresa && !$empresa->isImpresoraActiva()) {
@@ -660,6 +1039,20 @@ class CajaController extends AbstractController
         $ticket .= "NEQUI ESPERADO: $" . number_format($esperadoNequi, 0, ',', '.') . "\n";
         $ticket .= "NEQUI CONTADO: $" . number_format($contadoNequi, 0, ',', '.') . "\n";
         $ticket .= "DESCUADRE NEQUI: $" . number_format($descuadreNequi, 0, ',', '.') . "\n";
+        $ticket .= "DIFERENCIA NETA COTEJADA: $" . number_format($diferenciaNetaCotejada, 0, ',', '.') . "\n";
+        $ticket .= "\x1bM\x01DETALLE DE SALDOS ESPERADOS\n";
+        foreach ($saldosEsperados as $cuenta) {
+            if (!$cuenta['incluir_en_arqueo']) {
+                continue;
+            }
+            $esperadoCuenta = $cuenta['saldo_retenido'] + $cuenta['ventas'] + $cuenta['otros_ingresos'] - $cuenta['egresos'];
+            $ticket .= $cuenta['nombre'] . ': retenido $' . number_format($cuenta['saldo_retenido'], 0, ',', '.')
+                . ' + ventas $' . number_format($cuenta['ventas'], 0, ',', '.')
+                . ' + ingresos $' . number_format($cuenta['otros_ingresos'], 0, ',', '.')
+                . ' - egresos $' . number_format($cuenta['egresos'], 0, ',', '.')
+                . ' = esperado $' . number_format($esperadoCuenta, 0, ',', '.') . "\n";
+        }
+        $ticket .= "\x1bM\x00";
         $ticket .= "OTROS INGRESOS: $" . number_format($totalAbonos, 0, ',', '.') . "\n";
         $ticket .= "TOTAL INGRESOS: $" . number_format($totalIngresos, 0, ',', '.') . "\n";
         $ticket .= str_repeat('-', 32) . "\n";
@@ -674,7 +1067,29 @@ class CajaController extends AbstractController
         $ticket .= str_repeat('-', 32) . "\n";
 
         foreach ($facturas as $factura) {
-            $ticket .= '#' . ($factura->getNumeroFactura() ?: $factura->getId()) . ' $' . number_format($factura->getTotal(), 0, ',', '.') . "\n";
+            $ticket .= "\x1bM\x01"; // Fuente B: texto pequeño para el detalle de facturas.
+            $ticket .= "FACTURA #" . ($factura->getNumeroFactura() ?: $factura->getId()) . "\n";
+            $ticket .= "TOTAL: $" . number_format($factura->getTotal(), 0, ',', '.') . ($factura->fueEditada() ? " [EDITADA]\n" : "\n");
+            foreach ($factura->getDetalles() as $detalle) {
+                if (!$detalle->estaActivo()) {
+                    continue;
+                }
+                $nombre = mb_strimwidth($detalle->getNombreProducto(), 0, 20, '');
+                $subtotal = $detalle->getPrecioUnitario() * $detalle->getCantidad();
+                $ticket .= "+ " . $detalle->getCantidad() . "x " . $nombre
+                    . " $" . number_format($detalle->getPrecioUnitario(), 0, ',', '.')
+                    . " = $" . number_format($subtotal, 0, ',', '.') . "\n";
+            }
+            foreach ($factura->getDetalles() as $detalle) {
+                if ($detalle->estaActivo()) {
+                    continue;
+                }
+                $nombre = mb_strimwidth($detalle->getNombreProducto(), 0, 20, '');
+                $ticket .= "- ELIMINADO: " . $detalle->getCantidad() . "x " . $nombre
+                    . " $" . number_format($detalle->getPrecioUnitario(), 0, ',', '.') . "\n";
+            }
+            $ticket .= "\x1bM\x00";
+            $ticket .= str_repeat('-', 32) . "\n";
         }
 
         $ticket .= "\nCierre realizado correctamente\n";
@@ -744,6 +1159,7 @@ class CajaController extends AbstractController
                 'tipo' => $m->getTipoMovimiento(),
                 'monto' => $m->getMonto(),
                 'fecha' => $m->getFechaMovimiento()->format('Y-m-d H:i:s'),
+                'fecha_actualizacion' => $m->getFechaActualizacion()->format('Y-m-d H:i:s'),
                 'descripcion' => $m->getDescripcion(),
                 'categoria' => $m->getCategoriaFinanciera()->getNombre(),
                 'cuenta' => $m->getCuentaFinanciera()->getNombre()
@@ -752,5 +1168,45 @@ class CajaController extends AbstractController
             'pagina' => $pagina,
             'limite' => $limite
         ]);
+    }
+
+    #[Route('/movimientos/imprimir', name: 'app_caja_movimientos_imprimir', methods: ['POST'])]
+    public function imprimirMovimientosSeleccionados(Request $request, MovimientoFinancieroRepositoryInterface $repo): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true) ?? [];
+        $ids = array_values(array_unique(array_filter(array_map('intval', $data['ids'] ?? []), fn(int $id) => $id > 0)));
+        if ($ids === []) {
+            return new JsonResponse(['message' => 'Selecciona al menos un movimiento para imprimir.'], 400);
+        }
+
+        $movimientos = $repo->findBy(['id' => $ids], ['fechaActualizacion' => 'ASC', 'id' => 'ASC']);
+        if ($movimientos === []) {
+            return new JsonResponse(['message' => 'No se encontraron los movimientos seleccionados.'], 404);
+        }
+
+        $ticket = "\x1b@\x1ba\x01\x1bE\x01DON WOK\n";
+        $ticket .= "\x1bE\x00MOVIMIENTOS SELECCIONADOS\n";
+        $ticket .= "FECHA: " . (new \DateTimeImmutable('now', new \DateTimeZone('America/Bogota')))->format('Y-m-d H:i:s') . "\n";
+        $ticket .= str_repeat('-', 32) . "\n";
+        $total = 0.0;
+        foreach ($movimientos as $movimiento) {
+            $total += (float)$movimiento->getMonto();
+            $ticket .= '#' . $movimiento->getId() . ' ' . $movimiento->getTipoMovimiento() . "\n";
+            $ticket .= $movimiento->getDescripcion() ?: 'Sin descripción';
+            $ticket .= "\nCUENTA: " . $movimiento->getCuentaFinanciera()->getNombre() . "\n";
+            $ticket .= 'MONTO: COP ' . number_format((float)$movimiento->getMonto(), 0, ',', '.') . "\n";
+            $ticket .= str_repeat('-', 32) . "\n";
+        }
+        $ticket .= 'TOTAL MOVIMIENTOS: COP ' . number_format($total, 0, ',', '.') . "\n";
+        $ticket .= "\x1bd\x06\x1d\x56\x00";
+
+        $process = new Process(['lp', '-o', 'raw', '-d', $this->printerName], null, null, $ticket);
+        $process->setTimeout(15);
+        $process->run();
+        if (!$process->isSuccessful()) {
+            return new JsonResponse(['message' => trim($process->getErrorOutput()) ?: 'No se pudo imprimir la selección.'], 500);
+        }
+
+        return new JsonResponse(['message' => 'Movimientos enviados a impresión.', 'cantidad' => count($movimientos)]);
     }
 }

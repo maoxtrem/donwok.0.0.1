@@ -31,11 +31,32 @@ class RegistrarEgresoHandler
         $cuentaId = (int)$data['cuenta_id'];
         $descripcion = $data['descripcion'] ?? '';
 
+        if (!is_finite($monto) || $monto <= 0) {
+            throw new \Exception('El monto del egreso debe ser mayor que cero.');
+        }
+
         $categoria = $this->categoriaRepo->buscarPorId($categoriaId);
         $cuenta = $this->cuentaRepo->buscarPorId($cuentaId);
 
         if (!$categoria || !$cuenta || !$cuenta->estaActiva() || !$cuenta->usarEnEgresos()) {
             throw new \Exception("Categoría o Cuenta no válida.");
+        }
+
+        $saldoActual = null;
+        foreach ($this->cuentaRepo->obtenerSaldosActuales() as $saldo) {
+            if ((int)$saldo['id'] === $cuentaId) {
+                $saldoActual = (float)$saldo['saldo'];
+                break;
+            }
+        }
+        if ($saldoActual === null) {
+            throw new \Exception('No se pudo consultar el saldo de la cuenta.');
+        }
+        if ($monto > $saldoActual + 0.01) {
+            throw new \Exception(sprintf(
+                'Saldo insuficiente. Disponible: COP %s.',
+                number_format(max(0, $saldoActual), 2, ',', '.')
+            ));
         }
 
         // Caso 1: Se presta dinero (SALE EFECTIVO HOY)
@@ -47,6 +68,7 @@ class RegistrarEgresoHandler
             // Creamos un Gasto técnico para que el dinero salga del cierre de caja hoy
             $gastoTecnico = new Gasto("Desembolso Préstamo: $entidad", $monto, $categoria, $cuenta, $entidad, $descripcion, false);
             $this->gastoRepo->guardar($gastoTecnico);
+            $gasto = $gastoTecnico;
             
             $refId = $prestamo->getId();
         } 
@@ -55,6 +77,30 @@ class RegistrarEgresoHandler
             $gasto = new Gasto($descripcion, $monto, $categoria, $cuenta, $data['proveedor'] ?? null, $descripcion, false);
             $this->gastoRepo->guardar($gasto);
             $refId = $gasto->getId();
+        }
+
+        if (!$cuenta->incluirEnArqueo()) {
+            $gasto->cerrar();
+            $this->em->persist(new MovimientoFinanciero(
+                'EGRESO',
+                $monto,
+                $categoria,
+                $cuenta,
+                'gasto',
+                $gasto->getId(),
+                'Egreso registrado directamente desde ' . $cuenta->getNombre()
+            ));
+            $this->em->flush();
+
+            return [
+                'status' => 'REGISTRADO_EN_LIBRO_MAYOR',
+                'ref_id' => $refId,
+                'gasto_id' => $gasto->getId(),
+                'concepto' => $gasto->getConcepto(),
+                'monto' => $gasto->getMonto(),
+                'cuenta' => $cuenta->getNombre(),
+                'categoria' => $categoria->getNombre()
+            ];
         }
 
         return [

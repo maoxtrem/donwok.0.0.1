@@ -23,7 +23,8 @@ class UserController
             new UserRequestDTO(
                 $data['username'],
                 $data['password'],
-                $data['roles'] ?? []
+                $data['roles'] ?? [],
+                $data['groupIds'] ?? []
             )
         );
 
@@ -53,7 +54,8 @@ class UserController
             new UserRequestDTO(
                 $data['username'] ?? '',
                 $data['password'] ?? '',
-                $data['roles'] ?? []
+                $data['roles'] ?? [],
+                $data['groupIds'] ?? []
             )
         );
 

@@ -20,13 +20,15 @@ class RegistrarAbonoHandler
         private EntityManagerInterface $em
     ) {}
 
-    public function handle(int $prestamoId, float $monto, int $cuentaId): void
+    public function handle(int $prestamoId, float $monto, int $cuentaId): array
     {
         $prestamo = $this->prestamoRepo->buscarPorId($prestamoId);
         $cuenta = $this->cuentaRepo->buscarPorId($cuentaId);
         
         if (!$prestamo) throw new \Exception("Préstamo no encontrado.");
-        if (!$cuenta) throw new \Exception("Cuenta no válida.");
+        if (!$cuenta || !$cuenta->estaActiva() || $cuenta->esTemporal()) {
+            throw new \Exception("La cuenta seleccionada no está disponible para realizar el pago.");
+        }
 
         $prestamo->registrarAbono($monto);
 
@@ -34,10 +36,46 @@ class RegistrarAbonoHandler
         $tipoMovimiento = ($prestamo->getTipo() === 'OTORGADO') ? 'INGRESO' : 'EGRESO';
         $concepto = ($prestamo->getTipo() === 'OTORGADO') ? "Abono recibido de: " : "Pago de deuda a: ";
 
-        // Creamos el registro del pago, pero isCerrado será false por defecto
+        // Creamos el registro del pago. Los abonos de cartera son ingresos y los
+        // abonos a obligaciones son egresos.
         $pago = new PagoPrestamo($prestamo, $monto, $cuenta, $concepto . $prestamo->getEntidad());
         $this->em->persist($pago);
+
+        // Una cuenta fuera de arqueo nunca debe entrar en la cola del arqueo.
+        // Se registra inmediatamente en el libro mayor, tanto si es un cobro de
+        // cartera como si es un pago de una obligación.
+        $registroInmediato = !$cuenta->incluirEnArqueo();
+        if ($registroInmediato) {
+            $nombreCategoria = $prestamo->getTipo() === 'OTORGADO'
+                ? 'Cobro de Préstamo'
+                : 'Pago de Obligaciones';
+            $categoria = $this->categoriaRepo->buscarPorNombre($nombreCategoria);
+            if (!$categoria) {
+                throw new \Exception('No existe la categoría financiera ' . $nombreCategoria . '.');
+            }
+            $this->em->persist(new MovimientoFinanciero(
+                $tipoMovimiento,
+                $monto,
+                $categoria,
+                $cuenta,
+                'prestamo',
+                $prestamo->getId(),
+                $concepto . $prestamo->getEntidad()
+            ));
+            $pago->cerrar();
+        }
         
         $this->em->flush();
+
+        return [
+            'status' => $registroInmediato ? 'REGISTRADO_EN_LIBRO_MAYOR' : 'PENDIENTE_DE_CIERRE',
+            'pago_id' => $pago->getId(),
+            'concepto' => $concepto . $prestamo->getEntidad(),
+            'monto' => $monto,
+            'cuenta' => $cuenta->getNombre(),
+            'categoria' => $prestamo->getTipo() === 'OTORGADO' ? 'Cobro de Préstamo' : 'Pago de Obligaciones',
+            'tipo_movimiento' => $tipoMovimiento,
+            'referencia_label' => 'ID PAGO',
+        ];
     }
 }

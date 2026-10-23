@@ -25,6 +25,9 @@ class CuentaFinanciera
     #[ORM\Column(type: 'decimal', precision: 12, scale: 2)]
     private float $saldoInicial;
 
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, options: ['default' => 0])]
+    private float $saldoBase = 0;
+
     #[ORM\Column(options: ['default' => true])]
     private bool $activa = true;
 
@@ -46,17 +49,37 @@ class CuentaFinanciera
     #[ORM\Column(options: ['default' => false])]
     private bool $esTemporal = false;
 
-    public function __construct(string $nombre, string $tipo, float $saldoInicial = 0)
+    #[ORM\Column(options: ['default' => false])]
+    private bool $editable = false;
+
+    public function __construct(string $nombre, string $tipo, float $saldoInicial = 0, float $saldoBase = 0)
     {
         $this->nombre = $nombre;
         $this->tipo = $tipo;
         $this->saldoInicial = $saldoInicial;
+        $this->setSaldoBase($saldoBase);
     }
 
     public function getId(): ?int { return $this->id; }
     public function getNombre(): string { return $this->nombre; }
+    public function setNombre(string $nombre): void
+    {
+        $nombre = trim($nombre);
+        if ($nombre === '' || mb_strlen($nombre) > 100) {
+            throw new \InvalidArgumentException('El nombre de la cuenta no es válido.');
+        }
+        $this->nombre = $nombre;
+    }
     public function getTipo(): string { return $this->tipo; }
     public function getSaldoInicial(): float { return $this->saldoInicial; }
+    public function getSaldoBase(): float { return $this->saldoBase; }
+    public function setSaldoBase(float $saldoBase): void
+    {
+        if ($saldoBase < 0) {
+            throw new \InvalidArgumentException('El saldo base no puede ser negativo.');
+        }
+        $this->saldoBase = round($saldoBase, 2);
+    }
     public function estaActiva(): bool { return $this->activa; }
     public function deshabilitar(): void { $this->activa = false; }
     public function habilitar(): void { $this->activa = true; }
@@ -76,5 +99,12 @@ class CuentaFinanciera
     public function activarParaCuentasPorPagar(): void { $this->usarEnCuentasPorPagar = true; }
     public function desactivarParaCuentasPorPagar(): void { $this->usarEnCuentasPorPagar = false; }
     public function esTemporal(): bool { return $this->esTemporal; }
-    public function marcarComoTemporal(): void { $this->esTemporal = true; }
+    public function esEditable(): bool { return $this->editable; }
+    public function activarEdicion(): void { $this->editable = true; }
+    public function desactivarEdicion(): void { $this->editable = false; }
+    public function marcarComoTemporal(): void
+    {
+        $this->esTemporal = true;
+        $this->saldoBase = 0;
+    }
 }

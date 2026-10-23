@@ -35,8 +35,14 @@ class RealizarCierreCajaHandler
     public function handle(array $saldosContados, string $auditadoPor = 'sistema'): array
     {
         $facturas = $this->facturaRepo->findPendientesCierre();
-        $gastos = $this->gastoRepo->findPendientesCierre();
-        $abonos = $this->pagoRepo->findPendientesCierre();
+        $gastos = array_values(array_filter(
+            $this->gastoRepo->findPendientesCierre(),
+            fn($gasto) => $gasto->getCuentaFinanciera()->incluirEnArqueo()
+        ));
+        $abonos = array_values(array_filter(
+            $this->pagoRepo->findPendientesCierre(),
+            fn($abono) => $abono->getCuentaFinanciera()->incluirEnArqueo()
+        ));
         
         if (empty($facturas) && empty($gastos) && empty($abonos)) {
             throw new \Exception("No hay movimientos pendientes de cierre.");
@@ -191,8 +197,33 @@ class RealizarCierreCajaHandler
             $esperadosPorCuenta[(string)$cuentaId] = round($saldoActual + ($variacionPorCuenta[$cuentaId] ?? 0), 2);
         }
         $descuadresPorCuenta = [];
-        foreach (($saldosContados['cuentas'] ?? []) as $cuentaId => $contado) {
-            $descuadresPorCuenta[(string)$cuentaId] = round((float)$contado - ($esperadosPorCuenta[(string)$cuentaId] ?? 0), 2);
+        foreach ($this->cuentaRepo->obtenerSaldosActuales() as $cuenta) {
+            if (!$cuenta['incluir_en_arqueo']) {
+                continue;
+            }
+            $cuentaId = (string)$cuenta['id'];
+            if (array_key_exists($cuentaId, $saldosContados['cuentas'] ?? [])) {
+                $descuadresPorCuenta[$cuentaId] = round(
+                    (float)$saldosContados['cuentas'][$cuentaId] - ($esperadosPorCuenta[$cuentaId] ?? 0),
+                    2
+                );
+            }
+        }
+
+        // El esperado del arqueo es el saldo completo proyectado de las cuentas,
+        // no solamente los movimientos generados durante este turno.
+        $esperadoEfectivo = 0.0;
+        $esperadoNequi = 0.0;
+        foreach ($this->cuentaRepo->obtenerSaldosActuales() as $cuenta) {
+            if (!$cuenta['incluir_en_arqueo']) {
+                continue;
+            }
+            $esperado = $esperadosPorCuenta[(string)$cuenta['id']] ?? (float)$cuenta['saldo'];
+            if ($cuenta['tipo'] === 'CAJA') {
+                $esperadoEfectivo += $esperado;
+            } else {
+                $esperadoNequi += $esperado;
+            }
         }
 
         $contadoEfectivo = (float)($saldosContados['efectivo'] ?? 0);
@@ -243,6 +274,27 @@ class RealizarCierreCajaHandler
                 continue;
             }
 
+            $saldoContado = array_key_exists((string)$saldo['id'], $saldosContados['cuentas'] ?? [])
+                ? round((float)$saldosContados['cuentas'][(string)$saldo['id']], 2)
+                : round((float)$saldo['saldo'], 2);
+            $saldoContable = round((float)$saldo['saldo'], 2);
+            $diferenciaArqueo = round($saldoContado - $saldoContable, 2);
+            if (abs($diferenciaArqueo) > 0.01) {
+                $this->em->persist(new MovimientoFinanciero(
+                    $diferenciaArqueo > 0 ? 'INGRESO' : 'EGRESO',
+                    abs($diferenciaArqueo),
+                    $categoriaTransferencia,
+                    $cuentaOrigen,
+                    'arqueo_ajuste',
+                    null,
+                    'Ajuste por diferencia de arqueo del cierre ' . $identificadorCierre
+                ));
+            }
+
+            if ($saldoContado <= 0.0) {
+                continue;
+            }
+
             $baseNombreTemporal = 'TEMP-' . $marcaCierre . '-' . $cuentaOrigen->getNombre();
             $nombreTemporal = mb_substr($baseNombreTemporal, 0, 100);
             $secuencia = 2;
@@ -262,7 +314,7 @@ class RealizarCierreCajaHandler
             $planesTemporales[] = [
                 'origen' => $cuentaOrigen,
                 'temporal' => $cuentaTemporal,
-                'monto' => round(max(0, (float)$saldo['saldo']), 2),
+                'monto' => round(max(0, $saldoContado - (float)$saldo['saldo_base']), 2),
             ];
         }
         $this->em->flush();
@@ -301,12 +353,15 @@ class RealizarCierreCajaHandler
                 $temporal->getNombre(),
                 $monto,
                 $auditadoPor,
-                $identificadorCierre
+                $identificadorCierre,
+                $saldoContado
             ));
             $cuentasTemporales[] = [
                 'id' => $temporal->getId(),
                 'nombre' => $temporal->getNombre(),
                 'origen' => $origen->getNombre(),
+                'valor_contado' => $saldoContado,
+                'saldo_base' => (float)$origen->getSaldoBase(),
                 'monto' => $monto,
             ];
         }
@@ -324,6 +379,7 @@ class RealizarCierreCajaHandler
             'contado_nequi' => round($contadoNequi, 2),
             'descuadre_efectivo' => $descuadreEfectivo,
             'descuadre_nequi' => $descuadreNequi,
+            'diferencia_neta_cotejada' => round($descuadreEfectivo + $descuadreNequi, 2),
             'esperados_cuentas' => $esperadosPorCuenta,
             'descuadres_cuentas' => $descuadresPorCuenta,
             'deudas_deducciones_generadas' => $deudasGeneradas,

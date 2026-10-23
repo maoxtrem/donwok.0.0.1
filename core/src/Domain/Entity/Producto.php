@@ -123,4 +123,16 @@ class Producto
         $this->activo = false;
     }
 
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'nombre' => $this->nombre,
+            'precioActual' => (float)$this->precioActual,
+            'costoActual' => (float)$this->costoActual,
+            'activo' => $this->activo,
+            'score' => $this->score,
+        ];
+    }
+
 }

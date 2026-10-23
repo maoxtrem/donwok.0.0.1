@@ -27,7 +27,7 @@ class EliminarPedidoHandler
         }
 
         // Solo permitir eliminar si no ha sido facturado ni cerrado.
-        if (!in_array($pedido->getEstado(), [Factura::ESTADO_PENDIENTE, Factura::ESTADO_TERMINADO])) {
+        if (!in_array($pedido->getEstado(), [Factura::ESTADO_PENDIENTE, Factura::ESTADO_EMPAQUE, Factura::ESTADO_TERMINADO])) {
             throw new \Exception("No se puede eliminar un pedido que ya ha sido facturado o cerrado. Intente anularlo si es una factura.");
         }
 

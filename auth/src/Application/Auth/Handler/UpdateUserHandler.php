@@ -4,13 +4,15 @@ namespace App\Application\Auth\Handler;
 
 use App\Application\Auth\DTO\UserRequestDTO;
 use App\Domain\Repository\UserRepositoryInterface;
+use App\Infrastructure\Doctrine\Repository\GroupRepository;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class UpdateUserHandler
 {
     public function __construct(
         private UserRepositoryInterface $repo,
-        private UserPasswordHasherInterface $passwordHasher
+        private UserPasswordHasherInterface $passwordHasher,
+        private GroupRepository $groupRepo
     ) {}
 
     public function handle(int $id, UserRequestDTO $dto): void
@@ -21,7 +23,15 @@ class UpdateUserHandler
             throw new \DomainException('Usuario no encontrado');
         }
 
+        if ($dto->username !== '' && $dto->username !== $user->getUserIdentifier() && $this->repo->existeConUsername($dto->username)) {
+            throw new \Symfony\Component\HttpKernel\Exception\ConflictHttpException('Usuario ya existe');
+        }
+
+        if ($dto->username !== '') {
+            $user->setUsername($dto->username);
+        }
         $user->setRoles($dto->roles ?: ['ROLE_USER']);
+        $user->setGroups(array_values(array_filter(array_map(fn($groupId) => $this->groupRepo->find((int)$groupId), $dto->groupIds))));
 
         if (!empty($dto->password)) {
             $hash = $this->passwordHasher->hashPassword($user, $dto->password);

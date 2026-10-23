@@ -168,12 +168,13 @@
                 <td class="text-center">
                     <span class="badge ${d.activo ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}">${d.activo ? 'Activa' : 'Inactiva'}</span>
                 </td>
+                <td class="text-center"><span class="badge ${d.mostrarEnCierre ? 'bg-info-subtle text-info' : 'bg-secondary-subtle text-secondary'}">${d.mostrarEnCierre ? 'Visible e imprimible' : 'Oculta'}</span></td>
                 <td class="text-end">
                     <button class="btn btn-sm btn-outline-primary" onclick="editarDeduccion(${d.id})"><i class="bi bi-pencil"></i></button>
                     <button class="btn btn-sm btn-outline-danger" onclick="eliminarDeduccion(${d.id})"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>
-        `).join('') || '<tr><td colspan="6" class="text-center text-muted py-4">No hay deducciones configuradas.</td></tr>';
+        `).join('') || '<tr><td colspan="7" class="text-center text-muted py-4">No hay deducciones configuradas.</td></tr>';
     }
 
     window.abrirDeduccion = () => {
@@ -181,6 +182,7 @@
         byId('deduccion-id').value = '';
         byId('deduccion-activo').checked = true;
         byId('deduccion-cada-cierre').checked = true;
+        byId('deduccion-mostrar-cierre').checked = true;
         byId('deduccion-modal-title').innerText = 'Nueva deducción';
         bootstrap.Modal.getOrCreateInstance(byId('deduccion-modal')).show();
     };
@@ -194,6 +196,7 @@
         byId('deduccion-valor').value = d.valor;
         byId('deduccion-activo').checked = d.activo;
         byId('deduccion-cada-cierre').checked = d.cadaCierre;
+        byId('deduccion-mostrar-cierre').checked = d.mostrarEnCierre !== false;
         byId('deduccion-modal-title').innerText = 'Editar deducción';
         bootstrap.Modal.getOrCreateInstance(byId('deduccion-modal')).show();
     };
@@ -212,7 +215,8 @@
             tipo: byId('deduccion-tipo').value,
             valor: parseFloat(byId('deduccion-valor').value),
             activo: byId('deduccion-activo').checked,
-            cadaCierre: byId('deduccion-cada-cierre').checked
+            cadaCierre: byId('deduccion-cada-cierre').checked,
+            mostrarEnCierre: byId('deduccion-mostrar-cierre').checked
         };
         if (id) {
             await api.patch(`/datos-empresa/deducciones/${id}`, payload);

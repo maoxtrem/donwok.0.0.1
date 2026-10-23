@@ -149,11 +149,13 @@
         };
 
         try {
-            await api.post('/caja/egresos', payload);
+            const resultado = await api.post('/caja/egresos', payload);
             Swal.fire({
                 icon: 'success',
                 title: 'Egreso Registrado',
-                text: 'El dinero ha salido de la cuenta y aparecerá en la cola de cierre.',
+                text: resultado.detalle?.status === 'REGISTRADO_EN_LIBRO_MAYOR'
+                    ? 'El dinero salió de la cuenta y el egreso quedó registrado en el libro mayor.'
+                    : 'El dinero ha salido de la cuenta y aparecerá en la cola de cierre.',
                 timer: 2000
             }).then(() => location.reload());
         } catch (err) { console.error(err); }

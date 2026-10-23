@@ -105,6 +105,10 @@
 
     function renderCuentas(cuentas) {
         document.getElementById('abono-cuenta').innerHTML = cuentas.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+        const cuentaBancaria = cuentas.find(c => c.nombre.trim().toLowerCase() === 'cuenta bancaria');
+        if (cuentaBancaria) {
+            document.getElementById('abono-cuenta').value = String(cuentaBancaria.id);
+        }
     }
 
     window.abrirModalAbono = (id) => {

@@ -1,0 +1,201 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Monitor de Cocina - DonWok{% endblock %}
+{% block body_class %}kitchen-page{% endblock %}
+
+{% block stylesheets %}
+<style>
+    :root { --kitchen-bg: #171717; --kitchen-card: #fffdf7; --kitchen-ink: #171717; --kitchen-red: #dc2626; }
+    html, body { margin: 0; min-height: 100%; background: var(--kitchen-bg); color: #f5f5f5; }
+    .kitchen-shell { min-height: 100dvh; padding: 1.1rem 1.4rem 2rem; }
+    .kitchen-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.1rem; padding-left: 4.2rem; }
+    .kitchen-header h1 { margin: 0; font-size: clamp(1.5rem, 3vw, 2.5rem); font-weight: 900; letter-spacing: .03em; text-transform: uppercase; }
+    .kitchen-header p { margin: .25rem 0 0; color: #a3a3a3; }
+    .kitchen-actions { display: flex; gap: .6rem; align-items: center; }
+    .kitchen-count { min-width: 4rem; padding: .55rem .9rem; border-radius: 999px; background: #262626; color: #fde68a; text-align: center; font-weight: 900; }
+    .sound-button { border: 1px solid #525252; border-radius: 999px; padding: .55rem .9rem; background: #262626; color: #f5f5f5; font-weight: 700; cursor: pointer; }
+    .sound-button.active { border-color: #22c55e; color: #bbf7d0; }
+    .kitchen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; align-items: start; }
+    .ticket { color: var(--kitchen-ink); background: var(--kitchen-card); border-radius: 5px; padding: 1rem; box-shadow: 0 8px 22px rgba(0,0,0,.3); animation: ticket-in .3s ease-out; }
+    .ticket.is-packing { background: #fef3c7; border: 2px solid #f59e0b; }
+    .ticket.is-ready { opacity: .58; filter: grayscale(.35); background: #d4d4d4; }
+    .ticket.is-ready .ticket-time { color: #166534; font-weight: 900; }
+    .ticket-head { display: flex; justify-content: space-between; align-items: start; border-bottom: 2px dashed #737373; padding-bottom: .7rem; margin-bottom: .7rem; }
+    .ticket-number { font-size: 2rem; line-height: 1; font-weight: 950; }
+    .ticket-time { font-size: .75rem; color: #525252; text-align: right; }
+    .ticket-meta { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .65rem; }
+    .ticket-meta span { border: 1px solid #a3a3a3; border-radius: 999px; padding: .15rem .5rem; font-size: .72rem; font-weight: 800; text-transform: uppercase; }
+    .ticket-items { list-style: none; padding: 0; margin: 0 0 1rem; }
+    .ticket-item { display: flex; gap: .65rem; padding: .45rem 0; border-bottom: 1px dotted #a3a3a3; font-size: 1.05rem; font-weight: 700; }
+    .ticket-item strong { min-width: 2rem; font-size: 1.2rem; }
+    .ticket-customer { margin: .65rem 0; font-size: .82rem; color: #404040; }
+    .finish-button { width: 100%; border: 0; border-radius: 5px; padding: .75rem; background: var(--kitchen-red); color: white; font-weight: 900; letter-spacing: .04em; cursor: pointer; }
+    .finish-button:disabled { opacity: .55; cursor: wait; }
+    .kitchen-empty { min-height: 55vh; display: grid; place-items: center; color: #a3a3a3; font-size: 1.2rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+    .kitchen-status { color: #a3a3a3; font-size: .8rem; }
+    .kitchen-menu-button { position: fixed; left: 1.25rem; top: 1.25rem; z-index: 20; width: 3.25rem; height: 3.25rem; display: grid; place-items: center; border-radius: 50%; background: #262626; border: 1px solid #525252; color: #f5f5f5; text-decoration: none; font-size: 1.35rem; box-shadow: 0 8px 20px rgba(0,0,0,.35); transition: .2s ease; }
+    .kitchen-menu-button:hover { background: #3b82f6; border-color: #60a5fa; color: #fff; transform: translateY(-2px); }
+    @keyframes ticket-in { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
+    @media (max-width: 600px) { .kitchen-shell { padding: .8rem; } .kitchen-header { align-items: start; flex-direction: column; } .kitchen-actions { width: 100%; justify-content: space-between; } }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="kitchen-shell">
+    <header class="kitchen-header">
+        <div>
+            <h1><i class="bi bi-fire text-danger me-2"></i>Cocina</h1>
+            <p>Comandas pendientes de preparación <span class="kitchen-status" id="connection-status">· Conectando...</span></p>
+        </div>
+        <div class="kitchen-actions">
+            <button id="sound-button" class="sound-button" type="button"><i class="bi bi-volume-mute me-1"></i>Activar sonido</button>
+            <div class="kitchen-count"><span id="order-count">0</span> comandas</div>
+        </div>
+    </header>
+    <main id="kitchen-list" class="kitchen-grid"></main>
+    <div id="kitchen-empty" class="kitchen-empty">No hay comandas pendientes</div>
+</div>
+<a href="/dashboard" class="kitchen-menu-button" title="Volver al menú principal" aria-label="Volver al menú principal"><i class="bi bi-grid-fill"></i></a>
+{% endblock %}
+
+{% block javascripts %}
+<script type="module">
+    import CoreAPI from '/js/core.js';
+    import MercureClient from '/js/mercure.js';
+
+    const api = new CoreAPI();
+    const orders = new Map();
+    let audioContext = null;
+    let soundEnabled = false;
+    const fmtTime = value => value ? new Date(value.replace(' ', 'T') + '-05:00').toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '';
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[char]));
+
+    function enableSound() {
+        try {
+            audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+            audioContext.resume();
+            soundEnabled = true;
+            const button = document.getElementById('sound-button');
+            button.classList.add('active');
+            button.innerHTML = '<i class="bi bi-volume-up-fill me-1"></i>Sonido activo';
+            beep();
+        } catch (_) {}
+    }
+
+    function beep() {
+        if (!soundEnabled || !audioContext) return;
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = 'square';
+        oscillator.frequency.value = 880;
+        gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.22, audioContext.currentTime + .01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + .28);
+        oscillator.connect(gain).connect(audioContext.destination);
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + .28);
+    }
+
+    function alertKitchen() {
+        const audio = new Audio('/vendor/notification.mp3');
+        audio.volume = 1;
+        audio.play().catch(() => beep());
+    }
+
+    function render() {
+        const list = document.getElementById('kitchen-list');
+        const values = [...orders.values()].sort((a, b) => {
+            const estadoA = { PENDIENTE: 0, EMPAQUE: 1, TERMINADO: 2 }[a.estado] ?? 3;
+            const estadoB = { PENDIENTE: 0, EMPAQUE: 1, TERMINADO: 2 }[b.estado] ?? 3;
+            return estadoA - estadoB || a.id - b.id;
+        });
+        list.innerHTML = values.map(p => {
+            const enEmpaque = p.estado === 'EMPAQUE';
+            const listo = p.estado === 'TERMINADO';
+            const estadoClase = enEmpaque ? 'is-packing' : (listo ? 'is-ready' : '');
+            const estadoTexto = listo ? 'LISTO PARA ENTREGAR' : (enEmpaque ? 'EN EMPAQUE' : 'EN PREPARACIÓN');
+            const boton = listo
+                ? `<button class="finish-button remind-button" type="button" data-id="${p.id}"><i class="bi bi-bell-fill me-1"></i>AVISAR PEDIDO LISTO</button>`
+                : enEmpaque
+                    ? `<button class="finish-button" type="button" data-id="${p.id}"><i class="bi bi-check2-circle me-1"></i>TERMINAR COMANDA</button>`
+                    : `<button class="finish-button packing-button" type="button" data-id="${p.id}"><i class="bi bi-box-seam me-1"></i>PASAR A EMPAQUE</button>`;
+            return `
+            <article class="ticket ${estadoClase}" id="ticket-${p.id}">
+                <div class="ticket-head"><div class="ticket-number">#${esc(p.id)}</div><div class="ticket-time">${esc(fmtTime(p.fecha))}<br>${estadoTexto}</div></div>
+                <div class="ticket-meta"><span>${esc(p.tipo || 'MESA')}</span>${p.numeroFactura ? '<span>FACTURADO</span>' : '<span>PENDIENTE PAGO</span>'}</div>
+                <ul class="ticket-items">${(p.items || []).map(item => `<li class="ticket-item"><strong>${esc(item.cantidad)}x</strong><span>${esc(item.producto)}</span></li>`).join('')}</ul>
+                ${(p.clienteNombre || p.domicilioDescripcion) ? `<div class="ticket-customer">${p.clienteNombre ? `<b>Cliente:</b> ${esc(p.clienteNombre)}<br>` : ''}${p.domicilioDescripcion ? `<b>Dirección:</b> ${esc(p.domicilioDescripcion)}` : ''}</div>` : ''}
+                ${boton}
+            </article>`;
+        }).join('');
+        document.getElementById('order-count').textContent = values.length;
+        document.getElementById('kitchen-empty').style.display = values.length ? 'none' : 'grid';
+        list.querySelectorAll('.finish-button').forEach(button => button.addEventListener('click', () => {
+            const id = Number(button.dataset.id);
+            if (button.classList.contains('remind-button')) remind(id, button);
+            else if (button.classList.contains('packing-button')) moveToPacking(id, button);
+            else finish(id, button);
+        }));
+    }
+
+    async function finish(id, button) {
+        button.disabled = true;
+        try {
+            await api.post(`/pedidos/${id}/terminar`);
+            const pedido = orders.get(id);
+            if (pedido) pedido.estado = 'TERMINADO';
+            render();
+        } catch (_) { button.disabled = false; }
+    }
+
+    async function moveToPacking(id, button) {
+        button.disabled = true;
+        try {
+            const response = await api.post(`/pedidos/${id}/empaque`);
+            orders.set(id, response.pedido || { ...orders.get(id), estado: 'EMPAQUE' });
+            render();
+        } catch (_) { button.disabled = false; }
+    }
+
+    async function remind(id, button) {
+        button.disabled = true;
+        try {
+            await api.post(`/pedidos/${id}/avisar-listo`);
+            button.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>AVISO ENVIADO';
+            setTimeout(() => { if (button.isConnected) { button.disabled = false; button.innerHTML = '<i class="bi bi-bell-fill me-1"></i>AVISAR PEDIDO LISTO'; } }, 2200);
+        } catch (_) { button.disabled = false; }
+    }
+
+    function handleEvent(data) {
+        const pedido = data.pedido;
+        if (data.type === 'NEW_ORDER' && pedido?.estado === 'PENDIENTE') {
+            if (!orders.has(pedido.id)) alertKitchen();
+            orders.set(pedido.id, pedido);
+            render();
+        } else if (data.type === 'ORDER_UPDATED' && pedido && ['PENDIENTE', 'EMPAQUE', 'TERMINADO'].includes(pedido.estado)) {
+            orders.set(pedido.id, pedido); render();
+        } else if (data.type === 'ORDER_PACKING' || data.type === 'ORDER_READY') {
+            if (pedido) orders.set(pedido.id, pedido);
+            render();
+        } else if (data.type === 'ORDER_DELIVERED' || data.type === 'ORDER_DELETED') {
+            orders.delete(data.pedidoId ?? pedido?.id); render();
+        }
+    }
+
+    document.getElementById('sound-button').addEventListener('click', enableSound);
+    try {
+        const initial = await api.get('/pedidos/pendientes');
+        initial.filter(p => ['PENDIENTE', 'EMPAQUE', 'TERMINADO'].includes(p.estado)).forEach(p => orders.set(p.id, p));
+        render();
+        initial.filter(p => p.estado === 'PENDIENTE').forEach((_, index) => setTimeout(alertKitchen, index * 180));
+    } catch (error) { document.getElementById('connection-status').textContent = '· Error cargando comandas'; }
+
+    const mercure = new MercureClient();
+    mercure.subscribe({
+        topics: ['donwok/pedidos'],
+        onOpen: () => document.getElementById('connection-status').textContent = '· Tiempo real activo',
+        onMessage: handleEvent,
+        onError: () => document.getElementById('connection-status').textContent = '· Reconectando...'
+    });
+</script>
+{% endblock %}

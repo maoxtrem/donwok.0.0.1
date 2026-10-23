@@ -43,6 +43,16 @@ class UserController
         );
     }
 
+    #[Route('', methods: ['GET'])]
+    public function list(): JsonResponse
+    {
+        $token = $this->tokenProvider->getToken();
+        $response = $this->httpClient->request('GET', $this->authBaseUrl . '/service/users', [
+            'headers' => ['Authorization' => 'Bearer ' . $token],
+        ]);
+        return new JsonResponse($response->toArray(false), $response->getStatusCode());
+    }
+
     /**
      * Actualizar usuario
      */
@@ -57,7 +67,7 @@ class UserController
 
         $token = $this->tokenProvider->getToken();
 
-        $response = $this->httpClient->request('PUT', "/service/users/{$id}", [
+        $response = $this->httpClient->request('PUT', $this->authBaseUrl . "/service/users/{$id}", [
             'headers' => [
                 'Authorization' => 'Bearer ' . $token,
             ],
@@ -78,7 +88,7 @@ class UserController
     {
         $token = $this->tokenProvider->getToken();
 
-        $response = $this->httpClient->request('DELETE', "/service/users/{$id}", [
+        $response = $this->httpClient->request('DELETE', $this->authBaseUrl . "/service/users/{$id}", [
             'headers' => [
                 'Authorization' => 'Bearer ' . $token,
             ],

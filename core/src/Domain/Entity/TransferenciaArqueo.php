@@ -34,6 +34,9 @@ class TransferenciaArqueo
     #[ORM\Column(type: 'decimal', precision: 12, scale: 2)]
     private float $monto;
 
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, options: ['default' => 0])]
+    private float $valorContado;
+
     #[ORM\Column(length: 150)]
     private string $auditadoPor;
 
@@ -59,13 +62,15 @@ class TransferenciaArqueo
         string $cuentaTemporalNombre,
         float $monto,
         string $auditadoPor,
-        string $identificadorCierre = 'LEGACY'
+        string $identificadorCierre = 'LEGACY',
+        float $valorContado = 0
     ) {
         $this->cuentaTemporalId = $cuentaTemporalId;
         $this->cuentaOrigenId = $cuentaOrigenId;
         $this->cuentaOrigenNombre = $cuentaOrigenNombre;
         $this->cuentaTemporalNombre = $cuentaTemporalNombre;
         $this->monto = $monto;
+        $this->valorContado = $valorContado;
         $this->auditadoPor = $auditadoPor;
         $this->identificadorCierre = $identificadorCierre;
         $this->fechaArqueo = new \DateTime();
@@ -76,6 +81,7 @@ class TransferenciaArqueo
     public function getCuentaTemporalNombre(): string { return $this->cuentaTemporalNombre; }
     public function getCuentaDestinoNombre(): ?string { return $this->cuentaDestinoNombre; }
     public function getMonto(): float { return $this->monto; }
+    public function getValorContado(): float { return $this->valorContado; }
     public function getAuditadoPor(): string { return $this->auditadoPor; }
     public function getMovidoPor(): ?string { return $this->movidoPor; }
     public function getEstado(): string { return $this->estado; }

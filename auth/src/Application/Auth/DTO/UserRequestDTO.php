@@ -7,6 +7,7 @@ class UserRequestDTO
     public function __construct(
         public string $username,
         public string $password,
-        public array $roles = []
+        public array $roles = [],
+        public array $groupIds = []
     ) {}
 }

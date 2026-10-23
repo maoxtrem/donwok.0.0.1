@@ -388,6 +388,7 @@
             const pedidos = await api.get('/pedidos/pendientes');
             pedidos.forEach(p => {
                 if (p.estado === 'PENDIENTE') window.renderOrder(p, 'pending');
+                if (p.estado === 'EMPAQUE') window.renderOrder(p, 'pending');
                 if (p.estado === 'TERMINADO') window.renderOrder(p, 'ready');
             });
             refreshBoardState();
@@ -396,6 +397,7 @@
 
     function handleIncomingEvent(data) {
         if (data.type === 'NEW_ORDER') window.renderOrder(data.pedido, 'pending');
+        else if (data.type === 'ORDER_PACKING') window.renderOrder(data.pedido, 'pending');
         else if (data.type === 'ORDER_READY') window.moveOrder(data.pedido);
         // Facturar no retira el pedido: producción aún debe prepararlo.
         else if (data.type === 'ORDER_INVOICED') refreshBoardState();

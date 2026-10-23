@@ -128,7 +128,7 @@
         // Renderizar Facturas
         html += currentFacturas.map(f => `
             <tr>
-                <td class="ps-4 fw-bold text-primary">${f.numeroFactura}</td>
+                <td class="ps-4 fw-bold text-primary">${f.numeroFactura}${f.editada ? '<span class="badge bg-warning-subtle text-warning border ms-2">EDITADA</span>' : ''}</td>
                 <td class="text-muted small">${f.fecha}</td>
                 <td class="text-end fw-bold">$${parseFloat(f.total).toFixed(2)}</td>
                 <td class="pe-4 text-center">
@@ -242,12 +242,21 @@
         document.getElementById('detalle-total').innerText = `$${parseFloat(f.total).toFixed(2)}`;
         
         const list = document.getElementById('detalle-items-list');
-        list.innerHTML = f.items.map(item => `
+        const itemsActuales = f.items.map(item => `
             <li class="list-group-item d-flex justify-content-between align-items-center py-3">
                 <div><div class="fw-bold">${item.producto}</div><small class="text-muted">$${parseFloat(item.precio).toFixed(2)} x ${item.cantidad}</small></div>
                 <span class="fw-bold">$${(parseFloat(item.precio) * item.cantidad).toFixed(2)}</span>
             </li>
         `).join('');
+        const historial = (f.historialDetalles || []).map(item => `
+            <li class="list-group-item d-flex justify-content-between align-items-center py-2 text-muted">
+                <div><div class="text-decoration-line-through">${item.producto}</div><small>Eliminado: ${item.cantidad} x $${parseFloat(item.precio).toFixed(2)} · ${item.eliminadoPor || 'sistema'} · ${item.fechaEliminacion || ''}</small></div>
+                <span class="badge bg-secondary-subtle text-secondary">ELIMINADO</span>
+            </li>
+        `).join('');
+        list.innerHTML = (f.editada ? '<li class="list-group-item bg-warning-subtle text-warning fw-bold"><i class="bi bi-pencil-square me-2"></i>Pedido editado el ' + (f.fechaEdicion || '') + ' por ' + (f.editadaPor || 'sistema') + '</li>' : '') +
+            itemsActuales +
+            (historial ? '<li class="list-group-item bg-light fw-bold small text-muted">HISTORIAL ANTERIOR</li>' + historial : '');
         
         const modalEl = document.getElementById('modalDetalle');
         let modal = bootstrap.Modal.getInstance(modalEl);
@@ -308,7 +317,13 @@
                         <div class="mb-3 border rounded p-2">
                             <label class="form-label fw-bold mb-1">${c.nombre}</label>
                             <input id="cierre-cuenta-${c.id}" type="number" min="0" step="0.01" class="swal2-input m-0 w-100" placeholder="Ingrese el valor contado">
-                            <small class="text-muted">Esperado: $${Number(c.saldo_proyectado || c.saldo || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</small>
+                            <div class="small text-muted mt-1">
+                                Retenido: <b>$${Number(c.saldo || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                                + Ventas: <b class="text-success">$${Number(c.ventas_pendientes || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                                + Otros ingresos: <b class="text-success">$${Number(c.otros_ingresos_pendientes || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                                - Egresos: <b class="text-danger">$${Number(c.egresos_pendientes || 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                            </div>
+                            <div class="small fw-bold text-primary">Esperado: $${Number(c.saldo_proyectado ?? c.saldo ?? 0).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                         </div>
                     `).join('')}
                     <hr>
@@ -342,6 +357,70 @@
 
         if (res.isConfirmed) {
             const saldosContados = res.value;
+            const diferencias = cuentasArqueo.map(cuenta => {
+                const contado = Number(saldosContados.cuentas[cuenta.id] || 0);
+                const esperado = Number(cuenta.saldo_proyectado ?? cuenta.saldo ?? 0);
+                const base = Number(cuenta.saldo_base || 0);
+                return { cuenta, contado, esperado, base, diferencia: contado - esperado };
+            }).filter(item => Math.abs(item.diferencia) > 0.01 || item.contado < item.base);
+
+            const diferenciaNeta = Number(cuentasArqueo
+                .reduce((total, cuenta) => {
+                    const contado = Number(saldosContados.cuentas[cuenta.id] || 0);
+                    const esperado = Number(cuenta.saldo_proyectado ?? cuenta.saldo ?? 0);
+                    return total + (contado - esperado);
+                }, 0).toFixed(2));
+            const cuentasBajoBase = diferencias.filter(item => item.contado < item.base);
+
+            if (diferencias.length > 0 && Math.abs(diferenciaNeta) <= 0.01 && cuentasBajoBase.length === 0) {
+                const confirmacionCompensada = await Swal.fire({
+                    icon: 'info',
+                    title: 'Diferencias cotejadas',
+                    html: '<p>Los faltantes y sobrantes entre las cuentas se compensan.</p>' +
+                        '<p class="fw-bold text-success mb-0">Diferencia neta: $0.00</p>',
+                    showCancelButton: true,
+                    confirmButtonText: 'Continuar cierre',
+                    cancelButtonText: 'Revisar valores'
+                });
+                if (!confirmacionCompensada.isConfirmed) {
+                    return;
+                }
+            } else if (diferencias.length > 0) {
+                const detalleDiferencias = diferencias.map(item => {
+                    const diferencia = item.diferencia;
+                    const diferenciaTexto = diferencia >= 0
+                        ? '<span class="text-success">Sobra $' + Math.abs(diferencia).toLocaleString('es-CO', { maximumFractionDigits: 2 }) + '</span>'
+                        : '<span class="text-danger">Faltan $' + Math.abs(diferencia).toLocaleString('es-CO', { maximumFractionDigits: 2 }) + '</span>';
+                    const baseTexto = item.contado < item.base
+                        ? '<br><span class="text-danger fw-bold">Está por debajo de la base: $' + item.base.toLocaleString('es-CO', { maximumFractionDigits: 2 }) + '</span>'
+                        : '';
+                    return '<div class="border rounded p-2 mb-2 text-start">' +
+                        '<b>' + item.cuenta.nombre + '</b><br>' +
+                        'Esperado: $' + item.esperado.toLocaleString('es-CO', { maximumFractionDigits: 2 }) +
+                        ' · Contado: $' + item.contado.toLocaleString('es-CO', { maximumFractionDigits: 2 }) +
+                        '<br>' + diferenciaTexto + baseTexto + '</div>';
+                }).join('');
+                const diferenciaNetaTexto = diferenciaNeta >= 0
+                    ? '<span class="text-success">Sobra $' + Math.abs(diferenciaNeta).toLocaleString('es-CO', { maximumFractionDigits: 2 }) + '</span>'
+                    : '<span class="text-danger">Faltan $' + Math.abs(diferenciaNeta).toLocaleString('es-CO', { maximumFractionDigits: 2 }) + '</span>';
+                const confirmacionDiferencia = await Swal.fire({
+                    icon: 'warning',
+                    title: 'Hay diferencias en el arqueo',
+                    html: '<p>El valor contado no coincide con lo esperado o está por debajo de la base.</p>' +
+                        detalleDiferencias +
+                        '<div class="border rounded p-2 mb-2 bg-light"><b>Diferencia neta cotejada:</b> ' + diferenciaNetaTexto + '</div>' +
+                        '<p class="fw-bold mb-0">¿Desea continuar y cerrar la caja de todos modos?</p>',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, cerrar de todos modos',
+                    cancelButtonText: 'Revisar valores',
+                    confirmButtonColor: '#dc3545',
+                    reverseButtons: true
+                });
+                if (!confirmacionDiferencia.isConfirmed) {
+                    return;
+                }
+            }
+
             try {
                 await api.get('/impresora/estado');
             } catch (error) {

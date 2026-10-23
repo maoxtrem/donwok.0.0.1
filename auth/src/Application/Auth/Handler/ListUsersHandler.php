@@ -15,7 +15,8 @@ class ListUsersHandler
             fn($u) => new UserResponseDTO(
                 $u->getId(),
                 $u->getUserIdentifier(),
-                $u->getRoles()
+                $u->getRoles(),
+                array_map(fn($group) => $group->toArray(), $u->getGroups())
             ),
             $this->repo->buscarTodos()
         );

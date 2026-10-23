@@ -217,7 +217,7 @@ class InformeController extends AbstractController
             if ($m['tipo'] === 'INGRESO') {
                 $totalIngresos += $monto;
                 $desgloseIngresos[$cat] = ($desgloseIngresos[$cat] ?? 0) + $monto;
-            } else {
+            } elseif ($m['tipo'] === 'EGRESO') {
                 $totalEgresos += $monto;
                 $desgloseEgresos[$cat] = ($desgloseEgresos[$cat] ?? 0) + $monto;
             }
@@ -236,16 +236,29 @@ class InformeController extends AbstractController
 
         // Pendientes de cierre (impacto de arqueo no materializado aún en cuentas financieras)
         $facturasPendientes = $this->facturaRepo->findPendientesCierre();
-        $pagosPendientes = $this->pagoRepo->findPendientesCierre();
+        $pagosPendientes = array_values(array_filter(
+            $this->pagoRepo->findPendientesCierre(),
+            fn($pago) => $pago->getCuentaFinanciera()->incluirEnArqueo()
+        ));
         $gastosPendientes = $this->gastoRepo->findPendientesCierre();
 
         // Proyección por cuenta: el arqueo debe sumar/restar cada movimiento en la
         // cuenta donde realmente se hará el cierre (Caja Registradora, Nequi, etc.).
         $pendientesPorCuenta = array_fill_keys(array_map(fn($c) => (string)$c['id'], $todasLasCuentas), 0.0);
+        $detallePendientePorCuenta = array_fill_keys(
+            array_map(fn($c) => (string)$c['id'], $todasLasCuentas),
+            ['ventas' => 0.0, 'otros_ingresos' => 0.0, 'egresos' => 0.0]
+        );
         $sumarPendiente = function (int $cuentaId, float $monto) use (&$pendientesPorCuenta): void {
             $clave = (string)$cuentaId;
             if (array_key_exists($clave, $pendientesPorCuenta)) {
                 $pendientesPorCuenta[$clave] += $monto;
+            }
+        };
+        $registrarDetallePendiente = function (int $cuentaId, string $tipo, float $monto) use (&$detallePendientePorCuenta): void {
+            $clave = (string)$cuentaId;
+            if (isset($detallePendientePorCuenta[$clave][$tipo])) {
+                $detallePendientePorCuenta[$clave][$tipo] += $monto;
             }
         };
 
@@ -263,6 +276,7 @@ class InformeController extends AbstractController
                 $monto = (float)($pago['monto'] ?? 0);
                 $ventasPendientesCierre += $monto;
                 $sumarPendiente((int)($pago['cuenta_id'] ?? 0), $monto);
+                $registrarDetallePendiente((int)($pago['cuenta_id'] ?? 0), 'ventas', $monto);
             }
         }
 
@@ -271,6 +285,7 @@ class InformeController extends AbstractController
             $monto = (float)$gasto->getMonto();
             $egresosPendientesCierre += $monto;
             $sumarPendiente((int)$gasto->getCuentaFinanciera()->getId(), -$monto);
+            $registrarDetallePendiente((int)$gasto->getCuentaFinanciera()->getId(), 'egresos', $monto);
         }
 
         $deudasPagadasPendientesCierre = 0.0; // Pagos de deudas de la empresa (salidas)
@@ -285,12 +300,15 @@ class InformeController extends AbstractController
             if ($prestamo->getTipo() === 'RECIBIDO' && !$pago->esDesembolso()) {
                 $deudasPagadasPendientesCierre += $monto;
                 $sumarPendiente($cuentaId, -$monto);
+                $registrarDetallePendiente($cuentaId, 'egresos', $monto);
             } elseif ($prestamo->getTipo() === 'OTORGADO') {
                 $cobrosCarteraPendientesCierre += $monto;
                 $sumarPendiente($cuentaId, $monto);
+                $registrarDetallePendiente($cuentaId, 'otros_ingresos', $monto);
             } elseif ($prestamo->getTipo() === 'RECIBIDO' && $pago->esDesembolso()) {
                 $creditosRecibidosPendientesCierre += $monto;
                 $sumarPendiente($cuentaId, $monto);
+                $registrarDetallePendiente($cuentaId, 'otros_ingresos', $monto);
             }
         }
 
@@ -301,10 +319,13 @@ class InformeController extends AbstractController
             $egresosPendientesCierre -
             $deudasPagadasPendientesCierre;
 
-        $todasLasCuentasProyectadas = array_map(function (array $cuenta) use ($pendientesPorCuenta): array {
+        $todasLasCuentasProyectadas = array_map(function (array $cuenta) use ($pendientesPorCuenta, $detallePendientePorCuenta): array {
             $pendiente = $pendientesPorCuenta[(string)$cuenta['id']] ?? 0.0;
             return array_merge($cuenta, [
                 'pendiente_arqueo' => $pendiente,
+                'ventas_pendientes' => round($detallePendientePorCuenta[(string)$cuenta['id']]['ventas'] ?? 0, 2),
+                'otros_ingresos_pendientes' => round($detallePendientePorCuenta[(string)$cuenta['id']]['otros_ingresos'] ?? 0, 2),
+                'egresos_pendientes' => round($detallePendientePorCuenta[(string)$cuenta['id']]['egresos'] ?? 0, 2),
                 'saldo_proyectado' => $cuenta['saldo'] + $pendiente,
             ]);
         }, $todasLasCuentas);

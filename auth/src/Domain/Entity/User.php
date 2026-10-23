@@ -38,6 +38,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?string $password = null;
 
+    #[ORM\ManyToMany(targetEntity: Group::class)]
+    #[ORM\JoinTable(name: 'usuarios_grupos')]
+    private array $groups = [];
+
     public function getId(): ?int
     {
         return $this->id;
@@ -96,6 +100,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->password = $password;
 
         return $this;
+    }
+
+    public function getGroups(): array { return $this->groups; }
+    public function setGroups(array $groups): static { $this->groups = $groups; return $this; }
+    public function getAllowedUrls(): array
+    {
+        $urls = [];
+        foreach ($this->groups as $group) {
+            $urls = array_merge($urls, $group->getUrls());
+        }
+        return array_values(array_unique($urls));
     }
 
     /**

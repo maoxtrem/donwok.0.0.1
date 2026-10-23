@@ -88,6 +88,11 @@ class Prestamo
         }
     }
 
+    public function anular(): void
+    {
+        $this->estado = 'ANULADO';
+    }
+
     public function getId(): ?int { return $this->id; }
     public function getTipo(): string { return $this->tipo; }
     public function getMontoTotal(): float { return $this->montoTotal; }

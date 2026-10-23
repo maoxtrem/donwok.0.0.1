@@ -131,21 +131,18 @@
     
     async function init() {
         try {
-            const [deudas, cuentas, cats] = await Promise.all([
+            const [deudas, cuentasReferencia, cuentasPago, cats] = await Promise.all([
                 api.get('/caja/deudas'),
                 api.get('/caja/cuentas/cuentas-por-pagar'),
+                api.get('/caja/cuentas/pago-obligaciones'),
                 api.get('/caja/categorias')
             ]);
             
             allDeudas = deudas;
             currentCategories = cats;
             renderDeudas(deudas);
-            renderSelect('cuenta_id', cuentas);
-            renderSelect('abono-cuenta', cuentas);
-            const cajaMenor = cuentas.find(c => c.nombre.trim().toLowerCase() === 'caja menor');
-            if (cajaMenor) {
-                document.getElementById('abono-cuenta').value = cajaMenor.id;
-            }
+            renderSelect('cuenta_id', cuentasReferencia);
+            renderSelect('abono-cuenta', cuentasPago);
             
             // Filtro robusto para categorías de pasivo
             const catsPasivoNombres = ['Inversión', 'Gasto Pendiente', 'Crédito'];
@@ -219,9 +216,14 @@
                 <td class="text-center text-muted small">${fmt(d.montoTotal)}</td>
                 <td class="text-center fw-bold text-danger">${fmt(d.saldoPendiente)}</td>
                 <td class="pe-4 text-end">
-                    <button class="btn btn-outline-danger btn-sm px-3 fw-bold" onclick="window.abrirModalAbono(${d.id})">
-                        ABONAR / PAGAR
-                    </button>
+                    <div class="d-flex justify-content-end gap-2">
+                        <button class="btn btn-outline-danger btn-sm px-3 fw-bold" onclick="window.abrirModalAbono(${d.id})">
+                            ABONAR / PAGAR
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" title="Anular obligación" onclick="window.anularDeuda(${d.id})">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `).join('');
@@ -238,6 +240,25 @@
             modal = new bootstrap.Modal(modalEl);
         }
         modal.show();
+    };
+
+    window.anularDeuda = async (id) => {
+        const deuda = allDeudas.find(item => item.id === id);
+        if (!deuda) return;
+        const confirmacion = await Swal.fire({
+            title: '¿Anular obligación?',
+            html: `<p class="mb-2">La obligación de <b>${deuda.entidad}</b> no se borrará físicamente.</p><p class="mb-0 text-muted small">Quedará anulada y se registrará el evento en el libro mayor.</p>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, anular',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#6c757d'
+        });
+        if (!confirmacion.isConfirmed) return;
+        try {
+            await api.delete(`/caja/deudas/${id}`);
+            await init();
+        } catch (err) { console.error(err); }
     };
 
     document.getElementById('btn-confirmar-pago').addEventListener('click', async () => {

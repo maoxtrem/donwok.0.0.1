@@ -1,0 +1,102 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gestión de puestos | DonWok{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div><h2 class="fw-bold mb-1">Puestos de trabajo</h2><p class="text-muted mb-0">Crea y administra las oportunidades que se mostrarán públicamente.</p></div>
+        <a href="/puestos-trabajo" target="_blank" class="btn btn-outline-primary fw-bold"><i class="bi bi-eye me-1"></i>Ver página pública</a>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 mb-4"><div class="card-body p-4">
+        <h5 id="tituloFormulario" class="fw-bold mb-3">Crear puesto de trabajo</h5>
+        <input type="hidden" id="puestoId">
+        <form id="formPuesto" class="row g-3">
+            <div class="col-md-6"><label class="form-label fw-semibold">Título *</label><input id="titulo" class="form-control" required maxlength="150" placeholder="Ej. Auxiliar de cocina"></div>
+            <div class="col-md-3"><label class="form-label fw-semibold">Código *</label><input id="codigoPuesto" class="form-control" required maxlength="30" placeholder="Ej. AUX-01"></div>
+            <div class="col-md-3"><label class="form-label fw-semibold">Clave *</label><input id="clavePuesto" type="password" class="form-control" maxlength="30" placeholder="Para iniciar turno"></div>
+            <div class="col-md-6"><label class="form-label fw-semibold">Valor por hora *</label><input id="valorHora" type="number" min="0.01" step="0.01" class="form-control" required placeholder="Ej. 8000"></div>
+            <div class="col-md-6"><label class="form-label fw-semibold">Denominación mínima</label><input id="denominacionMinima" type="number" min="1" step="1" value="50" class="form-control" required><small class="text-muted">El total siempre se redondea hacia arriba a este valor.</small></div>
+            <div class="col-12"><label class="form-label fw-semibold d-block">Días activos</label>{% for dia in ['lunes','martes','miércoles','jueves','viernes','sábado','domingo'] %}<div class="form-check form-check-inline"><input class="form-check-input dia-activo" type="checkbox" value="{{ dia }}" id="dia-{{ loop.index }}"><label class="form-check-label" for="dia-{{ loop.index }}">{{ dia|capitalize }}</label></div>{% endfor %}</div>
+            <div class="col-12"><label class="form-label fw-semibold">Descripción</label><textarea id="descripcion" class="form-control" rows="3" placeholder="Describe brevemente el puesto"></textarea></div>
+            <div class="col-12 text-end"><button id="btnGuardar" class="btn btn-primary fw-bold" type="submit">Guardar puesto</button><button id="btnCancelar" class="btn btn-outline-secondary fw-bold ms-2 d-none" type="button">Cancelar edición</button></div>
+        </form>
+    </div></div>
+
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-header bg-white border-0 pt-4 px-4"><h5 class="fw-bold mb-0">Puestos creados</h5></div>
+        <div class="table-responsive"><table class="table align-middle mb-0">
+            <thead class="table-light"><tr><th class="ps-4">Puesto</th><th>Código</th><th>Valor por hora</th><th>Días activos</th><th>Descripción</th><th class="text-end pe-4">Acciones</th></tr></thead>
+            <tbody id="puestosBody"><tr><td colspan="5" class="text-center text-muted py-5">Cargando puestos...</td></tr></tbody>
+        </table></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script type="module">
+import CoreAPI from '/js/core.js';
+const api = new CoreAPI();
+const body = document.getElementById('puestosBody');
+const money = value => value == null ? 'No especificado' : '$' + Number(value).toLocaleString('es-CO');
+const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[char]));
+function render(puestos) {
+    body.innerHTML = puestos.length ? puestos.map(p => `<tr><td class="ps-4 fw-bold">${esc(p.titulo)}<small class="d-block ${p.activo ? 'text-success' : 'text-danger'}">${p.activo ? 'Activo' : 'Desactivado'}${p.turnoActivo ? ' · Turno activo' : ''}</small></td><td>${esc(p.codigoPuesto)}</td><td>${money(p.valorHora)}</td><td>${esc((p.diasActivos || []).join(', ')) || '—'}</td><td class="text-muted">${esc(p.descripcion) || '—'}</td><td class="text-end pe-4"><button class="btn btn-sm btn-outline-primary me-1 editar-btn" data-id="${p.id}"><i class="bi bi-pencil"></i></button><button class="btn btn-sm ${p.activo ? 'btn-outline-danger' : 'btn-outline-success'} estado-btn" data-id="${p.id}" data-activo="${p.activo ? '0' : '1'}">${p.activo ? 'Desactivar' : 'Activar'}</button>${p.turnoActivo ? `<button class="btn btn-sm btn-warning cerrar-admin-btn ms-1" data-id="${p.id}">Cerrar turno</button>` : ''}</td></tr>`).join('') : '<tr><td colspan="6" class="text-center text-muted py-5">Aún no hay puestos creados.</td></tr>';
+}
+let puestosCache = [];
+async function cargarPuestos() { puestosCache = await api.get('/puestos-trabajo'); render(puestosCache); }
+function limpiarFormulario() {
+    document.getElementById('formPuesto').reset();
+    document.getElementById('puestoId').value = '';
+    document.getElementById('clavePuesto').value = '';
+    document.getElementById('denominacionMinima').value = 50;
+    document.getElementById('tituloFormulario').textContent = 'Crear puesto de trabajo';
+    document.getElementById('btnGuardar').textContent = 'Guardar puesto';
+    document.getElementById('btnCancelar').classList.add('d-none');
+}
+function editarPuesto(puesto) {
+    document.getElementById('puestoId').value = puesto.id;
+    document.getElementById('titulo').value = puesto.titulo || '';
+    document.getElementById('codigoPuesto').value = puesto.codigoPuesto || '';
+    document.getElementById('clavePuesto').value = '';
+    document.getElementById('valorHora').value = puesto.valorHora || '';
+    document.getElementById('denominacionMinima').value = puesto.denominacionMinima || 50;
+    document.getElementById('descripcion').value = puesto.descripcion || '';
+    document.querySelectorAll('.dia-activo').forEach(input => input.checked = (puesto.diasActivos || []).includes(input.value));
+    document.getElementById('tituloFormulario').textContent = 'Editar puesto de trabajo';
+    document.getElementById('btnGuardar').textContent = 'Actualizar puesto';
+    document.getElementById('btnCancelar').classList.remove('d-none');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+body.addEventListener('click', async event => {
+    const edit = event.target.closest('.editar-btn');
+    if (edit) return editarPuesto(puestosCache.find(p => String(p.id) === edit.dataset.id));
+    const state = event.target.closest('.estado-btn');
+    if (state) { await api.patch(`/puestos-trabajo/${state.dataset.id}/estado`, { activo: state.dataset.activo === '1' }); await cargarPuestos(); }
+    const cerrar = event.target.closest('.cerrar-admin-btn');
+    if (cerrar) {
+        const confirmar = await Swal.fire({ title: '¿Cerrar turno?', text: 'Se cerrará el turno desde administración y se calculará el pago.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Cerrar turno', cancelButtonText: 'Cancelar' });
+        if (confirmar.isConfirmed) { await api.post(`/puestos-trabajo/${cerrar.dataset.id}/turno/cerrar-administracion`, {}); await cargarPuestos(); }
+    }
+});
+document.getElementById('btnCancelar').addEventListener('click', limpiarFormulario);
+document.getElementById('formPuesto').addEventListener('submit', async event => {
+    event.preventDefault();
+    const payload = {
+        titulo: document.getElementById('titulo').value,
+        codigoPuesto: document.getElementById('codigoPuesto').value,
+        clavePuesto: document.getElementById('clavePuesto').value,
+        valorHora: document.getElementById('valorHora').value,
+        denominacionMinima: document.getElementById('denominacionMinima').value,
+        descripcion: document.getElementById('descripcion').value,
+        diasActivos: [...document.querySelectorAll('.dia-activo:checked')].map(input => input.value)
+    };
+    const id = document.getElementById('puestoId').value;
+    if (id) await api.put(`/puestos-trabajo/${id}`, payload); else await api.post('/puestos-trabajo', payload);
+    limpiarFormulario();
+    await cargarPuestos();
+});
+cargarPuestos().catch(error => { body.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-5">No se pudieron cargar los puestos.</td></tr>'; console.error(error); });
+</script>
+{% endblock %}

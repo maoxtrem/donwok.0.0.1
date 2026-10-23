@@ -15,6 +15,8 @@ class Factura
     use \App\Domain\Entity\Traits\FechasTrait;
 
     public const ESTADO_PENDIENTE = 'PENDIENTE';
+    public const ESTADO_PREPARACION = self::ESTADO_PENDIENTE;
+    public const ESTADO_EMPAQUE = 'EMPAQUE';
     public const ESTADO_TERMINADO = 'TERMINADO';
     public const ESTADO_ENTREGADO = 'ENTREGADO';
     public const ESTADO_FACTURADO = 'FACTURADO';
@@ -56,6 +58,15 @@ class Factura
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $domicilioDescripcion = null;
 
+    #[ORM\Column(options: ['default' => false])]
+    private bool $editada = false;
+
+    #[ORM\Column(type: 'datetime', nullable: true)]
+    private ?\DateTimeInterface $fechaUltimaEdicion = null;
+
+    #[ORM\Column(length: 150, nullable: true)]
+    private ?string $editadaPor = null;
+
     #[ORM\OneToMany(mappedBy: 'factura', targetEntity: FacturaDetalle::class, cascade: ['persist', 'remove'])]
     private Collection $detalles;
 
@@ -89,21 +100,57 @@ class Factura
         $this->domicilioDescripcion = $domicilio ? trim(mb_substr($domicilio, 0, 2000)) : null;
     }
     public function getDetalles(): Collection { return $this->detalles; }
+    public function fueEditada(): bool { return $this->editada; }
 
-    public function agregarItem(string $nombre, float $precio, float $costo, int $cantidad): void
+    public function agregarItem(string $nombre, float $precio, float $costo, int $cantidad, ?int $productoId = null): void
     {
-        $detalle = new FacturaDetalle($this, $nombre, $precio, $costo, $cantidad);
+        $detalle = new FacturaDetalle($this, $nombre, $precio, $costo, $cantidad, $productoId);
         $this->detalles->add($detalle);
         $this->total += ($precio * $cantidad);
     }
 
-    public function marcarComoTerminado(): void 
-    { 
-        if ($this->estado !== self::ESTADO_PENDIENTE) {
-            throw new \Exception('Solo se puede terminar un pedido pendiente.');
+    public function reemplazarItems(array $items, string $usuario = 'sistema'): void
+    {
+        if ($this->numeroFactura !== null) {
+            throw new \Exception('No se puede modificar un pedido que ya fue facturado.');
         }
 
-        $this->estado = self::ESTADO_TERMINADO; 
+        foreach ($this->detalles as $detalle) {
+            if ($detalle->estaActivo()) {
+                $detalle->marcarComoEliminado($usuario);
+            }
+        }
+        $this->total = 0;
+        $this->editada = true;
+        $this->fechaUltimaEdicion = new \DateTime();
+        $this->editadaPor = $usuario;
+        foreach ($items as $item) {
+            $this->agregarItem(
+                $item['nombre'],
+                (float)$item['precio'],
+                (float)$item['costo'],
+                (int)$item['cantidad'],
+                isset($item['productoId']) ? (int)$item['productoId'] : null
+            );
+        }
+    }
+
+    public function marcarComoEmpaque(): void
+    {
+        if ($this->estado !== self::ESTADO_PENDIENTE) {
+            throw new \Exception('Solo se puede pasar a empaque un pedido en preparación.');
+        }
+
+        $this->estado = self::ESTADO_EMPAQUE;
+    }
+
+    public function marcarComoTerminado(): void
+    {
+        if (!in_array($this->estado, [self::ESTADO_PENDIENTE, self::ESTADO_EMPAQUE], true)) {
+            throw new \Exception('Solo se puede terminar un pedido en preparación o empaque.');
+        }
+
+        $this->estado = self::ESTADO_TERMINADO;
     }
 
     public function marcarComoEntregado(): void
@@ -176,7 +223,22 @@ class Factura
             'clienteNombre' => $this->getClienteNombre(),
             'domicilioDescripcion' => $this->getDomicilioDescripcion(),
             'fecha' => $fecha?->format('Y-m-d H:i:s'),
-            'items' => array_map(fn($d) => $d->toArray(), $this->detalles->toArray())
+            'editada' => $this->editada,
+            'fechaEdicion' => $this->fechaUltimaEdicion?->format('Y-m-d H:i:s'),
+            'editadaPor' => $this->editadaPor,
+            'items' => array_values(array_map(
+                fn($d) => $d->toArray(),
+                array_filter($this->detalles->toArray(), fn($d) => $d->estaActivo())
+            )),
+            'historialDetalles' => array_values(array_map(
+                fn($d) => [
+                    ...$d->toArray(),
+                    'estado' => $d->getEstado(),
+                    'fechaEliminacion' => $d->getFechaEliminacion()?->format('Y-m-d H:i:s'),
+                    'eliminadoPor' => $d->getEliminadoPor(),
+                ],
+                array_filter($this->detalles->toArray(), fn($d) => !$d->estaActivo())
+            ))
         ];
     }
 }

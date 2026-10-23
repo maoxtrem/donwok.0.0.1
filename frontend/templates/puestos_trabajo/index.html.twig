@@ -1,0 +1,71 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Puestos de trabajo | DonWok{% endblock %}
+{% block body_class %}public-page{% endblock %}
+
+{% block body %}
+<div class="min-vh-100 bg-light">
+    <nav class="navbar bg-white border-bottom shadow-sm">
+        <div class="container py-2">
+            <a href="/" class="navbar-brand fw-bold text-dark"><i class="bi bi-shop-window text-primary me-2"></i>DonWok</a>
+            <a href="/login" class="btn btn-primary fw-bold"><i class="bi bi-box-arrow-in-right me-1"></i>Login</a>
+        </div>
+    </nav>
+
+    <main class="container py-5">
+        <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+            <div>
+                <p class="text-primary fw-bold text-uppercase small mb-1">Oportunidades</p>
+                <h1 class="fw-bold mb-1">Puestos de trabajo</h1>
+                <p class="text-muted mb-0">Selecciona un puesto para iniciar o cerrar tu turno.</p>
+            </div>
+        </div>
+
+        <div id="puestosBody" class="row g-4"><div class="col-12 text-center text-muted py-5">Cargando puestos...</div></div>
+    </main>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script type="module">
+import CoreAPI from '/js/core.js';
+const api = new CoreAPI();
+const body = document.getElementById('puestosBody');
+const money = value => value == null ? 'No especificado' : '$' + Number(value).toLocaleString('es-CO');
+const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[char]));
+
+async function cargarPuestos() {
+    const puestos = await api.get('/puestos-trabajo/publicos');
+    body.innerHTML = puestos.length ? puestos.map(p => `<div class="col-md-6 col-xl-4"><article class="card h-100 border-0 shadow-sm rounded-4"><div class="card-body p-4 d-flex flex-column"><span class="small text-uppercase text-primary fw-bold mb-2">Cargo</span><h4 class="fw-bold mb-2">${esc(p.titulo)}</h4><div class="small text-muted mb-3">Código: <strong>${esc(p.codigoPuesto)}</strong></div><div class="flex-grow-1 mb-4"><div class="small text-uppercase text-primary fw-bold mb-1">Labor a ejecutar</div><p class="text-muted mb-0">${esc(p.descripcion) || 'Labor no especificada.'}</p></div>${p.turnoActivo ? '' : '<input class="form-control mb-2 clave-puesto" type="password" maxlength="30" placeholder="Clave del puesto">'}<button class="btn ${p.turnoActivo ? 'btn-danger' : 'btn-primary'} w-100 fw-bold turno-btn" data-id="${p.id}">${p.turnoActivo ? 'CERRAR TURNO' : 'INICIAR TURNO'}</button>${p.turnoActivo ? `<small class="text-success text-center mt-2">Turno iniciado: ${esc(p.turnoActivo.inicio)}</small>` : ''}</div></article></div>`).join('') : '<div class="col-12 text-center text-muted py-5">Aún no hay puestos publicados.</div>';
+}
+
+body.addEventListener('click', async event => {
+    const button = event.target.closest('.turno-btn');
+    if (!button) return;
+    button.disabled = true;
+    try {
+        let payload = {};
+        const puesto = (await api.get('/puestos-trabajo/publicos')).find(p => String(p.id) === button.dataset.id);
+        if (puesto?.turnoActivo) {
+            const respuesta = await Swal.fire({ title: 'Código de cierre', text: 'Ingresa las cuatro letras del código impreso al iniciar el turno.', input: 'text', inputPlaceholder: 'SO-II', inputAttributes: { maxlength: 5, autocapitalize: 'characters' }, showCancelButton: true, confirmButtonText: 'Cerrar turno', cancelButtonText: 'Cancelar', didOpen: () => { const input = Swal.getInput(); input.addEventListener('input', () => { const letras = input.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4); input.value = letras.length > 2 ? `${letras.slice(0, 2)}-${letras.slice(2)}` : letras; }); } });
+            if (!respuesta.isConfirmed || !respuesta.value) { button.disabled = false; return; }
+            payload.codigo = respuesta.value;
+        } else {
+            const clave = button.closest('.card-body').querySelector('.clave-puesto')?.value || '';
+            if (!clave) { await Swal.fire('Clave requerida', 'Ingresa la clave del puesto para iniciar el turno.', 'warning'); button.disabled = false; return; }
+            payload.clave = clave;
+        }
+        const resultado = await api.post(`/puestos-trabajo/${button.dataset.id}/turno`, payload);
+        if (resultado.codigoCierre) await Swal.fire({ icon: 'success', title: 'Turno iniciado', html: `Código de cierre:<br><strong style="font-size:2rem;letter-spacing:.2em">${resultado.codigoCierre}</strong><br><small>Guárdalo para cerrar el turno.</small>` });
+        await cargarPuestos();
+    }
+    catch (error) { console.error(error); button.disabled = false; }
+});
+
+cargarPuestos().catch(error => { body.innerHTML = '<div class="col-12 text-center text-danger py-5">No se pudieron cargar los puestos.</div>'; console.error(error); });
+setInterval(() => {
+    if (document.activeElement?.classList.contains('clave-puesto')) return;
+    cargarPuestos().catch(error => console.error(error));
+}, 2000);
+</script>
+{% endblock %}

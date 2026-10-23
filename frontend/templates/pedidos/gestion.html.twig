@@ -110,6 +110,24 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de edición de productos -->
+<div class="modal fade" id="modalEditarPedido" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+        <div class="modal-header border-0"><div><h5 class="modal-title fw-bold">Editar productos</h5><small class="text-muted">Pedido <span id="editar-pedido-numero"></span></small></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body p-4">
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-md-8"><label class="form-label small fw-bold text-uppercase">Producto</label><select id="editar-producto" class="form-select"><option value="">Selecciona un producto...</option></select></div>
+                <div class="col-md-2"><label class="form-label small fw-bold text-uppercase">Cantidad</label><input type="number" id="editar-cantidad" class="form-control" min="1" step="1" value="1"></div>
+                <div class="col-md-2"><button type="button" id="btn-agregar-producto" class="btn btn-primary w-100"><i class="bi bi-plus-lg"></i> Agregar</button></div>
+            </div>
+            <div id="editar-items-list" class="list-group mb-3"></div>
+            <div class="d-flex justify-content-between align-items-center border-top pt-3"><span class="fw-bold text-muted">Nuevo total</span><span id="editar-total" class="fs-4 fw-bold text-primary">$0</span></div>
+            <div id="editar-error" class="alert alert-danger mt-3 d-none mb-0"></div>
+        </div>
+        <div class="modal-footer border-0 p-4 pt-0"><button type="button" class="btn btn-primary w-100 py-3 fw-bold" id="btn-guardar-edicion"><i class="bi bi-check-circle me-2"></i>GUARDAR CAMBIOS</button></div>
+    </div></div>
+</div>
 {% endblock %}
 
 {% block javascripts %}
@@ -132,6 +150,69 @@
 
     const fmt = (v) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
     let cuentasFacturacion = [];
+    let productosCatalogo = [];
+    let itemsEnEdicion = [];
+    let pedidoEnEdicion = null;
+
+    async function cargarProductosCatalogo() {
+        if (!productosCatalogo.length) productosCatalogo = (await api.get('/productos')).filter(p => p.activo !== false);
+        const select = document.getElementById('editar-producto');
+        select.innerHTML = '<option value="">Selecciona un producto...</option>' +
+            productosCatalogo.map(p => '<option value="' + p.id + '">' + p.nombre + ' — ' + fmt(p.precioActual) + '</option>').join('');
+    }
+
+    function renderItemsEnEdicion() {
+        const list = document.getElementById('editar-items-list');
+        const total = itemsEnEdicion.reduce((sum, item) => sum + item.precio * item.cantidad, 0);
+        document.getElementById('editar-total').innerText = fmt(total);
+        list.innerHTML = itemsEnEdicion.length ? itemsEnEdicion.map((item, index) =>
+            '<div class="list-group-item d-flex align-items-center gap-2"><div class="flex-grow-1"><div class="fw-bold">' + item.nombre + '</div><small class="text-muted">' + fmt(item.precio) + ' c/u</small></div>' +
+            '<input type="number" min="1" class="form-control editar-item-cantidad" style="max-width: 90px" value="' + item.cantidad + '" data-index="' + index + '">' +
+            '<button type="button" class="btn btn-outline-danger btn-sm editar-item-quitar" data-index="' + index + '" title="Quitar"><i class="bi bi-trash"></i></button></div>'
+        ).join('') : '<div class="text-center text-muted py-4">Agrega al menos un producto.</div>';
+        list.querySelectorAll('.editar-item-cantidad').forEach(input => input.addEventListener('change', () => {
+            itemsEnEdicion[Number(input.dataset.index)].cantidad = Math.max(1, parseInt(input.value, 10) || 1);
+            renderItemsEnEdicion();
+        }));
+        list.querySelectorAll('.editar-item-quitar').forEach(button => button.addEventListener('click', () => {
+            itemsEnEdicion.splice(Number(button.dataset.index), 1);
+            renderItemsEnEdicion();
+        }));
+    }
+
+    window.editarPedido = async (id) => {
+        const pedido = pedidosEnCola.find(p => p.id === id);
+        if (pedido && !pedido.numeroFactura) window.location.href = '/ventas?editarPedido=' + encodeURIComponent(id);
+    };
+
+    document.getElementById('btn-agregar-producto').addEventListener('click', () => {
+        const id = Number(document.getElementById('editar-producto').value);
+        const cantidad = Math.max(1, parseInt(document.getElementById('editar-cantidad').value, 10) || 1);
+        const producto = productosCatalogo.find(p => p.id === id);
+        if (!producto) return;
+        const existente = itemsEnEdicion.find(item => item.id === id);
+        if (existente) existente.cantidad += cantidad;
+        else itemsEnEdicion.push({ id, nombre: producto.nombre, precio: Number(producto.precioActual), cantidad });
+        document.getElementById('editar-producto').value = '';
+        document.getElementById('editar-cantidad').value = '1';
+        renderItemsEnEdicion();
+    });
+
+    document.getElementById('btn-guardar-edicion').addEventListener('click', async () => {
+        const error = document.getElementById('editar-error');
+        if (!itemsEnEdicion.length) { error.innerText = 'El pedido debe tener al menos un producto.'; error.classList.remove('d-none'); return; }
+        const button = document.getElementById('btn-guardar-edicion');
+        button.disabled = true;
+        try {
+            const response = await api.patch('/pedidos/' + pedidoEnEdicion.id + '/items', { items: itemsEnEdicion.map(item => ({ producto_id: item.id, cantidad: item.cantidad })) });
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEditarPedido')).hide();
+            if (response.pedido) updateOrderRow(response.pedido);
+            Swal.fire({ icon: 'success', title: 'Pedido actualizado', timer: 1200, showConfirmButton: false, toast: true, position: 'top-end' });
+        } catch (err) {
+            error.innerText = err.message || 'No se pudo actualizar el pedido.';
+            error.classList.remove('d-none');
+        } finally { button.disabled = false; }
+    });
 
     async function cargarCuentasFacturacion() {
         cuentasFacturacion = await api.get('/caja/cuentas/facturacion');
@@ -479,13 +560,38 @@
                 const audio = new Audio('/vendor/notification.mp3');
                 audio.play().catch(() => {});
             }
-            else if (data.type === 'ORDER_READY' || data.type === 'ORDER_UPDATED') updateOrderRow(data.pedido);
+            else if (data.type === 'ORDER_READY' || data.type === 'ORDER_READY_REMINDER') {
+                updateOrderRow(data.pedido);
+                playReadySound();
+            }
+            else if (data.type === 'ORDER_PACKING' || data.type === 'ORDER_UPDATED') updateOrderRow(data.pedido);
             else if (data.type === 'ORDER_INVOICED') updateOrderRow(data.pedido);
             else if (data.type === 'ORDER_DELIVERED' || data.type === 'ORDER_DELETED') removeOrderRow(data.pedidoId ?? data.pedido?.id);
             },
             onError: () => {
             updateWSStatus('Reconectando...', 'bg-warning text-dark');
             },
+        });
+    }
+
+    function playReadySound() {
+        const audio = new Audio('/vendor/notification.mp3');
+        audio.volume = 1;
+        audio.play().catch(() => {
+            // Algunos navegadores bloquean audio hasta que el usuario interactúa.
+            // Gestión ya dispone de botones de operación que normalmente habilitan audio.
+            try {
+                const context = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = context.createOscillator();
+                const gain = context.createGain();
+                oscillator.frequency.value = 880;
+                gain.gain.setValueAtTime(0.0001, context.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.25, context.currentTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.35);
+                oscillator.connect(gain).connect(context.destination);
+                oscillator.start();
+                oscillator.stop(context.currentTime + 0.35);
+            } catch (_) {}
         });
     }
 
@@ -529,8 +635,15 @@
     function rowTemplate(p) {
         const items = p.items.map(i => `${i.cantidad}x ${i.producto}`).join(', ');
         const isPending = p.estado === 'PENDIENTE';
+        const isPacking = p.estado === 'EMPAQUE';
         const isBilled = Boolean(p.numeroFactura);
-        const badgeClass = isPending ? 'bg-warning-subtle text-warning' : 'bg-success-subtle text-success';
+        const badgeClass = isPending ? 'bg-light text-dark' : isPacking ? 'bg-warning-subtle text-warning' : 'bg-success-subtle text-success';
+        const estadoLabel = {
+            PENDIENTE: 'PREPARACIÓN',
+            EMPAQUE: 'EMPAQUE',
+            TERMINADO: 'LISTO / ESPERA',
+            ENTREGADO: 'ENTREGADO'
+        }[p.estado] || p.estado;
         const labelId = `<div class="order-number">ORDEN #${p.id}</div>`;
 
         const tipoSelect = `
@@ -548,6 +661,8 @@
 
         const terminarButton = isPending
             ? `<button id="btn-action-${p.id}" class="btn btn-primary btn-sm px-3 fw-bold" onclick="window.terminarPedido(${p.id})">TERMINAR</button>`
+            : isPacking
+                ? `<button id="btn-action-${p.id}" class="btn btn-primary btn-sm px-3 fw-bold" onclick="window.terminarPedido(${p.id})">TERMINAR</button>`
             : isBilled
                 ? `<button id="btn-action-${p.id}" class="btn btn-warning btn-sm px-3 fw-bold" onclick="window.entregarPedido(${p.id})"><i class="bi bi-box-arrow-right me-1"></i>ENTREGAR</button>`
                 : `<button id="btn-action-${p.id}" class="btn btn-outline-secondary btn-sm px-3 fw-bold" disabled title="Debe facturar e imprimir la factura antes de entregar"><i class="bi bi-lock me-1"></i>FACTURAR PRIMERO</button>`;
@@ -557,6 +672,9 @@
         const facturaLabel = isBilled
             ? `<small class="d-block text-success fw-bold mt-1">Factura ${p.numeroFactura}</small>`
             : '';
+        const editarButton = isBilled
+            ? ''
+            : `<button class="btn btn-outline-primary btn-sm px-2 fw-bold" onclick="window.editarPedido(${p.id})" title="Editar productos"><i class="bi bi-pencil-square me-1"></i>EDITAR</button>`;
         const clienteLabel = p.clienteNombre
             ? `<small class="d-block text-muted mt-1"><i class="bi bi-person me-1"></i>${p.clienteNombre}</small>`
             : '';
@@ -575,13 +693,14 @@
                 <td class="text-center">${pagoLabel}</td>
                 <td class="text-center fw-bold text-dark">$${parseFloat(p.total).toLocaleString('es-CO')}</td>
                 <td class="text-center">
-                    <span class="badge ${badgeClass} border px-3 py-2" style="font-size: 0.7rem;">${p.estado}</span>
+                    <span class="badge ${badgeClass} border px-3 py-2" style="font-size: 0.7rem;">${estadoLabel}</span>
                     ${facturaLabel}
                 </td>
                 <td class="pe-4 text-end">
                     <div class="d-inline-flex flex-wrap justify-content-end gap-1">
                         ${terminarButton}
                         ${facturarButton}
+                        ${editarButton}
                         <button class="btn btn-outline-primary btn-sm px-2 fw-bold" onclick="window.imprimirComanda(${p.id})" title="Imprimir comanda y copia del cliente"><i class="bi bi-printer me-1"></i>COMANDA</button>
                     </div>
                     ${eliminarButton}

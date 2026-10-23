@@ -66,6 +66,7 @@ class CuentaFinancieraRepository extends ServiceEntityRepository implements Cuen
                 c.nombre, 
                 c.tipo,
                 c.saldo_inicial,
+                c.saldo_base,
                 c.activa,
                 c.usar_en_facturacion,
                 c.incluir_en_arqueo,
@@ -73,10 +74,14 @@ class CuentaFinancieraRepository extends ServiceEntityRepository implements Cuen
                 c.usar_en_egresos,
                 c.usar_en_cuentas_por_pagar,
                 c.es_temporal,
-                IFNULL(SUM(CASE WHEN m.tipo_movimiento = 'INGRESO' THEN m.monto ELSE -m.monto END), 0) as flujo_movimientos
+                IFNULL(SUM(CASE
+                    WHEN m.tipo_movimiento = 'INGRESO' THEN m.monto
+                    WHEN m.tipo_movimiento = 'EGRESO' THEN -m.monto
+                    ELSE 0
+                END), 0) as flujo_movimientos
             FROM cuenta_financiera c
             LEFT JOIN movimientos_financieros m ON m.cuenta_financiera_id = c.id
-            GROUP BY c.id, c.nombre, c.saldo_inicial, c.activa, c.usar_en_facturacion, c.incluir_en_arqueo, c.mostrar_en_balance, c.usar_en_egresos, c.usar_en_cuentas_por_pagar, c.es_temporal
+            GROUP BY c.id, c.nombre, c.saldo_inicial, c.saldo_base, c.activa, c.usar_en_facturacion, c.incluir_en_arqueo, c.mostrar_en_balance, c.usar_en_egresos, c.usar_en_cuentas_por_pagar, c.es_temporal
         ";
 
         $results = $conn->fetchAllAssociative($sql);
@@ -94,6 +99,7 @@ class CuentaFinancieraRepository extends ServiceEntityRepository implements Cuen
                 'usar_en_cuentas_por_pagar' => (bool)$row['usar_en_cuentas_por_pagar'],
                 'es_temporal' => (bool)$row['es_temporal'],
                 'saldo' => (float)$row['saldo_inicial'] + (float)$row['flujo_movimientos']
+                , 'saldo_base' => (float)$row['saldo_base']
             ];
         }, $results);
     }

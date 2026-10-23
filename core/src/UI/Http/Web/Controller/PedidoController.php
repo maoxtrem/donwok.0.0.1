@@ -9,6 +9,7 @@ use App\Domain\Entity\DatosEmpresa;
 use App\Infrastructure\Doctrine\Repository\FacturaRepository;
 use App\Domain\Entity\Factura;
 use App\Domain\Repository\CuentaFinancieraRepositoryInterface;
+use App\Domain\Repository\ProductoRepositoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -27,17 +28,20 @@ class PedidoController extends AbstractController
         private EntityManagerInterface $em,
         private HubInterface $hub,
         private string $printerName,
-        private CuentaFinancieraRepositoryInterface $cuentaRepo
+        private CuentaFinancieraRepositoryInterface $cuentaRepo,
+        private ProductoRepositoryInterface $productoRepo
     ) {}
 
     #[Route('/stats', name: 'app_pedidos_stats', methods: ['GET'])]
     public function stats(FacturaRepository $repo): JsonResponse
     {
         $pendientes = $repo->count(['estado' => Factura::ESTADO_PENDIENTE]);
+        $empaque = $repo->count(['estado' => Factura::ESTADO_EMPAQUE]);
         $terminados = $repo->count(['estado' => Factura::ESTADO_TERMINADO]);
 
         return new JsonResponse([
             'pendientes' => $pendientes,
+            'empaque' => $empaque,
             'terminados' => $terminados
         ]);
     }
@@ -216,10 +220,18 @@ class PedidoController extends AbstractController
     public function pendientes(FacturaRepository $repo): JsonResponse
     {
         $pedidos = $repo->findBy(
-            ['estado' => [Factura::ESTADO_PENDIENTE, Factura::ESTADO_TERMINADO]],
+            ['estado' => [Factura::ESTADO_PENDIENTE, Factura::ESTADO_EMPAQUE, Factura::ESTADO_TERMINADO]],
             ['id' => 'ASC']
         );
         return new JsonResponse(array_map(fn($p) => $p->toArray(), $pedidos));
+    }
+
+    #[Route('/{id}', name: 'app_pedidos_obtener', methods: ['GET'])]
+    public function obtener(int $id, FacturaRepository $repo): JsonResponse
+    {
+        $pedido = $repo->find($id);
+        if (!$pedido) return new JsonResponse(['message' => 'Pedido no encontrado'], 404);
+        return new JsonResponse($pedido->toArray());
     }
 
     #[Route('/{id}/terminar', name: 'app_pedidos_terminar', methods: ['POST'])]
@@ -237,6 +249,40 @@ class PedidoController extends AbstractController
             error_log('Error terminando pedido: ' . $e->getMessage());
             return new JsonResponse(['message' => $e->getMessage()], 400); 
         }
+    }
+
+    #[Route('/{id}/empaque', name: 'app_pedidos_empaque', methods: ['POST'])]
+    public function empaque(int $id, FacturaRepository $repo): JsonResponse
+    {
+        $pedido = $repo->find($id);
+        if (!$pedido) return new JsonResponse(['message' => 'Pedido no encontrado'], 404);
+
+        try {
+            $pedido->marcarComoEmpaque();
+            $this->em->flush();
+            $this->publishUpdate($pedido, 'ORDER_PACKING');
+            return new JsonResponse(['message' => 'Pedido enviado a empaque', 'pedido' => $pedido->toArray()]);
+        } catch (\Exception $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 400);
+        }
+    }
+
+    #[Route('/{id}/avisar-listo', name: 'app_pedidos_avisar_listo', methods: ['POST'])]
+    public function avisarListo(int $id, FacturaRepository $repo): JsonResponse
+    {
+        $pedido = $repo->find($id);
+        if (!$pedido) return new JsonResponse(['message' => 'Pedido no encontrado'], 404);
+        if ($pedido->getEstado() !== Factura::ESTADO_TERMINADO) {
+            return new JsonResponse(['message' => 'Solo se puede avisar un pedido terminado.'], 400);
+        }
+
+        // Este aviso no cambia el pedido ni genera movimientos contables.
+        $this->publishUpdate($pedido, 'ORDER_READY_REMINDER');
+
+        return new JsonResponse([
+            'message' => 'Aviso enviado a Gestión y Ventas',
+            'pedido' => $pedido->toArray(),
+        ]);
     }
 
     #[Route('/{id}/entregar', name: 'app_pedidos_entregar', methods: ['POST'])]
@@ -341,17 +387,79 @@ class PedidoController extends AbstractController
         $data = json_decode($request->getContent(), true) ?? [];
         
         try {
+            if ($pedido->getNumeroFactura() !== null && (isset($data['tipo']) || isset($data['esPago']))) {
+                throw new \InvalidArgumentException('No se puede modificar un pedido que ya fue facturado.');
+            }
             if (isset($data['esPago'])) {
                 $pedido->setEsPago((bool)$data['esPago']);
             }
             if (isset($data['tipo'])) {
                 $pedido->setTipo((string)$data['tipo']);
             }
+            if (array_key_exists('cliente_nombre', $data) || array_key_exists('domicilio_descripcion', $data)) {
+                $pedido->setDatosCliente($data['cliente_nombre'] ?? $pedido->getClienteNombre(), $data['domicilio_descripcion'] ?? $pedido->getDomicilioDescripcion());
+            }
             
             $this->em->flush();
             $this->publishUpdate($pedido, 'ORDER_UPDATED');
             
             return new JsonResponse(['message' => 'Datos actualizados', 'pedido' => $pedido->toArray()]);
+        } catch (\Exception $e) {
+            return new JsonResponse(['message' => $e->getMessage()], 400);
+        }
+    }
+
+    #[Route('/{id}/items', name: 'app_pedidos_actualizar_items', methods: ['PATCH'])]
+    public function actualizarItems(int $id, Request $request, FacturaRepository $repo): JsonResponse
+    {
+        $pedido = $repo->find($id);
+        if (!$pedido) return new JsonResponse(['message' => 'No encontrado'], 404);
+        if ($pedido->getNumeroFactura() !== null) {
+            return new JsonResponse(['message' => 'No se puede modificar un pedido que ya fue facturado.'], 400);
+        }
+
+        $data = json_decode($request->getContent(), true) ?? [];
+        $items = $data['items'] ?? null;
+        if (!is_array($items) || count($items) === 0) {
+            return new JsonResponse(['message' => 'El pedido debe tener al menos un producto.'], 400);
+        }
+
+        try {
+            $normalizados = [];
+            foreach ($items as $item) {
+                if (($item['temporal'] ?? false) === true) {
+                    $nombre = trim((string)($item['nombre'] ?? ''));
+                    $precio = (float)($item['precioActual'] ?? 0);
+                    $costo = (float)($item['costoActual'] ?? 0);
+                    $cantidad = (int)($item['cantidad'] ?? 0);
+                    if ($nombre === '' || $precio <= 0 || $costo < 0 || $cantidad < 1) {
+                        throw new \InvalidArgumentException('Los datos del producto temporal no son válidos.');
+                    }
+                    $normalizados[] = ['productoId' => null, 'nombre' => $nombre, 'precio' => $precio, 'costo' => $costo, 'cantidad' => $cantidad];
+                    continue;
+                }
+                $productoId = (int)($item['producto_id'] ?? 0);
+                $cantidad = (int)($item['cantidad'] ?? 0);
+                if ($productoId < 1 || $cantidad < 1) {
+                    throw new \InvalidArgumentException('Cada producto debe tener una cantidad válida.');
+                }
+                $producto = $this->productoRepo->buscarPorId($productoId);
+                if (!$producto || !$producto->isActivo()) {
+                    throw new \InvalidArgumentException('Uno de los productos no está disponible.');
+                }
+                $normalizados[] = [
+                    'productoId' => $producto->getId(),
+                    'nombre' => $producto->getNombre(),
+                    'precio' => $producto->getPrecioActual(),
+                    'costo' => $producto->getCostoActual(),
+                    'cantidad' => $cantidad,
+                ];
+            }
+
+            $pedido->reemplazarItems($normalizados, $this->getUser()?->getUserIdentifier() ?? 'sistema');
+            $this->em->flush();
+            $this->publishUpdate($pedido, 'ORDER_UPDATED');
+            return new JsonResponse(['message' => 'Productos actualizados', 'pedido' => $pedido->toArray()]);
         } catch (\Exception $e) {
             return new JsonResponse(['message' => $e->getMessage()], 400);
         }

@@ -136,6 +136,46 @@
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
+            body.sidebar-collapsed .sidebar {
+                transform: translateX(-100%);
+            }
+
+            body.sidebar-collapsed .main-content {
+                margin-left: 0;
+            }
+
+            .sidebar-toggle {
+                display: flex;
+                position: fixed;
+                top: 1rem;
+                left: calc(var(--sidebar-width) - 21px);
+                width: 42px;
+                height: 42px;
+                border: 1px solid var(--card-border);
+                border-radius: 50%;
+                background: white;
+                color: var(--bg-deep);
+                align-items: center;
+                justify-content: center;
+                z-index: 1101;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+                font-size: 1.05rem;
+                transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s, background 0.2s;
+            }
+
+            .sidebar-toggle:hover {
+                background: var(--accent-blue);
+                color: white;
+            }
+
+            .sidebar-toggle:active {
+                transform: scale(0.9);
+            }
+
+            body.sidebar-collapsed .sidebar-toggle {
+                left: 1rem;
+            }
+
             /* --- COMPONENTES DW --- */
             .dw-card {
                 background: white;
@@ -175,6 +215,7 @@
                 .sidebar.show { transform: translateX(0); }
                 .main-content { margin-left: 0 !important; padding: 1.25rem; padding-top: 4.5rem; }
                 .mobile-toggle { display: flex !important; }
+                .sidebar-toggle { display: none; }
             }
 
             .mobile-toggle {
@@ -199,19 +240,22 @@
             .mobile-toggle:active { transform: scale(0.9); }
 
             /* Estilos para login y monitor */
-            .login-page .sidebar, .monitor-page .sidebar { display: none !important; }
-            .login-page .main-content, .monitor-page .main-content { margin-left: 0 !important; padding: 0 !important; }
-            .login-page .mobile-toggle { display: none !important; }
+            .login-page .sidebar, .monitor-page .sidebar, .kitchen-page .sidebar, .public-page .sidebar { display: none !important; }
+            .login-page .main-content, .monitor-page .main-content, .kitchen-page .main-content, .public-page .main-content { margin-left: 0 !important; padding: 0 !important; }
+            .login-page .mobile-toggle, .public-page .mobile-toggle { display: none !important; }
         </style>
         {% block stylesheets %}{% endblock %}
     </head>
     <body class="{% block body_class %}{% endblock %}">
         
-        {% if block('body_class') != 'login-page' and block('body_class') != 'monitor-page' %}
+        {% if block('body_class') != 'login-page' and block('body_class') != 'monitor-page' and block('body_class') != 'kitchen-page' and block('body_class') != 'public-page' %}
         <button class="mobile-toggle" onclick="toggleSidebar()"><i class="bi bi-list"></i></button>
+        <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Ocultar menú lateral" title="Ocultar menú lateral">
+            <i class="bi bi-chevron-left"></i>
+        </button>
         {% endif %}
 
-        {% if app.request.get('_route') != 'app_pedidos_monitor' and block('body_class') != 'login-page' %}
+        {% if app.request.get('_route') not in ['app_pedidos_monitor', 'app_pedidos_cocina'] and block('body_class') != 'login-page' and block('body_class') != 'public-page' %}
         <nav class="sidebar" id="mainSidebar">
             <div class="sidebar-header">
                 <div class="d-flex align-items-center gap-3">
@@ -247,16 +291,22 @@
                 <a href="/datos-empresa" class="nav-link">
                     <i class="bi bi-building-fill text-warning"></i> Datos de empresa
                 </a>
+                <a href="/gestion/puestos-trabajo" class="nav-link">
+                    <i class="bi bi-briefcase-fill text-info"></i> Puestos de trabajo
+                </a>
+                <a href="/usuarios" class="nav-link">
+                    <i class="bi bi-people-fill text-warning"></i> Usuarios
+                </a>
                 <a href="/informes" class="nav-link">
                     <i class="bi bi-bar-chart-line-fill text-primary"></i> Informes y Analítica
                 </a>
                 
                 <div class="nav-section-title">Finanzas y Caja</div>
                 <a href="/caja" class="nav-link">
-                    <i class="bi bi-safe2-fill"></i> Arqueo Diario
+                    <i class="bi bi-cash-stack text-success"></i> Arqueo Diario
                 </a>
                 <a href="/caja/cuentas" class="nav-link">
-                    <i class="bi bi-wallet2-fill text-info"></i> Cajas
+                    <i class="bi bi-cash-stack text-info"></i> Cajas
                 </a>
                 <a href="/informes/balance" class="nav-link">
                     <i class="bi bi-pie-chart-fill text-warning"></i> Balance General
@@ -278,6 +328,9 @@
                 <a href="/pedidos/monitor" class="nav-link" target="_blank">
                     <i class="bi bi-display-fill"></i> Monitor Público
                 </a>
+                <a href="/pedidos/cocina" class="nav-link" target="_blank">
+                    <i class="bi bi-fire text-danger"></i> Monitor de Cocina
+                </a>
             </div>
 
             <div class="sidebar-footer">
@@ -297,13 +350,36 @@
         <script src="/vendor/js/bootstrap.bundle.min.js"></script>
         <script>
             function toggleSidebar() {
-                document.getElementById('mainSidebar').classList.toggle('show');
+                const sidebar = document.getElementById('mainSidebar');
+                if (!sidebar) return;
+                if (window.innerWidth <= 992) {
+                    sidebar.classList.toggle('show');
+                    return;
+                }
+                document.body.classList.toggle('sidebar-collapsed');
+                const collapsed = document.body.classList.contains('sidebar-collapsed');
+                localStorage.setItem('donwok-sidebar-collapsed', collapsed ? '1' : '0');
+                const button = document.querySelector('.sidebar-toggle');
+                if (button) {
+                    button.setAttribute('aria-label', collapsed ? 'Mostrar menú lateral' : 'Ocultar menú lateral');
+                    button.setAttribute('title', collapsed ? 'Mostrar menú lateral' : 'Ocultar menú lateral');
+                    button.innerHTML = `<i class="bi ${collapsed ? 'bi-chevron-right' : 'bi-chevron-left'}"></i>`;
+                }
+            }
+            if (window.innerWidth > 992 && localStorage.getItem('donwok-sidebar-collapsed') === '1') {
+                document.body.classList.add('sidebar-collapsed');
+                const button = document.querySelector('.sidebar-toggle');
+                if (button) {
+                    button.setAttribute('aria-label', 'Mostrar menú lateral');
+                    button.setAttribute('title', 'Mostrar menú lateral');
+                    button.innerHTML = '<i class="bi bi-chevron-right"></i>';
+                }
             }
             // Cerrar sidebar al hacer click fuera en móvil
             document.addEventListener('click', (e) => {
                 const sidebar = document.getElementById('mainSidebar');
                 const toggle = document.querySelector('.mobile-toggle');
-                if (window.innerWidth <= 992 && sidebar && !sidebar.contains(e.target) && !toggle.contains(e.target)) {
+                if (window.innerWidth <= 992 && sidebar && toggle && !sidebar.contains(e.target) && !toggle.contains(e.target)) {
                     sidebar.classList.remove('show');
                 }
             });

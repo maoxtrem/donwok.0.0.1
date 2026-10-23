@@ -35,6 +35,17 @@
                             <label class="form-label small fw-bold">Saldo inicial</label>
                             <input id="cuenta-saldo" type="number" min="0" step="0.01" value="0" class="form-control bg-light border-0" required>
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Saldo base</label>
+                            <input id="cuenta-saldo-base" type="number" min="0" step="0.01" value="0" class="form-control bg-light border-0" required>
+                            <small class="text-muted">Valor que permanece al cerrar.</small>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-center">
+                            <div class="form-check form-switch">
+                                <input id="cuenta-editable" class="form-check-input" type="checkbox">
+                                <label class="form-check-label small fw-bold" for="cuenta-editable">Cuenta editable</label>
+                            </div>
+                        </div>
                     </div>
                     <button class="dw-btn-primary text-white w-100 py-2" type="submit"><i class="bi bi-plus-circle me-2"></i>Crear cuenta</button>
                 </form>
@@ -63,7 +74,10 @@
                             <div class="input-group"><span class="input-group-text bg-light border-0">$</span><input id="transfer-monto" type="number" min="0.01" step="0.01" class="form-control bg-light border-0" required></div>
                             <small class="text-muted" id="transfer-disponible"></small>
                         </div>
-                        <div class="col-md-5"><button class="btn btn-outline-primary w-100 py-2" type="submit"><i class="bi bi-arrow-left-right me-2"></i>Transferir</button></div>
+                        <div class="col-md-5 d-flex gap-2">
+                            <button class="btn btn-outline-primary flex-fill py-2" type="submit" id="transfer-manual"><i class="bi bi-arrow-left-right me-2"></i>Transferir</button>
+                            <button class="btn btn-primary flex-fill py-2" type="button" id="transfer-todo"><i class="bi bi-send-check me-2"></i>Todo disponible</button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -77,8 +91,8 @@
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
-                <thead class="small text-muted"><tr><th class="ps-4">Cuenta</th><th>Tipo</th><th class="text-end">Saldo actual</th><th class="text-center">Facturación</th><th class="text-center">Arqueo</th><th class="text-center">Balance</th><th class="text-center">Egresos</th><th class="text-center">Cuentas por pagar</th><th class="text-center">Estado</th><th class="pe-4 text-end">Acción</th></tr></thead>
-                <tbody id="cuentas-list"><tr><td colspan="10" class="text-center py-5 text-muted">Cargando cuentas...</td></tr></tbody>
+                <thead class="small text-muted"><tr><th class="ps-4">Cuenta</th><th>Tipo</th><th class="text-end">Saldo actual</th><th class="text-end">Saldo base</th><th class="text-center">Editable</th><th class="text-center">Facturación</th><th class="text-center">Arqueo</th><th class="text-center">Balance</th><th class="text-center">Egresos</th><th class="text-center">Cuentas por pagar</th><th class="text-center">Estado</th><th class="pe-4 text-end">Acción</th></tr></thead>
+                <tbody id="cuentas-list"><tr><td colspan="12" class="text-center py-5 text-muted">Cargando cuentas...</td></tr></tbody>
             </table>
         </div>
     </div>
@@ -95,7 +109,7 @@
 
     async function cargarCuentas() {
         cuentas = await api.get('/caja/cuentas/gestion');
-        const activas = cuentas.filter(c => c.activa);
+        const activas = cuentas.filter(c => c.activa && (!c.incluir_en_arqueo || c.es_temporal));
         const options = activas.map(c => `<option value="${c.id}">${c.nombre} · ${fmt(c.saldo)}</option>`).join('');
         document.getElementById('transfer-origen').innerHTML = options || '<option value="">No hay cuentas activas</option>';
         actualizarDestino();
@@ -105,24 +119,37 @@
                 <td class="ps-4"><div class="fw-bold">${c.nombre} ${c.es_temporal ? '<span class="badge bg-warning text-dark ms-1">Temporal</span>' : ''}</div><small class="text-muted">ID #${c.id}</small></td>
                 <td><span class="badge bg-light text-dark">${tipoLabel[c.tipo] || c.tipo}</span></td>
                 <td class="text-end fw-bold ${c.saldo < 0 ? 'text-danger' : 'text-dark'}">${fmt(c.saldo)}</td>
+                <td class="text-end"><input type="number" min="0" step="0.01" value="${Number(c.saldo_base || 0).toFixed(2)}" class="form-control form-control-sm text-end" style="min-width: 115px" ${c.es_temporal ? 'disabled' : ''} onchange="cambiarSaldoBase(${c.id}, this.value)"></td>
+                <td class="text-center"><button class="btn btn-sm ${c.editable ? 'btn-warning text-dark' : 'btn-outline-secondary'}" ${c.es_temporal ? 'disabled' : ''} onclick="cambiarEditable(${c.id})"><i class="bi ${c.editable ? 'bi-unlock' : 'bi-lock'} me-1"></i>${c.editable ? 'Sí' : 'No'}</button></td>
                 <td class="text-center"><button class="btn btn-sm ${c.usar_en_facturacion ? 'btn-primary' : 'btn-outline-secondary'}" ${!c.activa || c.es_temporal ? 'disabled' : ''} onclick="cambiarFacturacion(${c.id})"><i class="bi ${c.usar_en_facturacion ? 'bi-check-circle' : 'bi-circle'} me-1"></i>${c.usar_en_facturacion ? 'Sí' : 'No'}</button></td>
                 <td class="text-center"><button class="btn btn-sm ${c.incluir_en_arqueo ? 'btn-success' : 'btn-outline-secondary'}" ${c.es_temporal ? 'disabled' : ''} onclick="cambiarArqueo(${c.id})"><i class="bi ${c.incluir_en_arqueo ? 'bi-check-circle' : 'bi-circle'} me-1"></i>${c.incluir_en_arqueo ? 'Sí' : 'No'}</button></td>
                 <td class="text-center"><button class="btn btn-sm ${c.mostrar_en_balance ? 'btn-info text-white' : 'btn-outline-secondary'}" ${c.es_temporal ? 'disabled' : ''} onclick="cambiarBalance(${c.id})"><i class="bi ${c.mostrar_en_balance ? 'bi-eye' : 'bi-eye-slash'} me-1"></i>${c.mostrar_en_balance ? 'Sí' : 'No'}</button></td>
                 <td class="text-center"><button class="btn btn-sm ${c.usar_en_egresos ? 'btn-danger' : 'btn-outline-secondary'}" ${c.es_temporal ? 'disabled' : ''} onclick="cambiarEgresos(${c.id})"><i class="bi ${c.usar_en_egresos ? 'bi-check-circle' : 'bi-circle'} me-1"></i>${c.usar_en_egresos ? 'Sí' : 'No'}</button></td>
                 <td class="text-center"><button class="btn btn-sm ${c.usar_en_cuentas_por_pagar ? 'btn-warning text-dark' : 'btn-outline-secondary'}" ${c.es_temporal ? 'disabled' : ''} onclick="cambiarCuentasPorPagar(${c.id})"><i class="bi ${c.usar_en_cuentas_por_pagar ? 'bi-check-circle' : 'bi-circle'} me-1"></i>${c.usar_en_cuentas_por_pagar ? 'Sí' : 'No'}</button></td>
                 <td class="text-center"><span class="badge ${c.activa ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}">${c.activa ? 'Activa' : 'Deshabilitada'}</span></td>
-                <td class="pe-4 text-end"><button class="btn btn-sm ${c.activa ? 'btn-outline-danger' : 'btn-outline-success'}" ${c.es_temporal ? 'disabled' : ''} onclick="cambiarEstado(${c.id})">${c.activa ? '<i class="bi bi-pause-circle me-1"></i>Deshabilitar' : '<i class="bi bi-play-circle me-1"></i>Habilitar'}</button></td>
-            </tr>`).join('') : '<tr><td colspan="10" class="text-center py-5 text-muted">No hay cuentas registradas</td></tr>';
+                <td class="pe-4 text-end"><div class="d-flex justify-content-end gap-1"><button class="btn btn-sm btn-outline-warning" ${!c.editable || c.es_temporal ? 'disabled' : ''} onclick="editarCuenta(${c.id})"><i class="bi bi-pencil me-1"></i>Editar</button><button class="btn btn-sm ${c.activa ? 'btn-outline-danger' : 'btn-outline-success'}" ${c.es_temporal ? 'disabled' : ''} onclick="cambiarEstado(${c.id})">${c.activa ? '<i class="bi bi-pause-circle me-1"></i>Deshabilitar' : '<i class="bi bi-play-circle me-1"></i>Habilitar'}</button></div></td>
+            </tr>`).join('') : '<tr><td colspan="12" class="text-center py-5 text-muted">No hay cuentas registradas</td></tr>';
     }
 
     function actualizarDestino() {
         const origenId = Number(document.getElementById('transfer-origen').value);
-        const activas = cuentas.filter(c => c.activa && !c.es_temporal && String(c.id) !== String(origenId));
-        document.getElementById('transfer-destino').innerHTML = activas.map(c => `<option value="${c.id}">${c.nombre} · ${fmt(c.saldo)}</option>`).join('') || '<option value="">No hay otra cuenta activa</option>';
         const origen = cuentas.find(c => c.id === origenId);
+        const activas = cuentas.filter(c => c.activa && !c.es_temporal && !c.incluir_en_arqueo && String(c.id) !== String(origenId));
+        document.getElementById('transfer-destino').innerHTML = activas.map(c => `<option value="${c.id}">${c.nombre} · ${fmt(c.saldo)}</option>`).join('') || '<option value="">No hay otra cuenta activa</option>';
         const monto = document.getElementById('transfer-monto');
-        monto.max = Math.max(0, origen?.saldo || 0);
-        document.getElementById('transfer-disponible').innerText = origen ? `Disponible en origen: ${fmt(origen.saldo)}` : '';
+        const disponible = origen
+            ? (origen.es_temporal ? Math.max(0, origen.saldo || 0) : Math.max(0, (origen.saldo || 0) - (origen.saldo_base || 0)))
+            : 0;
+        monto.max = disponible;
+        monto.disabled = origen?.es_temporal === true;
+        monto.placeholder = origen?.es_temporal ? 'Use “Todo disponible”' : 'Ingrese el monto';
+        document.getElementById('transfer-manual').classList.toggle('d-none', origen?.es_temporal === true);
+        if (origen?.es_temporal) monto.value = '';
+        document.getElementById('transfer-disponible').innerText = origen
+            ? (origen.es_temporal
+                ? `Disponible para transferir: ${fmt(disponible)} · Retención ya aplicada en el arqueo`
+                : `Disponible para transferir: ${fmt(disponible)} · Saldo base protegido: ${fmt(origen.saldo_base || 0)}`)
+            : '';
     }
 
     document.getElementById('transfer-origen').addEventListener('change', actualizarDestino);
@@ -130,26 +157,47 @@
     document.getElementById('form-cuenta').addEventListener('submit', async event => {
         event.preventDefault();
         try {
-            await api.post('/caja/cuentas', { nombre: document.getElementById('cuenta-nombre').value, tipo: document.getElementById('cuenta-tipo').value, saldo_inicial: parseFloat(document.getElementById('cuenta-saldo').value) || 0 });
+            await api.post('/caja/cuentas', { nombre: document.getElementById('cuenta-nombre').value, tipo: document.getElementById('cuenta-tipo').value, saldo_inicial: parseFloat(document.getElementById('cuenta-saldo').value) || 0, saldo_base: parseFloat(document.getElementById('cuenta-saldo-base').value) || 0, editable: document.getElementById('cuenta-editable').checked });
             event.target.reset();
             document.getElementById('cuenta-saldo').value = '0';
+            document.getElementById('cuenta-saldo-base').value = '0';
+            document.getElementById('cuenta-editable').checked = false;
             await cargarCuentas();
         } catch (error) { console.error(error); }
     });
 
-    document.getElementById('form-transferencia').addEventListener('submit', async event => {
-        event.preventDefault();
+    async function ejecutarTransferencia(monto) {
         const origen = document.getElementById('transfer-origen').value;
         const destino = document.getElementById('transfer-destino').value;
-        const monto = parseFloat(document.getElementById('transfer-monto').value);
         const cuentaOrigen = cuentas.find(c => String(c.id) === String(origen));
         if (!destino || origen === destino) { api.notify('error', 'Cuentas iguales', 'Selecciona una cuenta de origen y otra de destino.'); return; }
-        if (!Number.isFinite(monto) || monto <= 0 || monto > (cuentaOrigen?.saldo || 0)) { api.notify('error', 'Saldo insuficiente', 'El monto no puede superar el saldo disponible de la cuenta de origen.'); return; }
+        const disponible = cuentaOrigen?.es_temporal
+            ? Math.max(0, cuentaOrigen.saldo || 0)
+            : Math.max(0, (cuentaOrigen?.saldo || 0) - (cuentaOrigen?.saldo_base || 0));
+        if (!Number.isFinite(monto) || monto <= 0 || monto > disponible) { api.notify('error', 'Saldo insuficiente', 'El monto no puede superar el saldo disponible respetando el saldo base.'); return; }
         try {
             await api.post('/caja/transferencias', { origen_id: Number(origen), destino_id: Number(destino), monto });
-            event.target.reset();
+            document.getElementById('transfer-monto').value = '';
             await cargarCuentas();
         } catch (error) { console.error(error); }
+    }
+
+    document.getElementById('form-transferencia').addEventListener('submit', async event => {
+        event.preventDefault();
+        await ejecutarTransferencia(parseFloat(document.getElementById('transfer-monto').value));
+    });
+
+    document.getElementById('transfer-todo').addEventListener('click', async () => {
+        const origen = cuentas.find(c => String(c.id) === String(document.getElementById('transfer-origen').value));
+        const disponible = origen?.es_temporal
+            ? Math.max(0, origen.saldo || 0)
+            : Math.max(0, (origen?.saldo || 0) - (origen?.saldo_base || 0));
+        if (disponible <= 0) { api.notify('warning', 'Sin saldo disponible', 'La cuenta solo tiene su saldo base protegido.'); return; }
+        const textoTransferencia = origen?.es_temporal
+            ? `Se transferirá todo el saldo auditado: ${fmt(disponible)}.`
+            : `Se transferirán ${fmt(disponible)} y se conservará el saldo base.`;
+        const confirmacion = await Swal.fire({ title: '¿Transferir todo lo disponible?', text: textoTransferencia, icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, transferir', cancelButtonText: 'Cancelar' });
+        if (confirmacion.isConfirmed) await ejecutarTransferencia(disponible);
     });
 
     window.cambiarEstado = async id => {
@@ -178,6 +226,72 @@
 
     window.cambiarCuentasPorPagar = async id => {
         try { await api.patch(`/caja/cuentas/${id}/cuentas-por-pagar`); await cargarCuentas(); } catch (error) { console.error(error); }
+    };
+
+    window.cambiarEditable = async id => {
+        try { await api.patch(`/caja/cuentas/${id}/editable`); await cargarCuentas(); } catch (error) { console.error(error); }
+    };
+
+    window.editarCuenta = async id => {
+        const cuenta = cuentas.find(item => item.id === id);
+        if (!cuenta || !cuenta.editable) return;
+        const resultado = await Swal.fire({
+            title: 'Editar caja',
+            width: 480,
+            html: `
+                <div class="text-start">
+                    <label class="form-label small fw-bold">Nombre de la caja</label>
+                    <input id="editar-cuenta-nombre" class="form-control mb-3" maxlength="100" value="${cuenta.nombre}">
+                    <div class="alert alert-light border py-2 mb-3">
+                        <div class="small text-muted">Saldo actual</div>
+                        <div class="fs-5 fw-bold">${fmt(cuenta.saldo)}</div>
+                    </div>
+                    <label class="form-label small fw-bold">Operación</label>
+                    <div class="d-flex gap-2 mb-3">
+                        <input type="radio" class="btn-check" name="editar-cuenta-operacion" id="editar-cuenta-ingreso" value="INGRESO" checked>
+                        <label class="btn btn-outline-success flex-fill" for="editar-cuenta-ingreso"><i class="bi bi-plus-circle me-1"></i>Agregar</label>
+                        <input type="radio" class="btn-check" name="editar-cuenta-operacion" id="editar-cuenta-egreso" value="EGRESO">
+                        <label class="btn btn-outline-danger flex-fill" for="editar-cuenta-egreso"><i class="bi bi-dash-circle me-1"></i>Retirar</label>
+                    </div>
+                    <label class="form-label small fw-bold">Valor a agregar o retirar</label>
+                    <input id="editar-cuenta-monto" type="number" min="0" step="0.01" class="form-control" value="0">
+                    <small class="text-muted">El movimiento quedará registrado en el libro mayor y se imprimirá.</small>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Guardar e imprimir',
+            cancelButtonText: 'Cancelar',
+            focusConfirm: false,
+            preConfirm: () => {
+                const nombre = document.getElementById('editar-cuenta-nombre').value.trim();
+                const monto = parseFloat(document.getElementById('editar-cuenta-monto').value || '0');
+                const operacion = document.querySelector('input[name="editar-cuenta-operacion"]:checked').value;
+                if (!nombre) {
+                    Swal.showValidationMessage('El nombre de la caja es obligatorio.');
+                    return false;
+                }
+                if (!Number.isFinite(monto) || monto < 0) {
+                    Swal.showValidationMessage('Ingresa un valor válido.');
+                    return false;
+                }
+                return { nombre, monto, operacion };
+            }
+        });
+        if (!resultado.isConfirmed) return;
+        try {
+            await api.patch(`/caja/cuentas/${id}/editar`, resultado.value);
+            await cargarCuentas();
+        } catch (error) { console.error(error); }
+    };
+
+    window.cambiarSaldoBase = async (id, valor) => {
+        const saldoBase = parseFloat(valor);
+        if (!Number.isFinite(saldoBase) || saldoBase < 0) {
+            await cargarCuentas();
+            api.notify('error', 'Saldo base inválido', 'Ingresa un valor igual o mayor que cero.');
+            return;
+        }
+        try { await api.patch(`/caja/cuentas/${id}/saldo-base`, { saldo_base: saldoBase }); await cargarCuentas(); } catch (error) { console.error(error); await cargarCuentas(); }
     };
 
     cargarCuentas().catch(error => console.error(error));

@@ -567,6 +567,7 @@
     let allProducts = [];
     let cart = [];
     let temporaryProductSequence = 0;
+    const pedidoEnEdicionId = new URLSearchParams(window.location.search).get('editarPedido');
 
     // Reloj
     setInterval(() => {
@@ -585,10 +586,30 @@
             allProducts = productsData.filter(p => p.activo);
             renderMenu(allProducts);
             updateStats(stats);
+            if (pedidoEnEdicionId) await cargarPedidoParaEditar(pedidoEnEdicionId);
             initSSE();
         } catch (err) {
             document.getElementById('menu-items').innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
         }
+    }
+
+    async function cargarPedidoParaEditar(id) {
+        const pedido = await api.get('/pedidos/' + encodeURIComponent(id));
+        if (pedido.numeroFactura) {
+            await Swal.fire({ icon: 'warning', title: 'Pedido ya facturado', text: 'Este pedido ya no se puede editar.' });
+            window.location.href = '/pedidos/gestion';
+            return;
+        }
+        cart = (pedido.items || []).map(item => {
+            const producto = allProducts.find(p => p.id === item.productoId);
+            return producto
+                ? { ...producto, qty: item.cantidad }
+                : { id: 'temporary-' + Date.now() + '-' + (++temporaryProductSequence), temporal: true, nombre: item.producto, precioActual: Number(item.precio), costoActual: Number(item.costo || 0), qty: item.cantidad };
+        });
+        document.getElementById('order-client-name').value = pedido.clienteNombre || '';
+        document.getElementById('order-type').value = pedido.tipo || 'MESA';
+        renderInvoice();
+        document.getElementById('btn-process').innerText = 'GUARDAR CAMBIOS DEL PEDIDO';
     }
 
     function updateStats(stats) {
@@ -600,10 +621,25 @@
         const mercure = new MercureClient();
         mercure.subscribe({
             topics: ['donwok/pedidos'],
-            onMessage: async () => {
+            onMessage: async (data) => {
             // Recargamos stats en cada evento relevante para asegurar precisión
             const stats = await api.get('/pedidos/stats');
             updateStats(stats);
+            if (data.type === 'ORDER_READY' || data.type === 'ORDER_READY_REMINDER') {
+                const audio = new Audio('/vendor/notification.mp3');
+                audio.play().catch(() => {});
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Pedido listo',
+                        text: `La orden #${data.pedido?.id ?? ''} está lista para entregar.`,
+                        toast: true,
+                        position: 'top-end',
+                        timer: 4000,
+                        showConfirmButton: false
+                    });
+                }
+            }
             },
         });
     }
@@ -892,7 +928,28 @@
                 domicilio_descripcion: domicilioDescripcion || null
             };
 
-            const response = await api.post('/pedidos', payload);
+            let response;
+            if (pedidoEnEdicionId) {
+                response = await api.patch('/pedidos/' + encodeURIComponent(pedidoEnEdicionId) + '/items', {
+                    items: cart.map(item => item.temporal ? ({
+                        temporal: true,
+                        nombre: item.nombre,
+                        precioActual: item.precioActual,
+                        costoActual: item.costoActual,
+                        cantidad: item.qty
+                    }) : ({
+                        producto_id: item.id,
+                        cantidad: item.qty
+                    }))
+                });
+                await api.patch('/pedidos/' + encodeURIComponent(pedidoEnEdicionId) + '/actualizar-datos', {
+                    tipo,
+                    cliente_nombre: cliente || null,
+                    domicilio_descripcion: domicilioDescripcion || null
+                });
+            } else {
+                response = await api.post('/pedidos', payload);
+            }
             pedidoCreado = response.pedido;
 
             if (pedidoCreado?.id && document.getElementById('imprimir-comanda-ventas').checked) {
@@ -912,6 +969,10 @@
             document.getElementById('order-client-name').value = '';
             document.getElementById('order-type').value = 'MESA';
             renderInvoice();
+            if (pedidoEnEdicionId) {
+                window.location.href = '/pedidos/gestion';
+                return;
+            }
         } catch (err) {
             // api.notify ya maneja la notificación de error
             console.error(err);

@@ -34,9 +34,11 @@ class FacturaDetalleRepository extends ServiceEntityRepository implements Factur
             ->where('f.fechaCreacion >= :desde')
             ->andWhere('f.fechaCreacion <= :hasta')
             ->andWhere('f.estado != :anulada')
+            ->andWhere('fd.estado = :activo')
             ->setParameter('desde', $fechaDesde)
             ->setParameter('hasta', $fechaHasta)
             ->setParameter('anulada', Factura::ESTADO_ANULADA)
+            ->setParameter('activo', 'ACTIVO')
             ->groupBy('nombre')
             ->orderBy('ganancia', 'DESC')
             ->getQuery()
@@ -58,6 +60,7 @@ class FacturaDetalleRepository extends ServiceEntityRepository implements Factur
             WHERE f.fecha_creacion >= :desde
               AND f.fecha_creacion <= :hasta
               AND f.estado != :anulada
+              AND fd.estado = :activo
             GROUP BY DATE(f.fecha_creacion)
             ORDER BY fecha ASC
         SQL;
@@ -66,6 +69,7 @@ class FacturaDetalleRepository extends ServiceEntityRepository implements Factur
             'desde' => $fechaDesde,
             'hasta' => $fechaHasta,
             'anulada' => Factura::ESTADO_ANULADA,
+            'activo' => 'ACTIVO',
         ]);
     }
 

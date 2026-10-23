@@ -52,7 +52,8 @@ class CreatePedidoHandler
                 $producto->getNombre(),
                 $producto->getPrecioActual(),
                 $producto->getCostoActual(),
-                $cantidad
+                $cantidad,
+                $producto->getId()
             );
             $producto->incrementarScore($cantidad);
         }

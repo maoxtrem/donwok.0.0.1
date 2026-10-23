@@ -33,6 +33,8 @@ class LoginHandler
             'uid' => $user->getId(),
             'username' => $user->getUserIdentifier(),
             'roles' => $roles,
+            'groups' => array_map(fn($group) => $group->toArray(), $user->getGroups()),
+            'allowed_urls' => $user->getAllowedUrls(),
         ]);
 
         return new AuthResponseDTO($token);

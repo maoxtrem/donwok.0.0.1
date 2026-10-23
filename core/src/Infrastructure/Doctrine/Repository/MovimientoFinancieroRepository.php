@@ -25,22 +25,22 @@ class MovimientoFinancieroRepository extends ServiceEntityRepository implements 
 
     public function buscarRecientes(int $limite = 50): array
     {
-        return $this->findBy([], ['fechaMovimiento' => 'DESC'], $limite);
+        return $this->findBy([], ['fechaActualizacion' => 'DESC'], $limite);
     }
 
     public function buscarPaginados(int $pagina, int $limite, ?\DateTimeInterface $desde = null, ?\DateTimeInterface $hasta = null): array
     {
         $qb = $this->createQueryBuilder('m')
-            ->orderBy('m.fechaMovimiento', 'DESC')
+            ->orderBy('m.fechaActualizacion', 'DESC')
             ->addOrderBy('m.id', 'DESC');
 
         if ($desde) {
-            $qb->andWhere('m.fechaMovimiento >= :desde')
+            $qb->andWhere('m.fechaActualizacion >= :desde')
                ->setParameter('desde', $desde->setTime(0, 0, 0));
         }
 
         if ($hasta) {
-            $qb->andWhere('m.fechaMovimiento <= :hasta')
+            $qb->andWhere('m.fechaActualizacion <= :hasta')
                ->setParameter('hasta', $hasta->setTime(23, 59, 59));
         }
 
