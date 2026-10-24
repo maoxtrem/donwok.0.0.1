@@ -30,8 +30,9 @@ class UpdateUserHandler
         if ($dto->username !== '') {
             $user->setUsername($dto->username);
         }
-        $user->setRoles($dto->roles ?: ['ROLE_USER']);
-        $user->setGroups(array_values(array_filter(array_map(fn($groupId) => $this->groupRepo->find((int)$groupId), $dto->groupIds))));
+        $isAdmin = in_array('ROLE_ADMIN', $dto->roles, true);
+        $user->setRoles($isAdmin ? ['ROLE_ADMIN'] : ['ROLE_USER']);
+        $user->setGroups($isAdmin ? [] : array_values(array_filter(array_map(fn($groupId) => $this->groupRepo->find((int)$groupId), $dto->groupIds))));
 
         if (!empty($dto->password)) {
             $hash = $this->passwordHasher->hashPassword($user, $dto->password);

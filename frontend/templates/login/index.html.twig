@@ -60,10 +60,11 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         const token = await api.loginAuth(username, password);
         
         // 2. Establecer Sesión en Core (Aquí se crea la cookie CORESESSID)
-        await api.establishSession(token);
+        const session = await api.establishSession(token);
+        localStorage.setItem('donwok-permissions', JSON.stringify(session.user || {}));
 
         // 3. Redirigir (La cookie ya está en el navegador)
-        window.location.href = '/dashboard';
+        window.location.href = session.user?.start_url || '/dashboard';
     } catch (err) {
         // La clase CoreAPI ya dispara la notificación de SweetAlert2
         btn.disabled = false;

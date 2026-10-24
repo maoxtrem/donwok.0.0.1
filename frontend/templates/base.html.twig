@@ -271,64 +271,67 @@
             
             <div class="sidebar-menu overflow-y-auto flex-grow-1 custom-scrollbar">
                 <div class="nav-section-title">Operación</div>
-                <a href="/dashboard" class="nav-link">
+                <a href="/dashboard" data-permission-url="/dashboard" class="nav-link">
                     <i class="bi bi-grid-1x2-fill"></i> Dashboard
                 </a>
-                <a href="/ventas" class="nav-link">
+                <a href="/ventas" data-permission-url="/ventas" class="nav-link">
                     <i class="bi bi-phone-vibrate-fill text-info"></i> Punto de Venta
                 </a>
-                <a href="/pedidos/gestion" class="nav-link">
+                <a href="/pedidos/gestion" data-permission-url="/pedidos/gestion" class="nav-link">
                     <i class="bi bi-clock-history text-success"></i> Gestión de Cola
                 </a>
 
                 <div class="nav-section-title">Gestión</div>
-                <a href="/productos" class="nav-link">
+                <a href="/productos" data-permission-url="/productos" class="nav-link">
                     <i class="bi bi-box-seam-fill"></i> Productos / Menú
                 </a>
-                <a href="/inventario" class="nav-link">
+                <a href="/inventario" data-permission-url="/inventario" class="nav-link">
                     <i class="bi bi-basket2-fill text-success"></i> Inventario de Insumos
                 </a>
-                <a href="/datos-empresa" class="nav-link">
+                <a href="/datos-empresa" data-permission-url="/datos-empresa" class="nav-link">
                     <i class="bi bi-building-fill text-warning"></i> Datos de empresa
                 </a>
-                <a href="/gestion/puestos-trabajo" class="nav-link">
+                <a href="/gestion/puestos-trabajo" data-permission-url="/gestion/puestos-trabajo" class="nav-link">
                     <i class="bi bi-briefcase-fill text-info"></i> Puestos de trabajo
                 </a>
-                <a href="/usuarios" class="nav-link">
+                <a href="/usuarios" data-permission-url="/usuarios" class="nav-link">
                     <i class="bi bi-people-fill text-warning"></i> Usuarios
                 </a>
-                <a href="/informes" class="nav-link">
+                <a href="/grupos" data-permission-url="/grupos" class="nav-link">
+                    <i class="bi bi-shield-lock-fill text-danger"></i> Grupos y permisos
+                </a>
+                <a href="/informes" data-permission-url="/informes" class="nav-link">
                     <i class="bi bi-bar-chart-line-fill text-primary"></i> Informes y Analítica
                 </a>
                 
                 <div class="nav-section-title">Finanzas y Caja</div>
-                <a href="/caja" class="nav-link">
+                <a href="/caja" data-permission-url="/caja" class="nav-link">
                     <i class="bi bi-cash-stack text-success"></i> Arqueo Diario
                 </a>
-                <a href="/caja/cuentas" class="nav-link">
+                <a href="/caja/cuentas" data-permission-url="/caja/cuentas" class="nav-link">
                     <i class="bi bi-cash-stack text-info"></i> Cajas
                 </a>
-                <a href="/informes/balance" class="nav-link">
+                <a href="/informes/balance" data-permission-url="/informes/balance" class="nav-link">
                     <i class="bi bi-pie-chart-fill text-warning"></i> Balance General
                 </a>
-                <a href="/caja/movimientos" class="nav-link">
+                <a href="/caja/movimientos" data-permission-url="/caja/movimientos" class="nav-link">
                     <i class="bi bi-journal-text"></i> Libro Mayor
                 </a>
-                <a href="/caja/egresos" class="nav-link">
+                <a href="/caja/egresos" data-permission-url="/caja/egresos" class="nav-link">
                     <i class="bi bi-arrow-down-square-fill text-danger"></i> Egresos Inm.
                 </a>
-                <a href="/caja/deudas" class="nav-link">
+                <a href="/caja/deudas" data-permission-url="/caja/deudas" class="nav-link">
                     <i class="bi bi-credit-card-2-front-fill text-warning"></i> Cuentas x Pagar
                 </a>
-                <a href="/caja/prestamos" class="nav-link">
+                <a href="/caja/prestamos" data-permission-url="/caja/prestamos" class="nav-link">
                     <i class="bi bi-people-fill"></i> Préstamos
                 </a>
 
                 <div class="nav-section-title">Herramientas</div>
-                <a href="/pedidos/monitor" class="nav-link" target="_blank">
+                <a href="/pedidos/monitor" data-permission-url="/pedidos/monitor" class="nav-link" target="_blank">
                     <i class="bi bi-display-fill"></i> Monitor Público
                 </a>
-                <a href="/pedidos/cocina" class="nav-link" target="_blank">
+                <a href="/pedidos/cocina" data-permission-url="/pedidos/cocina" class="nav-link" target="_blank">
                     <i class="bi bi-fire text-danger"></i> Monitor de Cocina
                 </a>
             </div>
@@ -383,6 +386,34 @@
                     sidebar.classList.remove('show');
                 }
             });
+
+            // Evita mostrar una pantalla interna restaurada por el navegador
+            // cuando la sesión ya fue cerrada en ese dispositivo.
+            (() => {
+                const isPublic = document.body.classList.contains('login-page') || document.body.classList.contains('public-page') || document.body.classList.contains('monitor-page') || document.body.classList.contains('kitchen-page');
+                if (isPublic) return;
+                const validateSession = () => fetch('/api/core/me', { credentials: 'include', cache: 'no-store' })
+                    .then(response => { if (!response.ok) window.location.replace('/login'); })
+                    .catch(() => window.location.replace('/login'));
+                validateSession();
+                window.addEventListener('pageshow', event => { if (event.persisted) validateSession(); });
+            })();
+
+            (() => {
+                const session = JSON.parse(localStorage.getItem('donwok-permissions') || '{}');
+                const roles = Array.isArray(session.roles) ? session.roles : [];
+                if (roles.includes('ROLE_ADMIN')) return;
+                const allowed = Array.isArray(session.allowed_urls) ? session.allowed_urls : null;
+                if (!allowed) return;
+                const canAccess = (path) => allowed.includes(path);
+                document.querySelectorAll('[data-permission-url]').forEach(link => {
+                    if (!canAccess(link.dataset.permissionUrl)) link.remove();
+                });
+                const path = window.location.pathname;
+                if (!canAccess(path)) {
+                    window.location.replace(allowed[0] || '/login');
+                }
+            })();
         </script>
         <script type="module">
             import CoreAPI from '/js/core.js';

@@ -1,4 +1,7 @@
 security:
+    role_hierarchy:
+        ROLE_ADMIN: [ROLE_USER]
+
     providers:
         core_user_provider:
             id: App\Infrastructure\Security\CoreUserProvider
@@ -27,4 +30,4 @@ security:
     access_control:
         - { path: ^/productos, methods: [POST, PUT, DELETE], roles: ROLE_ADMIN }
         - { path: ^/productos, roles: PUBLIC_ACCESS }
-        - { path: ^/usuarios, methods: [POST, PUT, DELETE], roles: ROLE_ADMIN }
+        - { path: ^/usuarios, roles: ROLE_USER }

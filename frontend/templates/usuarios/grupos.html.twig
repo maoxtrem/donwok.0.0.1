@@ -1,0 +1,32 @@
+{% extends 'base.html.twig' %}
+{% block title %}Grupos y permisos | DonWok{% endblock %}
+{% block body %}
+<div class="container-fluid">
+    <div class="mb-4"><h2 class="fw-bold mb-1">Grupos y permisos</h2><p class="text-muted mb-0">Define a qué pantallas puede acceder cada grupo.</p></div>
+    <div class="card border-0 shadow-sm rounded-4 mb-4"><div class="card-body p-4">
+        <h5 id="groupFormTitle" class="fw-bold mb-3">Crear grupo</h5>
+        <form id="groupForm" class="row g-3"><input type="hidden" id="groupId">
+            <div class="col-md-4"><label class="form-label fw-semibold">Nombre del grupo *</label><input id="groupName" class="form-control" required maxlength="100"></div>
+            <div class="col-md-8"><label class="form-label fw-semibold d-block">URLs autorizadas</label><div id="urlChecks" class="row g-2"></div><label class="form-label fw-semibold mt-3">Pantalla inicial al iniciar sesión</label><select id="startUrl" class="form-select"><option value="">Dashboard (predeterminado)</option></select><small class="text-muted">Solo se puede elegir una URL autorizada para este grupo.</small></div>
+            <div class="col-12 text-end"><button id="groupSave" class="btn btn-primary fw-bold">Guardar grupo</button><button id="groupCancel" type="button" class="btn btn-outline-secondary ms-2 d-none">Cancelar</button></div>
+        </form>
+    </div></div>
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden"><div class="card-header bg-white border-0 pt-4 px-4"><h5 class="fw-bold mb-0">Grupos creados</h5></div><div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th class="ps-4">Grupo</th><th>URLs autorizadas</th><th class="text-end pe-4">Acción</th></tr></thead><tbody id="groupsBody"><tr><td colspan="3" class="text-center text-muted py-5">Cargando grupos...</td></tr></tbody></table></div></div>
+</div>
+{% endblock %}
+{% block javascripts %}
+<script type="module">
+import CoreAPI from '/js/core.js';
+const api = new CoreAPI(); const body = document.getElementById('groupsBody'); let groups = []; let urls = [];
+const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[char]));
+function renderUrlChecks() { document.getElementById('urlChecks').innerHTML = urls.map(({url, label}, i) => `<div class="col-md-4"><div class="form-check"><input class="form-check-input url-check" type="checkbox" value="${esc(url)}" id="url-${i}"><label class="form-check-label" for="url-${i}">${esc(label)}</label></div></div>`).join(''); document.getElementById('startUrl').insertAdjacentHTML('beforeend', urls.map(({url, label}) => `<option value="${esc(url)}">${esc(label)}</option>`).join('')); }
+function render() { body.innerHTML = groups.length ? groups.map(g => `<tr><td class="ps-4 fw-bold">${esc(g.nombre)}</td><td>${g.urls.map(esc).join(', ') || 'Sin permisos'}</td><td class="text-end pe-4"><button class="btn btn-sm btn-outline-primary edit-group" data-id="${g.id}">Editar</button></td></tr>`).join('') : '<tr><td colspan="3" class="text-center text-muted py-5">No hay grupos creados.</td></tr>'; }
+async function load() { groups = await api.get('/usuarios/grupos'); render(); }
+function reset() { document.getElementById('groupForm').reset(); document.getElementById('groupId').value = ''; document.getElementById('groupFormTitle').textContent = 'Crear grupo'; document.getElementById('groupSave').textContent = 'Guardar grupo'; document.getElementById('groupCancel').classList.add('d-none'); }
+document.getElementById('groupsBody').addEventListener('click', event => { const button = event.target.closest('.edit-group'); if (!button) return; const group = groups.find(item => String(item.id) === button.dataset.id); document.getElementById('groupId').value = group.id; document.getElementById('groupName').value = group.nombre; document.querySelectorAll('.url-check').forEach(check => check.checked = group.urls.includes(check.value)); document.getElementById('startUrl').value = group.url_inicio || ''; document.getElementById('groupFormTitle').textContent = 'Editar grupo'; document.getElementById('groupSave').textContent = 'Actualizar grupo'; document.getElementById('groupCancel').classList.remove('d-none'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+document.getElementById('groupCancel').addEventListener('click', reset);
+document.getElementById('groupForm').addEventListener('submit', async event => { event.preventDefault(); const id = document.getElementById('groupId').value; const payload = { nombre: document.getElementById('groupName').value, urls: [...document.querySelectorAll('.url-check:checked')].map(check => check.value), url_inicio: document.getElementById('startUrl').value || null }; if (id) await api.put(`/usuarios/grupos/${id}`, payload); else await api.post('/usuarios/grupos', payload); reset(); await load(); });
+async function init() { urls = await fetch('/api/rutas-permisos', {credentials: 'include'}).then(response => { if (!response.ok) throw new Error('No se pudo cargar el catálogo de rutas.'); return response.json(); }); renderUrlChecks(); await load(); }
+init().catch(error => console.error(error));
+</script>
+{% endblock %}

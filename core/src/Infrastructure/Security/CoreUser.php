@@ -9,7 +9,8 @@ final class CoreUser implements UserInterface
     public function __construct(
         private int $id,
         private string $username,
-        private array $roles
+        private array $roles,
+        private array $allowedUrls = []
     ) {}
 
     public function getUserIdentifier(): string
@@ -21,6 +22,8 @@ final class CoreUser implements UserInterface
     {
         return $this->roles ?: ['ROLE_USER'];
     }
+
+    public function getAllowedUrls(): array { return $this->allowedUrls; }
 
     public function eraseCredentials(): void {}
 }

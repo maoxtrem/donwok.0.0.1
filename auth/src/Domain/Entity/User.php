@@ -3,6 +3,8 @@
 namespace App\Domain\Entity;
 
 use App\Infrastructure\Doctrine\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -12,10 +14,11 @@ use Symfony\Component\Security\Core\User\UserInterface;
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
 
-    public function __construct(string $username, array $roles = [])
+    public function __construct(string $username = '', array $roles = [])
     {
         $this->username = $username;
         $this->roles = $roles;
+        $this->groups = new ArrayCollection();
     }
     
     #[ORM\Id]
@@ -40,7 +43,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\ManyToMany(targetEntity: Group::class)]
     #[ORM\JoinTable(name: 'usuarios_grupos')]
-    private array $groups = [];
+    private Collection $groups;
 
     public function getId(): ?int
     {
@@ -102,8 +105,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getGroups(): array { return $this->groups; }
-    public function setGroups(array $groups): static { $this->groups = $groups; return $this; }
+    public function getGroups(): array { return $this->groups->toArray(); }
+    public function setGroups(array $groups): static
+    {
+        $this->groups->clear();
+        foreach ($groups as $group) {
+            $this->groups->add($group);
+        }
+        return $this;
+    }
     public function getAllowedUrls(): array
     {
         $urls = [];
@@ -111,6 +121,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             $urls = array_merge($urls, $group->getUrls());
         }
         return array_values(array_unique($urls));
+    }
+
+    public function getStartUrl(): ?string
+    {
+        foreach ($this->groups as $group) {
+            if ($group->getUrlInicio() && in_array($group->getUrlInicio(), $group->getUrls(), true)) {
+                return $group->getUrlInicio();
+            }
+        }
+        return null;
     }
 
     /**

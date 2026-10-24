@@ -35,6 +35,7 @@ class LoginHandler
             'roles' => $roles,
             'groups' => array_map(fn($group) => $group->toArray(), $user->getGroups()),
             'allowed_urls' => $user->getAllowedUrls(),
+            'start_url' => $user->getStartUrl() ?? '/dashboard',
         ]);
 
         return new AuthResponseDTO($token);

@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
 final class LoginController extends AbstractController
@@ -33,8 +34,8 @@ final class LoginController extends AbstractController
     }
 
     #[Route('/logout', name: 'app_logout')]
-    public function logout(): void
+    public function logout(): RedirectResponse
     {
-        // El logout se maneja por JS eliminando el token del localStorage
+        return new RedirectResponse('/login');
     }
 }

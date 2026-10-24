@@ -21,7 +21,7 @@ class GroupController
     public function create(Request $request): JsonResponse
     {
         $data = json_decode($request->getContent(), true) ?? [];
-        $group = new Group((string)($data['nombre'] ?? ''), is_array($data['urls'] ?? null) ? $data['urls'] : []);
+        $group = new Group((string)($data['nombre'] ?? ''), is_array($data['urls'] ?? null) ? $data['urls'] : [], $data['url_inicio'] ?? null);
         $this->em->persist($group); $this->em->flush();
         return new JsonResponse($group->toArray(), 201);
     }
@@ -32,7 +32,7 @@ class GroupController
         $group = $this->repo->buscarPorId($id);
         if (!$group) return new JsonResponse(['message' => 'Grupo no encontrado.'], 404);
         $data = json_decode($request->getContent(), true) ?? [];
-        $group->actualizar((string)($data['nombre'] ?? ''), is_array($data['urls'] ?? null) ? $data['urls'] : []);
+        $group->actualizar((string)($data['nombre'] ?? ''), is_array($data['urls'] ?? null) ? $data['urls'] : [], $data['url_inicio'] ?? null);
         $this->em->flush();
         return new JsonResponse($group->toArray());
     }

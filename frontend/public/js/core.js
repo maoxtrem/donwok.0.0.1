@@ -106,9 +106,11 @@ export default class CoreAPI {
 
   async logout() {
     try { 
-      await this.get('/logout'); 
+      await this.request('/session/logout', { method: 'POST' });
     } finally { 
-      window.location.href = '/login'; 
+      localStorage.removeItem('donwok-permissions');
+      sessionStorage.clear();
+      window.location.replace('/login'); 
     }
   }
 }

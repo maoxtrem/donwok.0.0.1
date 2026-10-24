@@ -37,7 +37,8 @@ class AuthController
         $user = new CoreUser(
             $payload['uid'],
             $payload['username'],
-            $payload['roles'] ?? ['ROLE_USER']
+            $payload['roles'] ?? ['ROLE_USER'],
+            $payload['allowed_urls'] ?? []
         );
 
         // 🔐 Token de Symfony
@@ -56,6 +57,8 @@ class AuthController
                 'id' => $payload['uid'],
                 'username' => $payload['username'],
                 'roles' => $payload['roles'],
+                'allowed_urls' => $payload['allowed_urls'] ?? [],
+                'start_url' => $payload['start_url'] ?? '/dashboard',
             ]
         ]);
     }
@@ -75,6 +78,7 @@ class AuthController
             'user' => [
                 'username' => $user->getUserIdentifier(),
                 'roles' => $user->getRoles(),
+                'allowed_urls' => $user->getAllowedUrls(),
             ]
         ]);
     }
@@ -84,6 +88,17 @@ class AuthController
     {
         $this->tokenStorage->setToken(null);
         $request->getSession()->invalidate();
+
+        return new JsonResponse(['message' => 'Sesión cerrada']);
+    }
+
+    #[Route('/session/logout', methods: ['POST'])]
+    public function sessionLogout(Request $request): JsonResponse
+    {
+        $this->tokenStorage->setToken(null);
+        if ($request->hasSession()) {
+            $request->getSession()->invalidate();
+        }
 
         return new JsonResponse(['message' => 'Sesión cerrada']);
     }

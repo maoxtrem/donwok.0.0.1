@@ -13,12 +13,13 @@
             <div class="col-md-4"><label class="form-label fw-semibold">Usuario *</label><input id="username" class="form-control" required maxlength="180"></div>
             <div class="col-md-4"><label class="form-label fw-semibold">Contraseña <span id="passwordHint" class="text-muted fw-normal">*</span></label><input id="password" type="password" class="form-control" minlength="6"></div>
             <div class="col-md-4"><label class="form-label fw-semibold">Rol</label><select id="role" class="form-select"><option value="ROLE_USER">Usuario</option><option value="ROLE_ADMIN">Administrador</option></select></div>
+            <div class="col-md-4"><label class="form-label fw-semibold">Grupos</label><select id="groups" class="form-select" multiple size="2"></select></div>
             <div class="col-12 text-end"><button id="saveButton" class="btn btn-primary fw-bold" type="submit">Crear usuario</button><button id="cancelButton" class="btn btn-outline-secondary fw-bold ms-2 d-none" type="button">Cancelar edición</button></div>
         </form>
     </div></div>
 
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden"><div class="card-header bg-white border-0 pt-4 px-4"><h5 class="fw-bold mb-0">Usuarios registrados</h5></div>
-        <div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th class="ps-4">Usuario</th><th>Rol</th><th class="text-end pe-4">Acciones</th></tr></thead><tbody id="usersBody"><tr><td colspan="3" class="text-center text-muted py-5">Cargando usuarios...</td></tr></tbody></table></div>
+        <div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th class="ps-4">Usuario</th><th>Rol</th><th>Grupos</th><th class="text-end pe-4">Acciones</th></tr></thead><tbody id="usersBody"><tr><td colspan="4" class="text-center text-muted py-5">Cargando usuarios...</td></tr></tbody></table></div>
     </div>
 </div>
 {% endblock %}
@@ -29,11 +30,16 @@ import CoreAPI from '/js/core.js';
 const api = new CoreAPI();
 const body = document.getElementById('usersBody');
 let users = [];
+const currentSession = JSON.parse(localStorage.getItem('donwok-permissions') || '{}');
+const isAdmin = (currentSession.roles || []).includes('ROLE_ADMIN');
+if (!isAdmin) document.querySelector('#role option[value="ROLE_ADMIN"]')?.remove();
 const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[char]));
 function render() {
-    body.innerHTML = users.length ? users.map(user => `<tr><td class="ps-4 fw-bold">${esc(user.username)}</td><td>${(user.roles || []).map(esc).join(', ')}</td><td class="text-end pe-4"><button class="btn btn-sm btn-outline-primary edit-user" data-id="${user.id}"><i class="bi bi-pencil me-1"></i>Editar</button></td></tr>`).join('') : '<tr><td colspan="3" class="text-center text-muted py-5">No hay usuarios registrados.</td></tr>';
+    body.innerHTML = users.length ? users.map(user => `<tr><td class="ps-4 fw-bold">${esc(user.username)}</td><td>${(user.roles || []).map(esc).join(', ')}</td><td>${(user.groups || []).map(group => esc(group.nombre)).join(', ') || 'Sin grupo'}</td><td class="text-end pe-4"><button class="btn btn-sm btn-outline-primary edit-user" data-id="${user.id}"><i class="bi bi-pencil me-1"></i>Editar</button></td></tr>`).join('') : '<tr><td colspan="4" class="text-center text-muted py-5">No hay usuarios registrados.</td></tr>';
 }
 async function loadUsers() { users = await api.get('/usuarios'); render(); }
+async function loadGroups() { document.getElementById('groups').innerHTML = (await api.get('/usuarios/grupos')).map(group => `<option value="${group.id}">${esc(group.nombre)}</option>`).join(''); }
+function syncGroupSelector() { const admin = document.getElementById('role').value === 'ROLE_ADMIN'; const groups = document.getElementById('groups'); groups.disabled = admin; if (admin) [...groups.options].forEach(option => option.selected = false); }
 function resetForm() {
     document.getElementById('userForm').reset();
     document.getElementById('userId').value = '';
@@ -42,6 +48,7 @@ function resetForm() {
     document.getElementById('password').required = true;
     document.getElementById('passwordHint').textContent = '*';
     document.getElementById('cancelButton').classList.add('d-none');
+    syncGroupSelector();
 }
 body.addEventListener('click', event => {
     const button = event.target.closest('.edit-user');
@@ -49,24 +56,28 @@ body.addEventListener('click', event => {
     const user = users.find(item => String(item.id) === button.dataset.id);
     document.getElementById('userId').value = user.id;
     document.getElementById('username').value = user.username;
-    document.getElementById('role').value = (user.roles || []).includes('ROLE_ADMIN') ? 'ROLE_ADMIN' : 'ROLE_USER';
+    document.getElementById('role').value = isAdmin && (user.roles || []).includes('ROLE_ADMIN') ? 'ROLE_ADMIN' : 'ROLE_USER';
+    [...document.getElementById('groups').options].forEach(option => option.selected = (user.groups || []).some(group => String(group.id) === option.value));
     document.getElementById('password').value = '';
     document.getElementById('password').required = false;
     document.getElementById('passwordHint').textContent = '(dejar vacío para conservarla)';
     document.getElementById('formTitle').textContent = 'Editar usuario';
     document.getElementById('saveButton').textContent = 'Actualizar usuario';
     document.getElementById('cancelButton').classList.remove('d-none');
+    syncGroupSelector();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 document.getElementById('cancelButton').addEventListener('click', resetForm);
+document.getElementById('role').addEventListener('change', syncGroupSelector);
 document.getElementById('userForm').addEventListener('submit', async event => {
     event.preventDefault();
     const id = document.getElementById('userId').value;
-    const payload = { username: document.getElementById('username').value, password: document.getElementById('password').value, roles: [document.getElementById('role').value] };
+    const role = document.getElementById('role').value;
+    const payload = { username: document.getElementById('username').value, password: document.getElementById('password').value, roles: [role], groupIds: role === 'ROLE_ADMIN' ? [] : [...document.getElementById('groups').selectedOptions].map(option => Number(option.value)) };
     if (id) await api.put(`/usuarios/${id}`, payload); else await api.post('/usuarios', payload);
     resetForm();
     await loadUsers();
 });
-loadUsers().catch(error => { body.innerHTML = '<tr><td colspan="3" class="text-center text-danger py-5">No se pudieron cargar los usuarios.</td></tr>'; console.error(error); });
+Promise.all([loadUsers(), loadGroups()]).catch(error => { body.innerHTML = '<tr><td colspan="4" class="text-center text-danger py-5">No se pudieron cargar los usuarios.</td></tr>'; console.error(error); });
 </script>
 {% endblock %}
